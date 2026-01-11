@@ -45,3 +45,8 @@ Thumbs.db
 # Build
 dist/
 build/
+
+# Logs
+backend.log
+frontend.log
+*.log
