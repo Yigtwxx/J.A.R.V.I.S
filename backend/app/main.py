@@ -83,6 +83,12 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+    import sys
+    import os
+    
+    # Ensure the parent directory is in the path
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    
     uvicorn.run(
         "app.main:app",
         host=settings.host,
@@ -90,3 +96,4 @@ if __name__ == "__main__":
         reload=True,
         log_level="info"
     )
+

@@ -1,11 +1,17 @@
--- J.A.R.V.I.S Database Initialization Script
--- PostgreSQL Database Setup
+-- J.A.R.V.I.S Database Creation Script
 
--- Create database (run this first if database doesn't exist)
--- CREATE DATABASE jarvis;
+-- Drop database if exists
+DROP DATABASE IF EXISTS "J.A.R.V.I.S";
 
--- Connect to jarvis database
-\c jarvis;
+-- Create database
+CREATE DATABASE "J.A.R.V.I.S"
+    WITH 
+    OWNER = postgres
+    ENCODING = 'UTF8'
+    CONNECTION LIMIT = -1;
+
+-- Connect to the database
+\c "J.A.R.V.I.S"
 
 -- Create profiles table
 CREATE TABLE IF NOT EXISTS profiles (
