@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes import search_router, profiles_router
 from app.database import init_db
 from app.config import get_settings
+import sys
 
 settings = get_settings()
 
@@ -30,13 +31,29 @@ app.include_router(profiles_router)
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
-    print("🚀 Starting J.A.R.V.I.S API...")
-    print(f"📊 Database: {settings.database_url.split('@')[-1]}")
-    print(f"🤖 AI Model: {settings.ollama_model}")
+    print("\n" + "="*70)
+    print("  J.A.R.V.I.S Backend Server")
+    print("  Just A Rather Very Intelligent System")
+    print("="*70)
+    
+    print("\n🚀 Starting J.A.R.V.I.S API...")
+    print(f"📊 Database: {settings.database_url.split('@')[-1] if '@' in settings.database_url else 'Not configured'}")
+    print(f"🤖 AI Model: {settings.ollama_model} (Ollama)")
+    print(f"🌐 Server: http://{settings.host}:{settings.port}")
+    print(f"📚 API Docs: http://{settings.host}:{settings.port}/docs")
     
     # Initialize database tables
-    init_db()
-    print("✅ Database initialized")
+    try:
+        init_db()
+        print("✅ Database initialized successfully")
+    except Exception as e:
+        print(f"❌ Database initialization failed: {e}")
+        print("⚠️  Please check your database connection settings")
+    
+    print("\n" + "="*70)
+    print("  Server is ready! Waiting for requests...")
+    print("="*70 + "\n")
+    sys.stdout.flush()
 
 
 @app.get("/")
@@ -70,5 +87,6 @@ if __name__ == "__main__":
         "app.main:app",
         host=settings.host,
         port=settings.port,
-        reload=True
+        reload=True,
+        log_level="info"
     )

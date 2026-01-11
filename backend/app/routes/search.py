@@ -34,31 +34,41 @@ async def search_person(query: SearchQuery):
         # Initialize context
         context = {}
         
+        print(f"\n{'='*60}")
+        print(f"🔍 NEW SEARCH REQUEST: {name}")
+        print(f"{'='*60}")
+        
         # 1. Search GitHub
-        print(f"🔍 Searching GitHub for: {name}")
+        print(f"[1/4] 🐙 Searching GitHub...")
         github_data = github_service.search_user(name)
         if github_data:
             context['github'] = github_service.format_github_data(github_data)
             github_url = github_data.get('profile_url')
+            print(f"      ✅ GitHub profile found: {github_url}")
         else:
             github_url = None
+            print(f"      ⚠️  No GitHub profile found")
         
         # 2. Scrape social media profiles
-        print(f"🔍 Searching social media for: {name}")
+        print(f"[2/4] 📱 Searching social media...")
         social_profiles = scraper_service.find_all_profiles(name)
         context['social_media'] = scraper_service.format_social_profiles(social_profiles)
+        found_count = sum(1 for v in social_profiles.values() if v)
+        print(f"      ✅ Found {found_count} social media profiles")
         
         # 3. Search Google
-        print(f"🔍 Searching Google for: {name}")
+        print(f"[3/4] 🌐 Searching Google...")
         web_results = search_service.search_person(name)
         context['web_search'] = web_results
+        print(f"      ✅ Web search completed")
         
         # 4. Generate AI response
-        print(f"🤖 JARVIS is analyzing the information...")
+        print(f"[4/4] 🤖 JARVIS analyzing data...")
         ai_response = await ai_service.generate_response(
             prompt=f"Tell me everything you know about {name}",
             context=context
         )
+        print(f"      ✅ Analysis complete")
         
         # 5. Extract structured data
         structured_data = await ai_service.extract_profile_data(ai_response, name)
@@ -75,7 +85,8 @@ async def search_person(query: SearchQuery):
             ai_response=ai_response
         )
         
-        print(f"✅ Search completed for: {name}")
+        print(f"\n✅ SEARCH COMPLETED: {name}")
+        print(f"{'='*60}\n")
         return response
     
     except Exception as e:

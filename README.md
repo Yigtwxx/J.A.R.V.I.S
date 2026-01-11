@@ -69,49 +69,74 @@ createdb jarvis
 psql -U postgres -d jarvis -f database/init.sql
 ```
 
-### 3. Backend Kurulumu
+### 3. Hızlı Başlatma (Önerilen)
+
+**Tek Komutla Her Şeyi Başlatın:**
 
 ```bash
+# Ana dizinde
+start-jarvis.bat
+```
+
+Bu script:
+- ✅ Ollama ve PostgreSQL kontrolü yapar
+- ✅ Backend virtual environment oluşturur
+- ✅ Tüm bağımlılıkları yükler
+- ✅ Backend ve Frontend'i ayrı pencerelerde başlatır
+- ✅ Tarayıcıyı otomatik açar
+
+### 4. Manuel Kurulum (Alternatif)
+
+**Backend:**
+```bash
 cd backend
-
-# Virtual environment oluşturun
 python -m venv venv
-venv\Scripts\activate  # Windows
-
-# Bağımlılıkları yükleyin
+venv\Scripts\activate
 pip install -r requirements.txt
-
-# .env dosyası oluşturun
 copy .env.example .env
-# .env dosyasını düzenleyin ve database bilgilerinizi girin
-
-# Backend'i başlatın
+# .env dosyasını düzenleyin
 python app/main.py
 ```
 
-Backend şu adreste çalışacak: `http://localhost:8000`
-
-### 4. Frontend Kurulumu
-
+**Frontend:**
 ```bash
 cd frontend
-
-# Bağımlılıkları yükleyin
 npm install
-
-# Development server'ı başlatın
 npm run dev
 ```
 
-Frontend şu adreste çalışacak: `http://localhost:3000`
-
 ## 💻 Kullanım
 
-1. **Frontend'i açın**: `http://localhost:3000`
-2. **Bir isim girin**: Örnek: "Yiğit Erdoğan"
+### Hızlı Başlatma
+```bash
+start-jarvis.bat  # Her şeyi otomatik başlatır
+```
+
+### Kullanım Adımları
+1. **Uygulamayı açın**: Script otomatik açacak veya `http://localhost:3000`
+2. **Bir isim girin**: Örnek: "Linus Torvalds", "Yiğit Erdoğan"
 3. **JARVIS araştırsın**: AI, GitHub, sosyal medya ve web'de arama yapacak
 4. **Sonuçları inceleyin**: JARVIS bulunan tüm bilgileri size sunacak
 5. **Onaylayın**: Beğendiyseniz "Save" butonuna basın, PostgreSQL'e kaydedilsin
+
+### Terminal Çıktısı
+Backend'de güzel formatlanmış loglar göreceksiniz:
+```
+============================================================
+🔍 NEW SEARCH REQUEST: Linus Torvalds
+============================================================
+[1/4] 🐙 Searching GitHub...
+      ✅ GitHub profile found: https://github.com/torvalds
+[2/4] 📱 Searching social media...
+      ✅ Found 2 social media profiles
+[3/4] 🌐 Searching Google...
+      ✅ Web search completed
+[4/4] 🤖 JARVIS analyzing data...
+      ✅ Analysis complete
+
+✅ SEARCH COMPLETED: Linus Torvalds
+============================================================
+```
 
 ## 🎨 Kullanılan Teknolojiler
 

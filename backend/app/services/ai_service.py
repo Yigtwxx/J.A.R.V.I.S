@@ -1,6 +1,11 @@
 import ollama
 from typing import Dict, Any
 from app.config import get_settings
+import warnings
+import json
+
+# Suppress warnings
+warnings.filterwarnings('ignore')
 
 settings = get_settings()
 

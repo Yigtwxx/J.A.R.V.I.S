@@ -2,6 +2,10 @@ import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict
 import time
+import warnings
+
+# Suppress InsecureRequestWarning
+warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 
 
 class SearchService:

@@ -2,6 +2,10 @@ import requests
 from bs4 import BeautifulSoup
 from typing import Optional, Dict
 import re
+import warnings
+
+# Suppress warnings
+warnings.filterwarnings('ignore')
 
 
 class ScraperService:
