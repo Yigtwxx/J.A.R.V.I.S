@@ -36,19 +36,19 @@ async def startup_event():
     print("  Just A Rather Very Intelligent System")
     print("="*70)
     
-    print("\n🚀 Starting J.A.R.V.I.S API...")
-    print(f"📊 Database: {settings.database_url.split('@')[-1] if '@' in settings.database_url else 'Not configured'}")
-    print(f"🤖 AI Model: {settings.ollama_model} (Ollama)")
-    print(f"🌐 Server: http://{settings.host}:{settings.port}")
-    print(f"📚 API Docs: http://{settings.host}:{settings.port}/docs")
+    print("\n[*] Starting J.A.R.V.I.S API...")
+    print(f"[*] Database: {settings.database_url.split('@')[-1] if '@' in settings.database_url else 'Not configured'}")
+    print(f"[*] AI Model: {settings.ollama_model} (Ollama)")
+    print(f"[*] Server: http://{settings.host}:{settings.port}")
+    print(f"[*] API Docs: http://{settings.host}:{settings.port}/docs")
     
     # Initialize database tables
     try:
         init_db()
-        print("✅ Database initialized successfully")
+        print("[OK] Database initialized successfully")
     except Exception as e:
-        print(f"❌ Database initialization failed: {e}")
-        print("⚠️  Please check your database connection settings")
+        print(f"[ERROR] Database initialization failed: {e}")
+        print("[!] Please check your database connection settings")
     
     print("\n" + "="*70)
     print("  Server is ready! Waiting for requests...")
