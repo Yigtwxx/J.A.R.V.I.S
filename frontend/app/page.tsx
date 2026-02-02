@@ -1,15 +1,12 @@
 'use client';
-
-import Background from '@/components/Background';
-import ChatInterface from '@/components/ChatInterface';
+import Background from '../components/Background';
+import ChatInterface from '../components/ChatInterface';
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen">
+    <main className="min-h-screen relative">
       <Background />
-      <div className="relative z-10">
-        <ChatInterface />
-      </div>
+      <ChatInterface />
     </main>
   );
 }
