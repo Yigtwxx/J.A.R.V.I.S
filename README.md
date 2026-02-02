@@ -5,6 +5,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688?style=for-the-badge&logo=fastapi)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql)
+![Platform](https://img.shields.io/badge/Platform-Windows%20|%20macOS%20|%20Linux-lightgrey?style=for-the-badge)
 
 **Just A Rather Very Intelligent System** - Iron Man'deki JARVIS'ten esinlenerek yapılmış, yapay zeka destekli kişi profil arama asistanı.
 
@@ -16,6 +17,7 @@
 - 💾 **PostgreSQL Database** - Onaylanan profilleri güvenli şekilde saklama
 - 🎨 **Futuristic UI** - Iron Man temalı, Arc Reactor efektli arayüz
 - ⚡ **Real-time Search** - Anında sonuçlar ve dinamik yükleme animasyonları
+- 🖥️ **Cross-Platform** - Windows, macOS ve Linux desteği
 
 ## 🏗️ Proje Yapısı
 
@@ -35,8 +37,11 @@ J.A.R.V.I.S/
 │   ├── services/       # API servisleri
 │   └── types/          # TypeScript tipleri
 │
-└── database/
-    └── init.sql        # PostgreSQL şema
+├── database/
+│   └── init.sql        # PostgreSQL şema
+│
+├── start-jarvis.bat    # Windows başlatma scripti
+└── start-jarvis.sh     # macOS/Linux başlatma scripti
 ```
 
 ## 🚀 Kurulum
@@ -51,8 +56,7 @@ J.A.R.V.I.S/
 ### 1. Ollama Kurulumu
 
 ```bash
-# Windows için Ollama'yı indirin ve kurun
-# https://ollama.ai/download
+# Ollama'yı indirin ve kurun: https://ollama.ai/download
 
 # Llama 3 modelini indirin
 ollama pull llama3
@@ -60,32 +64,86 @@ ollama pull llama3
 
 ### 2. PostgreSQL Kurulumu
 
+<details>
+<summary><strong>🪟 Windows</strong></summary>
+
 ```bash
-# PostgreSQL'i kurun ve başlatın
-# Database oluşturun
+# PostgreSQL'i indirin: https://www.postgresql.org/download/windows/
+# Kurulumdan sonra database oluşturun
 createdb jarvis
 
 # Schema'yı yükleyin
 psql -U postgres -d jarvis -f database/init.sql
 ```
+</details>
+
+<details>
+<summary><strong>🍎 macOS</strong></summary>
+
+```bash
+# Homebrew ile PostgreSQL kurulumu
+brew install postgresql@16
+brew services start postgresql@16
+
+# Database oluşturun
+createdb jarvis
+
+# Schema'yı yükleyin
+psql -d jarvis -f database/init.sql
+```
+</details>
+
+<details>
+<summary><strong>🐧 Linux</strong></summary>
+
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+sudo systemctl start postgresql
+
+# Database oluşturun
+sudo -u postgres createdb jarvis
+
+# Schema'yı yükleyin
+sudo -u postgres psql -d jarvis -f database/init.sql
+```
+</details>
 
 ### 3. Hızlı Başlatma (Önerilen)
 
 **Tek Komutla Her Şeyi Başlatın:**
 
+<details>
+<summary><strong>🪟 Windows</strong></summary>
+
 ```bash
 # Ana dizinde
 start-jarvis.bat
 ```
+</details>
+
+<details>
+<summary><strong>🍎 macOS / 🐧 Linux</strong></summary>
+
+```bash
+# Ana dizinde
+chmod +x start-jarvis.sh  # İlk seferde çalıştırma izni verin
+./start-jarvis.sh
+```
+</details>
 
 Bu script:
 - ✅ Ollama ve PostgreSQL kontrolü yapar
 - ✅ Backend virtual environment oluşturur
 - ✅ Tüm bağımlılıkları yükler
-- ✅ Backend ve Frontend'i ayrı pencerelerde başlatır
+- ✅ Backend ve Frontend'i arka planda başlatır
 - ✅ Tarayıcıyı otomatik açar
 
 ### 4. Manuel Kurulum (Alternatif)
+
+<details>
+<summary><strong>🪟 Windows</strong></summary>
 
 **Backend:**
 ```bash
@@ -95,7 +153,7 @@ venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
 # .env dosyasını düzenleyin
-python app/main.py
+python -m app.main
 ```
 
 **Frontend:**
@@ -104,12 +162,42 @@ cd frontend
 npm install
 npm run dev
 ```
+</details>
+
+<details>
+<summary><strong>🍎 macOS / 🐧 Linux</strong></summary>
+
+**Backend:**
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# .env dosyasını düzenleyin
+python -m app.main
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+</details>
 
 ## 💻 Kullanım
 
 ### Hızlı Başlatma
+
+**Windows:**
 ```bash
 start-jarvis.bat  # Her şeyi otomatik başlatır
+```
+
+**macOS / Linux:**
+```bash
+./start-jarvis.sh  # Her şeyi otomatik başlatır
 ```
 
 ### Kullanım Adımları
