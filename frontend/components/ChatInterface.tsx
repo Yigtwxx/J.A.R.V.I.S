@@ -55,10 +55,11 @@ export default function ChatInterface() {
             setPendingProfile(response);
             setShowApproval(true);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
             const errorMessage: Message = {
                 role: 'assistant',
-                content: `I apologize, but I encountered an error: ${error.response?.data?.detail || error.message || 'Unknown error'}. Please ensure the backend server is running.`
+                content: `I apologize, but I encountered an error: ${axiosError.response?.data?.detail || axiosError.message || 'Unknown error'}. Please ensure the backend server is running.`
             };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
@@ -87,10 +88,11 @@ export default function ChatInterface() {
             };
             setMessages(prev => [...prev, successMessage]);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
             const errorMessage: Message = {
                 role: 'assistant',
-                content: `Failed to save profile: ${error.response?.data?.detail || error.message}`
+                content: `Failed to save profile: ${axiosError.response?.data?.detail || axiosError.message}`
             };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
@@ -143,8 +145,8 @@ export default function ChatInterface() {
                         >
                             <div
                                 className={`max-w-2xl ${message.role === 'user'
-                                        ? 'glass-strong rounded-lg p-4 border border-cyan-400/30'
-                                        : 'w-full'
+                                    ? 'glass-strong rounded-lg p-4 border border-cyan-400/30'
+                                    : 'w-full'
                                     }`}
                             >
                                 {message.role === 'user' ? (
@@ -188,7 +190,7 @@ export default function ChatInterface() {
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyPress={handleKeyPress}
+                        onKeyDown={handleKeyPress}
                         placeholder="Enter a person's name to search..."
                         disabled={isLoading}
                         className="flex-1 input-jarvis rounded-lg"
