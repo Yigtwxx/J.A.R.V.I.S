@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Send, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, Loader2, Cpu, TerminalSquare } from 'lucide-react';
 import { searchPerson, saveProfile } from '@/services/api';
 import { Message, SearchResponse } from '@/types/profile';
 import ProfileCard from './ProfileCard';
@@ -13,7 +13,7 @@ export default function ChatInterface() {
     const [messages, setMessages] = useState<Message[]>([
         {
             role: 'assistant',
-            content: 'Good evening. JARVIS at your service. I can help you search for people and gather their online profiles. Just provide a name and I will do the rest.'
+            content: 'SYSTEM ONLINE.\nJ.A.R.V.I.S interface active. Awaiting input for profile analysis sequence.'
         }
     ]);
     const [input, setInput] = useState('');
@@ -59,7 +59,7 @@ export default function ChatInterface() {
             const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
             const errorMessage: Message = {
                 role: 'assistant',
-                content: `I apologize, but I encountered an error: ${axiosError.response?.data?.detail || axiosError.message || 'Unknown error'}. Please ensure the backend server is running.`
+                content: `[ERROR] Analysis failed: ${axiosError.response?.data?.detail || axiosError.message || 'Unknown error'}. Please verify connection.`
             };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
@@ -84,7 +84,7 @@ export default function ChatInterface() {
 
             const successMessage: Message = {
                 role: 'assistant',
-                content: `Profile saved successfully to the database, sir. The information for ${pendingProfile.name} is securely stored.`
+                content: `Profile successfully archived. Target: ${pendingProfile.name}. Data secured.`
             };
             setMessages(prev => [...prev, successMessage]);
 
@@ -92,7 +92,7 @@ export default function ChatInterface() {
             const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
             const errorMessage: Message = {
                 role: 'assistant',
-                content: `Failed to save profile: ${axiosError.response?.data?.detail || axiosError.message}`
+                content: `[ERROR] Archive failure: ${axiosError.response?.data?.detail || axiosError.message}`
             };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
@@ -104,7 +104,7 @@ export default function ChatInterface() {
     const handleReject = () => {
         const rejectMessage: Message = {
             role: 'assistant',
-            content: 'Understood. The profile has been discarded.'
+            content: 'Data discarded. Awaiting next command.'
         };
         setMessages(prev => [...prev, rejectMessage]);
         setShowApproval(false);
@@ -119,97 +119,112 @@ export default function ChatInterface() {
     };
 
     return (
-        <div className="flex flex-col h-screen relative">
-            {/* Header */}
-            <div className="glass-strong border-b border-cyan-400/20 p-4">
-                <div className="max-w-4xl mx-auto">
-                    <h1 className="text-3xl font-orbitron font-bold glow-cyan">
-                        J.A.R.V.I.S
-                    </h1>
-                    <p className="text-cyan-400/60 text-sm">
-                        Just A Rather Very Intelligent System
-                    </p>
-                </div>
-            </div>
+        <div className="flex flex-col h-screen relative z-10 grid-background">
+            {/* Background elements */}
+            <div className="data-stream" />
+            <div className="scan-line" />
 
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4">
-                <div className="max-w-4xl mx-auto space-y-4">
-                    {messages.map((message, index) => (
-                        <motion.div
-                            key={index}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.1 }}
-                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                        >
-                            <div
-                                className={`max-w-2xl ${message.role === 'user'
-                                    ? 'glass-strong rounded-lg p-4 border border-cyan-400/30'
-                                    : 'w-full'
-                                    }`}
+            {/* Seamless HUD Header */}
+            <motion.header
+                initial={{ y: -100 }}
+                animate={{ y: 0 }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="w-full pt-8 pb-4 px-6 fixed top-0 left-0 z-50 pointer-events-none flex justify-center"
+            >
+                <div className="glass px-8 py-3 rounded-full flex items-center gap-4">
+                    <Cpu className="w-5 h-5 text-cyan-400 animate-pulse-glow" />
+                    <div>
+                        <h1 className="text-xl font-orbitron font-bold text-gradient tracking-widest leading-none">
+                            J.A.R.V.I.S
+                        </h1>
+                        <p className="text-cyan-400/50 text-[10px] uppercase font-mono tracking-widest mt-1">
+                            System Node Active
+                        </p>
+                    </div>
+                </div>
+            </motion.header>
+
+            {/* Messages Area - Expanded and Seamless */}
+            <div className="flex-1 overflow-y-auto pt-32 pb-32 px-4 scroll-smooth">
+                <div className="max-w-4xl mx-auto space-y-8">
+                    <AnimatePresence initial={false}>
+                        {messages.map((message, index) => (
+                            <motion.div
+                                key={index}
+                                initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                transition={{ duration: 0.4, ease: "easeOut" }}
+                                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
                                 {message.role === 'user' ? (
-                                    <p className="text-gray-200">{message.content}</p>
+                                    <div className="message-bubble message-user max-w-xl text-gray-300 font-light">
+                                        {message.content}
+                                    </div>
                                 ) : (
-                                    <div className="space-y-4">
-                                        <div className="glass rounded-lg p-4 border border-cyan-400/20">
-                                            <p className="text-gray-200 whitespace-pre-wrap">
-                                                {message.content}
-                                            </p>
+                                    <div className="w-full max-w-3xl space-y-6">
+                                        <div className="message-bubble message-ai text-cyan-100/90 whitespace-pre-wrap font-mono text-sm leading-relaxed tracking-wide">
+                                            <div className="flex items-center gap-2 mb-2 text-cyan-500/60 pb-2 border-b border-cyan-500/10">
+                                                <TerminalSquare className="w-4 h-4" />
+                                                <span className="text-xs uppercase tracking-widest">System Response</span>
+                                            </div>
+                                            {message.content}
                                         </div>
                                         {message.profileData && (
                                             <ProfileCard profile={message.profileData} />
                                         )}
                                     </div>
                                 )}
-                            </div>
-                        </motion.div>
-                    ))}
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
 
                     {isLoading && (
                         <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="flex justify-start"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="flex justify-start w-full max-w-3xl"
                         >
-                            <div className="glass-strong rounded-lg p-6 border border-cyan-400/30">
+                            <div className="glass-strong rounded-2xl p-8 w-full flex justify-center border-t-2 border-t-cyan-500/40">
                                 <LoadingAnimation />
                             </div>
                         </motion.div>
                     )}
 
-                    <div ref={messagesEndRef} />
+                    <div ref={messagesEndRef} className="h-4" />
                 </div>
             </div>
 
-            {/* Input Area */}
-            <div className="glass-strong border-t border-cyan-400/20 p-4">
-                <div className="max-w-4xl mx-auto flex gap-3">
+            {/* Futuristic Floating Input Bar */}
+            <motion.div
+                initial={{ y: 100 }}
+                animate={{ y: 0 }}
+                transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+                className="fixed bottom-8 left-0 w-full px-6 flex justify-center z-50 pointer-events-none"
+            >
+                <div className="pointer-events-auto w-full max-w-3xl glass-strong p-2 rounded-2xl flex gap-2 items-center border border-cyan-500/20 shadow-2xl relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                     <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyPress}
-                        placeholder="Enter a person's name to search..."
+                        placeholder="ENTER TARGET DESIGNATION..."
                         disabled={isLoading}
-                        className="flex-1 input-jarvis rounded-lg"
+                        className="flex-1 input-jarvis rounded-xl border-none shadow-none bg-transparent focus:bg-transparent placeholder:tracking-widest"
                     />
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                    <button
                         onClick={handleSearch}
                         disabled={isLoading || !input.trim()}
-                        className="btn-jarvis rounded-lg px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="btn-jarvis rounded-xl w-12 h-12 p-0 flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed group/btn hover:border-cyan-400"
                     >
                         {isLoading ? (
-                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
                         ) : (
-                            <Send className="w-5 h-5" />
+                            <Send className="w-5 h-5 text-cyan-500 group-hover/btn:text-cyan-300 transition-colors" />
                         )}
-                    </motion.button>
+                    </button>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Approval Dialog */}
             {pendingProfile && (
