@@ -25,31 +25,31 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
             className="w-full relative mt-4 group"
         >
             {/* Tech Corner Accents */}
-            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-cyan-400 rounded-tl-xl opacity-50" />
-            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-blue-500 rounded-br-xl opacity-50" />
+            <div className="absolute top-0 left-0 w-10 h-10 border-t-2 border-l-2 border-cyan-400 rounded-tl-xl opacity-80 shadow-[0_0_15px_rgba(0,255,255,0.4)]" />
+            <div className="absolute bottom-0 right-0 w-10 h-10 border-b-2 border-r-2 border-blue-500 rounded-br-xl opacity-80 shadow-[0_0_15px_rgba(10,102,255,0.4)]" />
 
-            <div className="glass-strong rounded-xl p-6 glow-border overflow-hidden relative">
+            <div className="glass-strong rounded-xl p-8 glow-border overflow-hidden relative border-cyan-400/50">
                 {/* Subtle Background Elements */}
-                <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -top-32 -right-32 w-64 h-64 bg-cyan-400/15 rounded-full blur-[80px] pointer-events-none" />
 
                 {/* Header */}
-                <div className="flex items-center gap-4 mb-6 border-b border-cyan-500/10 pb-4 relative">
+                <div className="flex items-center gap-5 mb-8 border-b border-cyan-400/30 pb-5 relative">
                     <div className="relative">
-                        <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-400/30 flex items-center justify-center relative z-10 backdrop-blur-sm">
-                            <User className="w-7 h-7 text-cyan-400" />
+                        <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-cyan-400/20 to-blue-600/20 border border-cyan-400/50 flex items-center justify-center relative z-10 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.3)]">
+                            <User className="w-8 h-8 text-white glow-white" />
                         </div>
                         {/* Avatar Glow */}
-                        <div className="absolute inset-0 bg-cyan-400/20 blur-md rounded-lg" />
+                        <div className="absolute inset-0 bg-cyan-400/30 blur-lg rounded-xl" />
                     </div>
                     <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <Activity className="w-4 h-4 text-cyan-500 animate-pulse" />
-                            <h3 className="text-2xl font-orbitron font-bold text-white tracking-wider uppercase">
+                        <div className="flex items-center gap-3 mb-1">
+                            <Activity className="w-5 h-5 text-cyan-400 animate-pulse glow-cyan" />
+                            <h3 className="text-3xl font-orbitron font-black text-white tracking-widest uppercase drop-shadow-lg">
                                 {profile.name}
                             </h3>
                         </div>
-                        <div className="flex items-center gap-2 text-cyan-400/60 text-xs font-mono tracking-widest uppercase">
-                            <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+                        <div className="flex items-center gap-2 text-cyan-300 text-[11px] font-bold font-mono tracking-widest uppercase glow-cyan mt-1">
+                            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse box-shadow-[0_0_10px_cyan]" />
                             Target Profile Identified
                         </div>
                     </div>
@@ -57,12 +57,12 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
 
                 {/* AI Response Block */}
                 {profile.ai_response && (
-                    <div className="mb-6 group/response">
-                        <div className="flex items-center gap-2 mb-2">
-                            <ChevronRight className="w-4 h-4 text-cyan-500" />
-                            <h4 className="text-cyan-400 font-mono text-xs tracking-widest uppercase">Analysis Overview</h4>
+                    <div className="mb-8 group/response">
+                        <div className="flex items-center gap-2 mb-3">
+                            <ChevronRight className="w-5 h-5 text-cyan-400 glow-cyan" />
+                            <h4 className="text-white font-orbitron font-bold text-sm tracking-[0.15em] uppercase drop-shadow-md glow-cyan">Analysis Overview</h4>
                         </div>
-                        <div className="p-4 bg-cyan-950/20 rounded-lg border-l-2 border-cyan-500/50 text-gray-300 font-light leading-relaxed whitespace-pre-wrap text-sm">
+                        <div className="p-5 bg-cyan-950/40 rounded-xl border-l-4 border-cyan-400 text-white font-medium leading-relaxed whitespace-pre-wrap text-[16px] shadow-inner shadow-cyan-900/20">
                             {profile.ai_response}
                         </div>
                     </div>
@@ -70,36 +70,36 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
 
                 {/* Description Grid */}
                 {profile.description && (
-                    <div className="mb-6">
-                        <div className="flex items-center gap-2 mb-2">
-                            <ChevronRight className="w-4 h-4 text-cyan-500" />
-                            <h4 className="text-cyan-400 font-mono text-xs tracking-widest uppercase">Extracted Bio</h4>
+                    <div className="mb-8">
+                        <div className="flex items-center gap-2 mb-3">
+                            <ChevronRight className="w-5 h-5 text-cyan-400 glow-cyan" />
+                            <h4 className="text-white font-orbitron font-bold text-sm tracking-[0.15em] uppercase drop-shadow-md glow-cyan">Extracted Bio</h4>
                         </div>
-                        <p className="text-gray-400 font-light text-sm pl-6">{profile.description}</p>
+                        <p className="text-slate-100 font-medium text-[15px] pl-6 border-l-2 border-cyan-500/30 ml-2 leading-relaxed">{profile.description}</p>
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
                     {/* Social Links */}
                     {socialLinks.length > 0 && (
                         <div>
-                            <div className="flex items-center gap-2 mb-3">
-                                <ChevronRight className="w-4 h-4 text-cyan-500" />
-                                <h4 className="text-cyan-400 font-mono text-xs tracking-widest uppercase">Network Nodes</h4>
+                            <div className="flex items-center gap-2 mb-4">
+                                <ChevronRight className="w-5 h-5 text-cyan-400 glow-cyan" />
+                                <h4 className="text-white font-orbitron font-bold text-sm tracking-[0.15em] uppercase drop-shadow-md glow-cyan">Network Nodes</h4>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 pl-6">
+                            <div className="grid grid-cols-2 gap-3 pl-6">
                                 {socialLinks.map(({ icon: Icon, url, label }) => (
                                     <motion.a
                                         key={label}
                                         href={url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="flex items-center gap-2 p-2.5 rounded-md border border-cyan-900/50 bg-cyan-950/20 hover:bg-cyan-900/40 hover:border-cyan-500/50 transition-all group/link"
-                                        whileHover={{ x: 4 }}
+                                        className="flex items-center gap-3 p-3.5 rounded-xl border border-cyan-400/40 bg-cyan-950/50 hover:bg-cyan-900/80 hover:border-cyan-400 transition-all group/link shadow-[0_4px_15px_rgba(0,0,0,0.4)]"
+                                        whileHover={{ x: 4, scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                     >
-                                        <Icon className="w-4 h-4 text-cyan-500 group-hover/link:text-cyan-300 transition-colors" />
-                                        <span className="text-xs text-gray-300 font-mono tracking-wider">{label}</span>
+                                        <Icon className="w-5 h-5 text-cyan-400 group-hover/link:text-white transition-colors" />
+                                        <span className="text-sm text-white font-bold font-mono tracking-wider drop-shadow-sm">{label}</span>
                                     </motion.a>
                                 ))}
                             </div>
@@ -109,18 +109,18 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
                     {/* Similar Profiles */}
                     {profile.similar_profiles && profile.similar_profiles.length > 0 && (
                         <div>
-                            <div className="flex items-center gap-2 mb-3">
-                                <ChevronRight className="w-4 h-4 text-cyan-500" />
-                                <h4 className="text-cyan-400 font-mono text-xs tracking-widest uppercase flex items-center gap-2">
-                                    <Users className="w-3.5 h-3.5" />
+                            <div className="flex items-center gap-2 mb-4">
+                                <ChevronRight className="w-5 h-5 text-cyan-400 glow-cyan" />
+                                <h4 className="text-white font-orbitron font-bold text-sm tracking-[0.15em] uppercase flex items-center gap-2 drop-shadow-md glow-cyan">
+                                    <Users className="w-4 h-4 text-cyan-400" />
                                     Correlated Targets
                                 </h4>
                             </div>
-                            <div className="flex flex-wrap gap-2 pl-6">
+                            <div className="flex flex-wrap gap-2.5 pl-6">
                                 {profile.similar_profiles.map((name, index) => (
                                     <span
                                         key={index}
-                                        className="px-2.5 py-1 rounded bg-blue-950/30 border border-blue-900/50 text-xs text-blue-300 font-mono tracking-wider"
+                                        className="px-3.5 py-1.5 rounded-lg bg-blue-900/50 border border-blue-400/60 text-[13px] text-white font-bold font-mono tracking-widest shadow-[0_0_15px_rgba(10,102,255,0.3)]"
                                     >
                                         {name}
                                     </span>

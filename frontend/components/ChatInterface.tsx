@@ -131,21 +131,24 @@ export default function ChatInterface() {
                 transition={{ duration: 0.8, ease: "easeOut" }}
                 className="w-full pt-8 pb-4 px-6 fixed top-0 left-0 z-50 pointer-events-none flex justify-center"
             >
-                <div className="glass px-8 py-3 rounded-full flex items-center gap-4">
-                    <Cpu className="w-5 h-5 text-cyan-400 animate-pulse-glow" />
-                    <div>
-                        <h1 className="text-xl font-orbitron font-bold text-gradient tracking-widest leading-none">
+                <div className="glass-strong px-10 py-4 rounded-full flex items-center gap-5 border-cyan-400/50 shadow-[0_0_30px_rgba(0,255,255,0.15)]">
+                    <Cpu className="w-8 h-8 text-cyan-400 animate-pulse-glow" />
+                    <div className="flex flex-col">
+                        <h1 className="text-3xl font-orbitron font-black text-gradient tracking-[0.2em] leading-none drop-shadow-lg">
                             J.A.R.V.I.S
                         </h1>
-                        <p className="text-cyan-400/50 text-[10px] uppercase font-mono tracking-widest mt-1">
-                            System Node Active
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" />
+                            <p className="text-cyan-400 text-xs font-bold uppercase tracking-[0.3em] glow-cyan">
+                                System Node Active
+                            </p>
+                        </div>
                     </div>
                 </div>
             </motion.header>
 
-            {/* Messages Area - Expanded and Seamless */}
-            <div className="flex-1 overflow-y-auto pt-32 pb-32 px-4 scroll-smooth">
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto pt-36 pb-36 px-4 scroll-smooth">
                 <div className="max-w-4xl mx-auto space-y-8">
                     <AnimatePresence initial={false}>
                         {messages.map((message, index) => (
@@ -157,15 +160,15 @@ export default function ChatInterface() {
                                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
                                 {message.role === 'user' ? (
-                                    <div className="message-bubble message-user max-w-xl text-gray-300 font-light">
+                                    <div className="message-bubble message-user max-w-xl text-white font-medium shadow-[0_4px_15px_rgba(0,0,0,0.5)] border-white/20">
                                         {message.content}
                                     </div>
                                 ) : (
                                     <div className="w-full max-w-3xl space-y-6">
-                                        <div className="message-bubble message-ai text-cyan-100/90 whitespace-pre-wrap font-mono text-sm leading-relaxed tracking-wide">
-                                            <div className="flex items-center gap-2 mb-2 text-cyan-500/60 pb-2 border-b border-cyan-500/10">
-                                                <TerminalSquare className="w-4 h-4" />
-                                                <span className="text-xs uppercase tracking-widest">System Response</span>
+                                        <div className="message-bubble message-ai text-white whitespace-pre-wrap font-mono text-[15px] leading-relaxed tracking-wide shadow-lg border-l-4 border-cyan-400">
+                                            <div className="flex items-center gap-2 mb-3 text-cyan-400 font-bold pb-2 border-b border-cyan-500/30">
+                                                <TerminalSquare className="w-5 h-5 glow-cyan" />
+                                                <span className="text-sm uppercase tracking-[0.2em] glow-cyan">System Response</span>
                                             </div>
                                             {message.content}
                                         </div>
@@ -184,7 +187,7 @@ export default function ChatInterface() {
                             animate={{ opacity: 1, scale: 1 }}
                             className="flex justify-start w-full max-w-3xl"
                         >
-                            <div className="glass-strong rounded-2xl p-8 w-full flex justify-center border-t-2 border-t-cyan-500/40">
+                            <div className="glass-strong rounded-2xl p-8 w-full flex justify-center border-t-2 border-t-cyan-400 shadow-[0_0_30px_rgba(0,255,255,0.1)]">
                                 <LoadingAnimation />
                             </div>
                         </motion.div>
@@ -199,10 +202,10 @@ export default function ChatInterface() {
                 initial={{ y: 100 }}
                 animate={{ y: 0 }}
                 transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-                className="fixed bottom-8 left-0 w-full px-6 flex justify-center z-50 pointer-events-none"
+                className="fixed bottom-10 left-0 w-full px-6 flex justify-center z-50 pointer-events-none"
             >
-                <div className="pointer-events-auto w-full max-w-3xl glass-strong p-2 rounded-2xl flex gap-2 items-center border border-cyan-500/20 shadow-2xl relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                <div className="pointer-events-auto w-full max-w-3xl glass-strong p-2 rounded-2xl flex gap-3 items-center border-2 border-cyan-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-hidden group hover:border-cyan-400/60 transition-colors">
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                     <input
                         type="text"
                         value={input}
@@ -210,17 +213,17 @@ export default function ChatInterface() {
                         onKeyDown={handleKeyPress}
                         placeholder="ENTER TARGET DESIGNATION..."
                         disabled={isLoading}
-                        className="flex-1 input-jarvis rounded-xl border-none shadow-none bg-transparent focus:bg-transparent placeholder:tracking-widest"
+                        className="flex-1 input-jarvis rounded-xl border-none shadow-none bg-transparent focus:bg-transparent placeholder:tracking-widest text-lg font-bold"
                     />
                     <button
                         onClick={handleSearch}
                         disabled={isLoading || !input.trim()}
-                        className="btn-jarvis rounded-xl w-12 h-12 p-0 flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed group/btn hover:border-cyan-400"
+                        className="btn-jarvis rounded-xl w-14 h-14 p-0 flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed group/btn hover:border-cyan-300 bg-cyan-950/40 border-2 border-cyan-500/50"
                     >
                         {isLoading ? (
-                            <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+                            <Loader2 className="w-6 h-6 animate-spin text-cyan-300" />
                         ) : (
-                            <Send className="w-5 h-5 text-cyan-500 group-hover/btn:text-cyan-300 transition-colors" />
+                            <Send className="w-6 h-6 text-cyan-400 group-hover/btn:text-white group-hover/btn:scale-110 transition-all drop-shadow-[0_0_8px_rgba(0,255,255,0.8)]" />
                         )}
                     </button>
                 </div>
