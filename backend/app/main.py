@@ -1,9 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import search_router, profiles_router
 from app.database import init_db
 from app.config import get_settings
+from app.jarvis_logger import logger
 import sys
+import time
 
 settings = get_settings()
 
@@ -23,6 +25,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log incoming requests as JARVIS thoughts"""
+    start_time = time.time()
+    
+    # If it's a search request, let JARVIS think
+    if "/api/search" in request.url.path and request.method == "POST":
+         logger.log_thought(f"Incoming connection detected on secure channel {request.url.path}")
+
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    
+    if "/api/search" in request.url.path and response.status_code == 200:
+        logger.log_action("Analysis complete.", target=f"{process_time:.2f}s elapsed")
+        
+    return response
+
 # Include routers
 app.include_router(search_router)
 app.include_router(profiles_router)
@@ -31,28 +50,22 @@ app.include_router(profiles_router)
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
-    print("\n" + "="*70)
-    print("  J.A.R.V.I.S Backend Server")
-    print("  Just A Rather Very Intelligent System")
-    print("="*70)
+    logger.print_header()
     
-    print("\n[*] Starting J.A.R.V.I.S API...")
-    print(f"[*] Database: {settings.database_url.split('@')[-1] if '@' in settings.database_url else 'Not configured'}")
-    print(f"[*] AI Model: {settings.ollama_model} (Ollama)")
-    print(f"[*] Server: http://{settings.host}:{settings.port}")
-    print(f"[*] API Docs: http://{settings.host}:{settings.port}/docs")
+    logger.log_action("Initializing J.A.R.V.I.S core systems...")
+    logger.log_action("Database Source", target=settings.database_url.split('@')[-1] if '@' in settings.database_url else 'Not configured')
+    logger.log_action("AI Neural Net", target=f"{settings.ollama_model} (Ollama)")
+    logger.log_action("Server Address", target=f"http://{settings.host}:{settings.port}")
     
     # Initialize database tables
     try:
         init_db()
-        print("[OK] Database initialized successfully")
+        logger.log_success("Memory matrices initialized successfully.")
     except Exception as e:
-        print(f"[ERROR] Database initialization failed: {e}")
-        print("[!] Please check your database connection settings")
+        logger.log_error(f"Memory matrix initialization failed: {e}")
+        logger.log_thought("Check active database connections.")
     
-    print("\n" + "="*70)
-    print("  Server is ready! Waiting for requests...")
-    print("="*70 + "\n")
+    logger.log_success("All systems online. Awaiting coordinates.")
     sys.stdout.flush()
 
 

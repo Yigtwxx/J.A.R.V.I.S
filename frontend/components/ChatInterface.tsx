@@ -8,6 +8,7 @@ import { Message, SearchResponse } from '@/types/profile';
 import ProfileCard from './ProfileCard';
 import ApprovalDialog from './ApprovalDialog';
 import LoadingAnimation from './LoadingAnimation';
+import ReactMarkdown from 'react-markdown';
 
 export default function ChatInterface() {
     const [messages, setMessages] = useState<Message[]>([
@@ -170,7 +171,22 @@ export default function ChatInterface() {
                                                 <TerminalSquare className="w-5 h-5 glow-cyan" />
                                                 <span className="text-sm uppercase tracking-[0.2em] glow-cyan">System Response</span>
                                             </div>
-                                            {message.content}
+                                            <ReactMarkdown
+                                                components={{
+                                                    strong: ({ node, ...props }) => <strong className="text-cyan-300 font-black tracking-wider uppercase drop-shadow-[0_0_8px_rgba(0,255,255,0.8)]" {...props} />,
+                                                    p: ({ node, ...props }) => <p className="leading-relaxed text-gray-200 mb-4 last:mb-0" {...props} />,
+                                                    ul: ({ node, ...props }) => <ul className="list-none space-y-2 mb-4" {...props} />,
+                                                    li: ({ node, ...props }) => (
+                                                        <li className="flex gap-2">
+                                                            <span className="text-cyan-500 mt-0.5">▹</span>
+                                                            <span className="text-gray-300" {...props} />
+                                                        </li>
+                                                    ),
+                                                    a: ({ node, ...props }) => <a className="text-blue-400 hover:text-cyan-300 underline underline-offset-4 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />
+                                                }}
+                                            >
+                                                {message.content}
+                                            </ReactMarkdown>
                                         </div>
                                         {message.profileData && (
                                             <ProfileCard profile={message.profileData} />

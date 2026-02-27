@@ -1,6 +1,7 @@
 import requests
 from typing import Dict, Optional
 from app.config import get_settings
+from app.jarvis_logger import logger
 import warnings
 
 # Suppress warnings
@@ -20,24 +21,22 @@ class GitHubService:
         
         if settings.github_token:
             self.headers['Authorization'] = f'token {settings.github_token}'
+            logger.log_success("GitHub authentication protocol loaded.")
     
     def search_user(self, username: str) -> Optional[Dict]:
         """
         Search for GitHub user by username
-        
-        Args:
-            username: GitHub username or real name
-        
-        Returns:
-            User profile data or None
         """
         try:
+            logger.log_thought(f"Querying GitHub central servers for entity: {username}")
             # First try direct username lookup
             user_data = self._get_user_by_username(username)
             if user_data:
+                logger.log_success("Direct GitHub profile match confirmed.")
                 return user_data
             
             # If not found, search by name
+            logger.log_warning("Direct match failed. Initiating fuzzy search protocol...")
             search_url = f"{self.base_url}/search/users"
             params = {'q': username, 'per_page': 1}
             
@@ -47,17 +46,20 @@ class GitHubService:
             data = response.json()
             if data['total_count'] > 0:
                 user_login = data['items'][0]['login']
+                logger.log_action("Correlated identity found", target=user_login)
                 return self._get_user_by_username(user_login)
             
+            logger.log_error("No GitHub profile correlations found.")
             return None
         
         except Exception as e:
-            print(f"GitHub search error: {e}")
+            logger.log_error(f"GitHub neural connection severed: {e}")
             return None
     
     def _get_user_by_username(self, username: str) -> Optional[Dict]:
         """Get user profile by exact username"""
         try:
+            logger.log_action("Downloading profile schematics", target=username)
             user_url = f"{self.base_url}/users/{username}"
             response = requests.get(user_url, headers=self.headers, timeout=10)
             
@@ -88,12 +90,13 @@ class GitHubService:
             }
         
         except Exception as e:
-            print(f"Error fetching GitHub user: {e}")
+            logger.log_error(f"Error fetching GitHub user node: {e}")
             return None
     
     def _get_user_repos(self, username: str, max_repos: int = 5) -> list:
         """Get user's top repositories"""
         try:
+            logger.log_action("Extracting repository blueprints", target=username)
             repos_url = f"{self.base_url}/users/{username}/repos"
             params = {
                 'sort': 'updated',
@@ -118,7 +121,7 @@ class GitHubService:
             return repos
         
         except Exception as e:
-            print(f"Error fetching repos: {e}")
+            logger.log_error(f"Error fetching repository nodes: {e}")
             return []
     
     def format_github_data(self, github_data: Dict) -> str:

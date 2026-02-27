@@ -1,12 +1,12 @@
 import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict
+from app.jarvis_logger import logger
 import time
 import warnings
 
 # Suppress InsecureRequestWarning
 warnings.filterwarnings('ignore', message='Unverified HTTPS request')
-
 
 class SearchService:
     """Service for web search using Google scraping"""
@@ -19,15 +19,9 @@ class SearchService:
     def search_google(self, query: str, num_results: int = 5) -> List[Dict[str, str]]:
         """
         Search Google and return scraped results
-        
-        Args:
-            query: Search query
-            num_results: Number of results to return
-        
-        Returns:
-            List of search results with title, url, snippet
         """
         try:
+            logger.log_action("Accessing global data grid", target=query)
             # Format query for Google
             search_url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
             
@@ -56,10 +50,11 @@ class SearchService:
                 except Exception as e:
                     continue
             
+            logger.log_success(f"Extracted {len(results)} pertinent data packets.")
             return results
         
         except Exception as e:
-            print(f"Google search error: {e}")
+            logger.log_error(f"Global grid access denied or timed out: {e}")
             return []
     
     def format_search_results(self, results: List[Dict[str, str]]) -> str:
@@ -80,13 +75,8 @@ class SearchService:
     def search_person(self, name: str) -> str:
         """
         Search for a person and return formatted results
-        
-        Args:
-            name: Person's name
-        
-        Returns:
-            Formatted search results
         """
+        logger.log_thought(f"Initiating cross-reference protocol for entity: {name}")
         # Search with multiple queries for better results
         queries = [
             f"{name} profile",
@@ -100,4 +90,5 @@ class SearchService:
             all_results.extend(results)
             time.sleep(1)  # Be nice to Google
         
+        logger.log_success("Data aggregation complete.")
         return self.format_search_results(all_results)

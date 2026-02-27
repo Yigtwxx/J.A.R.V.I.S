@@ -1,6 +1,7 @@
 import ollama
 from typing import Dict, Any
 from app.config import get_settings
+from app.jarvis_logger import logger
 import warnings
 import json
 
@@ -20,27 +21,24 @@ class AIService:
     async def generate_response(self, prompt: str, context: Dict[str, Any] = None) -> str:
         """
         Generate AI response using Ollama
-        
-        Args:
-            prompt: User's query
-            context: Additional context (search results, profiles, etc.)
-        
-        Returns:
-            AI generated response
         """
         try:
+            logger.log_thought("Constructing optimal search matrix and contextual parameters...")
             # Build the full prompt
             full_prompt = self._build_prompt(prompt, context)
             
+            logger.log_action("Interrogating local AI models", target=self.model)
             # Call Ollama
             response = self.client.generate(
                 model=self.model,
                 prompt=full_prompt
             )
             
+            logger.log_success("Model response synthesized.")
             return response['response']
         
         except Exception as e:
+            logger.log_error(f"Core failure during model synthesis: {str(e)}")
             return f"JARVIS encountered an error: {str(e)}"
     
     def _build_prompt(self, query: str, context: Dict[str, Any] = None) -> str:
@@ -77,13 +75,6 @@ Be concise but informative. Format your response clearly."""
     async def extract_profile_data(self, ai_response: str, query: str) -> Dict[str, Any]:
         """
         Extract structured profile data from AI response
-        
-        Args:
-            ai_response: AI's text response
-            query: Original query
-        
-        Returns:
-            Structured profile data
         """
         # Ask AI to structure the data
         extraction_prompt = f"""Based on this information about "{query}", 
@@ -98,6 +89,7 @@ Previous Information:
 Return ONLY valid JSON, no other text."""
         
         try:
+            logger.log_thought("Attempting to parse bio-data and network nodes from unstructured text...")
             response = self.client.generate(
                 model=self.model,
                 prompt=extraction_prompt
@@ -113,9 +105,12 @@ Return ONLY valid JSON, no other text."""
             
             if start_idx != -1 and end_idx > start_idx:
                 json_str = response_text[start_idx:end_idx]
-                return json.loads(json_str)
+                parsed_data = json.loads(json_str)
+                logger.log_success("Bio-data nodes successfully extracted.")
+                return parsed_data
             
             # Fallback
+            logger.log_warning("Failed to locate clean JSON structure. Initiating fallback protocol.")
             return {
                 "name": query,
                 "description": ai_response[:500],
@@ -123,7 +118,7 @@ Return ONLY valid JSON, no other text."""
             }
         
         except Exception as e:
-            print(f"Error extracting profile data: {e}")
+            logger.log_error(f"Data extraction node failed: {e}")
             return {
                 "name": query,
                 "description": ai_response[:500] if ai_response else "",
