@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from typing import Optional, Dict
+from app.jarvis_logger import logger
 import re
 import warnings
 
@@ -16,122 +17,70 @@ class ScraperService:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
     
-    def find_instagram_profile(self, name: str) -> Optional[str]:
-        """
-        Try to find Instagram profile URL
-        
-        Args:
-            name: Person's name
-        
-        Returns:
-            Instagram profile URL or None
-        """
+    def _extract_url_from_google(self, query: str, domain_pattern: str) -> Optional[str]:
+        """Helper to search Google and extract a specific domain URL"""
         try:
-            # Search Google for Instagram profile
-            query = f"{name} instagram"
+            logger.log_action("Scanning global networks for targeted node", target=query)
             search_url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
             
             response = requests.get(search_url, headers=self.headers, timeout=10)
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Find Instagram links
-            links = soup.find_all('a', href=True)
-            for link in links:
-                href = link.get('href', '')
-                if 'instagram.com' in href:
-                    # Extract clean Instagram URL
-                    match = re.search(r'instagram\.com/([a-zA-Z0-9._]+)', href)
-                    if match:
-                        username = match.group(1)
-                        return f"https://www.instagram.com/{username}/"
+            # Find search result divs (this is more reliable than all 'a' tags)
+            search_divs = soup.find_all('div', class_='g')
+            
+            for div in search_divs:
+                link_elem = div.find('a', href=True)
+                if link_elem:
+                    href = link_elem.get('href', '')
+                    if href.startswith('/url?q='):
+                        href = href.split('/url?q=')[1].split('&')[0]
+                    
+                    if re.search(domain_pattern, href, re.IGNORECASE):
+                        return href
             
             return None
-        
+            
         except Exception as e:
-            print(f"Instagram scraping error: {e}")
+            logger.log_error(f"Network scan failed during {query} extraction: {e}")
             return None
+
+    def find_instagram_profile(self, name: str) -> Optional[str]:
+        """Try to find Instagram profile URL"""
+        query = f"{name} instagram"
+        url = self._extract_url_from_google(query, r'instagram\.com/([a-zA-Z0-9._]+)')
+        if url:
+            # Clean up URL
+            match = re.search(r'instagram\.com/([a-zA-Z0-9._]+)', url)
+            if match:
+                return f"https://www.instagram.com/{match.group(1)}/"
+        return None
     
     def find_twitter_profile(self, name: str) -> Optional[str]:
-        """
-        Try to find X (Twitter) profile URL
-        
-        Args:
-            name: Person's name
-        
-        Returns:
-            Twitter profile URL or None
-        """
-        try:
-            # Search Google for Twitter profile
-            query = f"{name} twitter"
-            search_url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
-            
-            response = requests.get(search_url, headers=self.headers, timeout=10)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Find Twitter/X links
-            links = soup.find_all('a', href=True)
-            for link in links:
-                href = link.get('href', '')
-                if 'twitter.com' in href or 'x.com' in href:
-                    # Extract clean Twitter URL
-                    match = re.search(r'(twitter|x)\.com/([a-zA-Z0-9_]+)', href)
-                    if match:
-                        username = match.group(2)
-                        return f"https://x.com/{username}"
-            
-            return None
-        
-        except Exception as e:
-            print(f"Twitter scraping error: {e}")
-            return None
+        """Try to find X (Twitter) profile URL"""
+        query = f"{name} twitter"
+        # X or Twitter domain
+        url = self._extract_url_from_google(query, r'(twitter|x)\.com/([a-zA-Z0-9_]+)')
+        if url:
+             match = re.search(r'(twitter|x)\.com/([a-zA-Z0-9_]+)', url)
+             if match:
+                 return f"https://x.com/{match.group(2)}"
+        return None
     
     def find_linkedin_profile(self, name: str) -> Optional[str]:
-        """
-        Try to find LinkedIn profile URL
-        
-        Args:
-            name: Person's name
-        
-        Returns:
-            LinkedIn profile URL or None
-        """
-        try:
-            # Search Google for LinkedIn profile
-            query = f"{name} linkedin"
-            search_url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
-            
-            response = requests.get(search_url, headers=self.headers, timeout=10)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Find LinkedIn links
-            links = soup.find_all('a', href=True)
-            for link in links:
-                href = link.get('href', '')
-                if 'linkedin.com/in/' in href:
-                    # Extract clean LinkedIn URL
-                    match = re.search(r'linkedin\.com/in/([a-zA-Z0-9-]+)', href)
-                    if match:
-                        username = match.group(1)
-                        return f"https://www.linkedin.com/in/{username}/"
-            
-            return None
-        
-        except Exception as e:
-            print(f"LinkedIn scraping error: {e}")
-            return None
+        """Try to find LinkedIn profile URL"""
+        query = f"{name} linkedin"
+        url = self._extract_url_from_google(query, r'linkedin\.com/in/([a-zA-Z0-9-]+)')
+        if url:
+            match = re.search(r'linkedin\.com/in/([a-zA-Z0-9-]+)', url)
+            if match:
+                return f"https://www.linkedin.com/in/{match.group(1)}/"
+        return None
     
     def find_all_profiles(self, name: str) -> Dict[str, Optional[str]]:
-        """
-        Find all social media profiles for a person
-        
-        Args:
-            name: Person's name
-        
-        Returns:
-            Dictionary with all found profile URLs
-        """
+        """Find all social media profiles for a person"""
         import time
+        logger.log_thought(f"Initiating deep-web scraping protocol for entity: {name}")
         
         profiles = {
             'instagram': None,
@@ -139,14 +88,16 @@ class ScraperService:
             'linkedin': None
         }
         
-        # Find each profile with delays to avoid rate limiting
         profiles['instagram'] = self.find_instagram_profile(name)
+        if profiles['instagram']: logger.log_success(f"Instagram profile correlated: {profiles['instagram']}")
         time.sleep(1)
         
         profiles['twitter'] = self.find_twitter_profile(name)
+        if profiles['twitter']: logger.log_success(f"X (Twitter) profile correlated: {profiles['twitter']}")
         time.sleep(1)
         
         profiles['linkedin'] = self.find_linkedin_profile(name)
+        if profiles['linkedin']: logger.log_success(f"LinkedIn profile correlated: {profiles['linkedin']}")
         
         return profiles
     

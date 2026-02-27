@@ -34,41 +34,40 @@ async def search_person(query: SearchQuery):
         # Initialize context
         context = {}
         
-        print(f"\n{'='*60}")
-        print(f"[SEARCH] NEW REQUEST: {name}")
-        print(f"{'='*60}")
+        from app.jarvis_logger import logger
+        logger.log_thought(f"Incoming connection detected on secure channel: {name}")
         
         # 1. Search GitHub
-        print(f"[1/4] Searching GitHub...")
+        logger.log_action("Querying GitHub central servers...")
         github_data = github_service.search_user(name)
         if github_data:
             context['github'] = github_service.format_github_data(github_data)
             github_url = github_data.get('profile_url')
-            print(f"      [OK] GitHub profile found: {github_url}")
+            logger.log_success(f"GitHub profile found: {github_url}")
         else:
             github_url = None
-            print(f"      [WARN] No GitHub profile found")
+            logger.log_warning("No GitHub profile found")
         
         # 2. Scrape social media profiles
-        print(f"[2/4] Searching social media...")
+        logger.log_action("Initiating social media sweep...")
         social_profiles = scraper_service.find_all_profiles(name)
         context['social_media'] = scraper_service.format_social_profiles(social_profiles)
         found_count = sum(1 for v in social_profiles.values() if v)
-        print(f"      [OK] Found {found_count} social media profiles")
+        logger.log_success(f"Found {found_count} social media profiles")
         
         # 3. Search Google
-        print(f"[3/4] Searching Google...")
+        logger.log_action("Accessing global data grid...")
         web_results = search_service.search_person(name)
         context['web_search'] = web_results
-        print(f"      [OK] Web search completed")
+        logger.log_success("Web search completed")
         
         # 4. Generate AI response
-        print(f"[4/4] JARVIS analyzing data...")
+        logger.log_action("Running cognitive analysis...")
         ai_response = await ai_service.generate_response(
             prompt=f"Tell me everything you know about {name}",
             context=context
         )
-        print(f"      [OK] Analysis complete")
+        logger.log_success("Analysis complete")
         
         # 5. Extract structured data
         structured_data = await ai_service.extract_profile_data(ai_response, name)
@@ -85,12 +84,12 @@ async def search_person(query: SearchQuery):
             ai_response=ai_response
         )
         
-        print(f"\n[OK] SEARCH COMPLETED: {name}")
-        print(f"{'='*60}\n")
+        logger.log_success(f"SEARCH COMPLETED FOR TARGET: {name}")
         return response
     
     except Exception as e:
-        print(f"❌ Error during search: {e}")
+        from app.jarvis_logger import logger
+        logger.log_error(f"Error during search: {e}")
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 

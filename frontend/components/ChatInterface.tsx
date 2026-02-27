@@ -173,7 +173,30 @@ export default function ChatInterface() {
                                             </div>
                                             <ReactMarkdown
                                                 components={{
-                                                    strong: ({ node, ...props }) => <strong className="text-cyan-300 font-black tracking-wider uppercase drop-shadow-[0_0_8px_rgba(0,255,255,0.8)]" {...props} />,
+                                                    strong: ({ node, children, ...props }) => {
+                                                        // Simple static hash to ensure the same header gets the same color consistently
+                                                        const getHash = (str: string) => {
+                                                            let hash = 0;
+                                                            for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+                                                            return Math.abs(hash);
+                                                        };
+
+                                                        const textContent = Array.isArray(children) ? children.join('') : String(children);
+                                                        const colors = [
+                                                            'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.8)]',
+                                                            'text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.8)]',
+                                                            'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]',
+                                                            'text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]',
+                                                            'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]'
+                                                        ];
+                                                        const colorClass = colors[getHash(textContent) % colors.length];
+
+                                                        return (
+                                                            <strong className={`${colorClass} font-black tracking-wider uppercase`} {...props}>
+                                                                {children}
+                                                            </strong>
+                                                        );
+                                                    },
                                                     p: ({ node, ...props }) => <p className="leading-relaxed text-gray-200 mb-4 last:mb-0" {...props} />,
                                                     ul: ({ node, ...props }) => <ul className="list-none space-y-2 mb-4" {...props} />,
                                                     li: ({ node, ...props }) => (

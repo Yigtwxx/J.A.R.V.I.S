@@ -55,18 +55,7 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
                     </div>
                 </div>
 
-                {/* AI Response Block */}
-                {profile.ai_response && (
-                    <div className="mb-8 group/response">
-                        <div className="flex items-center gap-2 mb-3">
-                            <ChevronRight className="w-5 h-5 text-cyan-400 glow-cyan" />
-                            <h4 className="text-white font-orbitron font-bold text-sm tracking-[0.15em] uppercase drop-shadow-md glow-cyan">Analysis Overview</h4>
-                        </div>
-                        <div className="p-5 bg-cyan-950/40 rounded-xl border-l-4 border-cyan-400 text-white font-medium leading-relaxed whitespace-pre-wrap text-[16px] shadow-inner shadow-cyan-900/20">
-                            {profile.ai_response}
-                        </div>
-                    </div>
-                )}
+
 
                 {/* Description Grid */}
                 {profile.description && (
