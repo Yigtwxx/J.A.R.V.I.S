@@ -57,7 +57,7 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
 
 
                 {/* Content Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
+                <div className="grid grid-cols-1 gap-8 relative">
 
                     {/* Left Column: Bio & Correlated Targets */}
                     <div className="space-y-8 flex flex-col justify-start">
@@ -95,53 +95,6 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
                             </div>
                         )}
                     </div>
-
-                    {/* Right Column: Social Links */}
-                    {socialLinks.length > 0 && (
-                        <div className="flex flex-col justify-start">
-                            <div className="flex items-center gap-2 mb-4">
-                                <ChevronRight className="w-5 h-5 text-cyan-400 glow-cyan" />
-                                <h4 className="text-white font-orbitron font-bold text-sm tracking-[0.15em] uppercase drop-shadow-md glow-cyan">Network Nodes</h4>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3 pl-6 items-start h-min">
-                                {socialLinks.flatMap(({ icon: Icon, url, label }) => {
-                                    if (!url) return [];
-                                    const parsedUrls = url.split(',').map(u => u.trim()).filter(Boolean);
-
-                                    return parsedUrls.map((singleUrl, idx) => {
-                                        let brandStyles = "border-cyan-400/40 bg-cyan-950/50 hover:bg-cyan-900/80 hover:border-cyan-400 text-cyan-400";
-
-                                        if (label === 'Instagram') {
-                                            brandStyles = "border-pink-500/40 bg-fuchsia-950/40 hover:bg-fuchsia-900/60 hover:border-pink-400 text-pink-400 shadow-[0_4px_15px_rgba(236,72,153,0.15)]";
-                                        } else if (label === 'X (Twitter)') {
-                                            brandStyles = "border-slate-500/40 bg-slate-900/50 hover:bg-slate-800/80 hover:border-slate-300 text-slate-300 shadow-[0_4px_15px_rgba(148,163,184,0.15)]";
-                                        } else if (label === 'LinkedIn') {
-                                            brandStyles = "border-blue-500/40 bg-blue-950/50 hover:bg-blue-900/60 hover:border-blue-400 text-blue-400 shadow-[0_4px_15px_rgba(59,130,246,0.15)]";
-                                        } else if (label === 'GitHub') {
-                                            brandStyles = "border-gray-500/40 bg-gray-900/50 hover:bg-gray-800/80 hover:border-gray-400 text-gray-300 shadow-[0_4px_15px_rgba(156,163,175,0.15)]";
-                                        }
-
-                                        const displayLabel = parsedUrls.length > 1 ? `${label} ${idx + 1}` : label;
-
-                                        return (
-                                            <motion.a
-                                                key={`${label}-${idx}`}
-                                                href={singleUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all group/link ${brandStyles}`}
-                                                whileHover={{ x: 4, scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
-                                            >
-                                                <Icon className="w-5 h-5 transition-colors group-hover/link:text-white shrink-0" />
-                                                <span className="text-sm text-white font-bold font-mono tracking-wider drop-shadow-sm truncate">{displayLabel}</span>
-                                            </motion.a>
-                                        );
-                                    });
-                                })}
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </motion.div>
