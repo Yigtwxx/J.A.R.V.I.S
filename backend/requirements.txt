@@ -11,4 +11,5 @@ lxml>=5.1.0
 requests>=2.31.0
 ollama>=0.1.0
 python-multipart>=0.0.6
+rich>=13.0.0
 
