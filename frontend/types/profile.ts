@@ -28,4 +28,5 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   profileData?: SearchResponse;
+  isSaved?: boolean;
 }
