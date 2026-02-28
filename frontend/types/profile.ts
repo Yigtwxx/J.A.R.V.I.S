@@ -21,6 +21,7 @@ export interface SearchResponse {
   description?: string;
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
+  sources?: { title: string; url: string; snippet: string }[];
   ai_response: string;
 }
 
