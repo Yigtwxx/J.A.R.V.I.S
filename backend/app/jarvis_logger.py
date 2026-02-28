@@ -42,22 +42,22 @@ class JarvisLogger:
     def log_action(action: str, target: str = ""):
         """Log a standard action (e.g., searching, analyzing)"""
         target_str = f" [highlight]TAR>{target}[/highlight]" if target else ""
-        console.print(f"[system]\[SYS][/system] [info]{action}[/info]{target_str} ...")
+        console.print(f"[system][SYS][/system] [info]{action}[/info]{target_str} ...")
 
     @staticmethod
     def log_success(message: str):
         """Log a successful operation"""
-        console.print(f"[success]\[OK][/success] {message}")
+        console.print(f"[success][OK][/success] {message}")
 
     @staticmethod
     def log_error(message: str):
         """Log an error or failure"""
-        console.print(f"[error]\[ERR][/error] {message}")
+        console.print(f"[error][ERR][/error] {message}")
 
     @staticmethod
     def log_thought(thought: str):
         """Simulate JARVIS 'thinking' or processing data"""
-        console.print(f"[warning]\[PROCESS][/warning] [italic cyan]{thought}[/italic cyan]")
+        console.print(f"[warning][PROCESS][/warning] [italic cyan]{thought}[/italic cyan]")
 
     @staticmethod
     def display_panel(title: str, content: str, style: str = "cyan"):
