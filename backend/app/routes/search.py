@@ -26,20 +26,29 @@ async def search_person(query: SearchQuery):
     Returns structured profile data ready for user approval
     """
     try:
-        name = query.query.strip()
+        raw_query = query.query.strip()
         
-        if not name:
+        if not raw_query:
             raise HTTPException(status_code=400, detail="Query cannot be empty")
+            
+        # Parse dual input (e.g., "Yiğit Erdoğan / Yigtwx")
+        if "/" in raw_query:
+            parts = [p.strip() for p in raw_query.split("/")]
+            real_name = parts[0]
+            username = parts[1] if len(parts) > 1 else real_name
+        else:
+            real_name = raw_query
+            username = raw_query
         
         # Initialize context
         context = {}
         
         from app.jarvis_logger import logger
-        logger.log_thought(f"Incoming connection detected on secure channel: {name}")
+        logger.log_thought(f"Incoming connection detected on secure channel: {raw_query}")
         
-        # 1. Search GitHub
+        # 1. Search GitHub (Prioritize Username)
         logger.log_action("Querying GitHub central servers...")
-        github_data = github_service.search_user(name)
+        github_data = github_service.search_user(username)
         if github_data:
             context['github'] = github_service.format_github_data(github_data)
             github_url = github_data.get('profile_url')
@@ -48,38 +57,58 @@ async def search_person(query: SearchQuery):
             github_url = None
             logger.log_warning("No GitHub profile found")
         
-        # 2. Scrape social media profiles
+        # 2. Scrape social media profiles (Prioritize Username)
         logger.log_action("Initiating social media sweep...")
-        social_profiles = scraper_service.find_all_profiles(name)
+        social_profiles = scraper_service.find_all_profiles(username)
         context['social_media'] = scraper_service.format_social_profiles(social_profiles)
         found_count = sum(1 for v in social_profiles.values() if v)
         logger.log_success(f"Found {found_count} social media profiles")
         
-        # 3. Search Google
+        # 3. Search Google (Prioritize Real Name)
         logger.log_action("Accessing global data grid...")
-        wiki_image, web_results = search_service.search_person(name)
+        wiki_image, web_results = search_service.search_person(real_name)
         context['web_search'] = web_results
         logger.log_success("Web search completed")
         
-        # 4. Generate AI response
+        # 4. Generate AI response (Use Full Context Name)
         logger.log_action("Running cognitive analysis...")
         ai_response = await ai_service.generate_response(
-            prompt=f"Tell me everything you know about {name}",
+            prompt=f"Tell me everything you know about {raw_query}",
             context=context
         )
         
-        # 4.5. Force Image Injection
+        # 4.5. Force Image Injection (All Available Visuals)
+        images = []
         if wiki_image:
-            ai_response = f"![{name}]({wiki_image})\n\n" + ai_response
+            images.append(wiki_image)
+            
+        if github_data and github_data.get('avatar_url'):
+            images.append(github_data['avatar_url'])
+            
+        for platform in ['instagram', 'twitter', 'linkedin']:
+            if social_profiles.get(platform):
+                social_username = social_profiles[platform].rstrip('/').split('/')[-1]
+                images.append(f"https://unavatar.io/{platform}/{social_username}?fallback=false")
+                
+        # Deduplicate while preserving order
+        unique_images = []
+        for img in images:
+            if img not in unique_images:
+                unique_images.append(img)
+                
+        if unique_images:
+            logger.log_success(f"Injecting {len(unique_images[:4])} visual identities.")
+            images_md = " ".join([f"![{real_name}]({img})" for img in unique_images[:4]])
+            ai_response = f"{images_md}\n\n" + ai_response
             
         logger.log_success("Analysis complete")
         
         # 5. Extract structured data
-        structured_data = await ai_service.extract_profile_data(ai_response, name)
+        structured_data = await ai_service.extract_profile_data(ai_response, real_name)
         
         # Build response
         response = SearchResponse(
-            name=structured_data.get('name', name),
+            name=structured_data.get('name', real_name),
             github_url=github_url,
             instagram_url=social_profiles.get('instagram'),
             twitter_url=social_profiles.get('twitter'),
@@ -89,7 +118,7 @@ async def search_person(query: SearchQuery):
             ai_response=ai_response
         )
         
-        logger.log_success(f"SEARCH COMPLETED FOR TARGET: {name}")
+        logger.log_success(f"SEARCH COMPLETED FOR TARGET: {raw_query}")
         return response
     
     except Exception as e:
