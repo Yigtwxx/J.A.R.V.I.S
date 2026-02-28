@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import search_router, profiles_router
+from app.routes import search_router, profiles_router, history_router
 from app.database import init_db
 from app.config import get_settings
 from app.jarvis_logger import logger
@@ -45,6 +45,7 @@ async def log_requests(request: Request, call_next):
 # Include routers
 app.include_router(search_router)
 app.include_router(profiles_router)
+app.include_router(history_router)
 
 
 @app.on_event("startup")
