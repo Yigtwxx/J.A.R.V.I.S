@@ -1,4 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models.history import SearchHistory
 from app.schemas import SearchQuery, SearchResponse
 from app.services import AIService, SearchService, GitHubService, ScraperService
 import asyncio
@@ -13,7 +16,7 @@ scraper_service = ScraperService()
 
 
 @router.post("/", response_model=SearchResponse)
-async def search_person(query: SearchQuery):
+async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
     """
     Search for a person and gather all available information
     
@@ -118,6 +121,15 @@ async def search_person(query: SearchQuery):
             ai_response=ai_response
         )
         
+        # 6. Save to history
+        try:
+            history_entry = SearchHistory(query_name=raw_query)
+            db.add(history_entry)
+            db.commit()
+        except Exception as e:
+            from app.jarvis_logger import logger
+            logger.log_warning(f"Failed to record search history: {e}")
+            
         logger.log_success(f"SEARCH COMPLETED FOR TARGET: {raw_query}")
         return response
     
