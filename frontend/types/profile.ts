@@ -30,3 +30,9 @@ export interface Message {
   profileData?: SearchResponse;
   isSaved?: boolean;
 }
+
+export interface SearchHistoryItem {
+  id: number;
+  query_name: string;
+  searched_at: string;
+}
