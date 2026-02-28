@@ -124,7 +124,7 @@ echo [BACKEND] Starting FastAPI server...
 cd backend
 call venv\Scripts\activate
 set PYTHONPATH=%CD%
-start /B cmd /c "python -m app.main > ..\backend.log 2>&1"
+start /B cmd /c "python -m app.main > ..\logs\backend.log 2>&1"
 cd ..
 echo [OK] Backend started in background
 echo.
@@ -139,10 +139,10 @@ if %errorlevel% equ 0 (
     echo [OK] Backend is running at http://localhost:8000
 ) else (
     echo [WARNING] Backend not responding
-    echo [INFO] Checking backend.log...
+    echo [INFO] Checking logs\backend.log...
     echo.
     echo ======== BACKEND LOG (Last 10 lines) ========
-    powershell -Command "Get-Content backend.log -Tail 10"
+    powershell -Command "Get-Content logs\backend.log -Tail 10"
     echo =============================================
     echo.
 )
@@ -150,7 +150,7 @@ if %errorlevel% equ 0 (
 REM Start Frontend in background (no window)
 echo [FRONTEND] Starting Next.js development server...
 cd frontend
-start /B cmd /c "npm run dev > ..\frontend.log 2>&1"
+start /B cmd /c "npm run dev > ..\logs\frontend.log 2>&1"
 cd ..
 echo [OK] Frontend started in background
 echo.
@@ -165,10 +165,10 @@ if %errorlevel% equ 0 (
     echo [OK] Frontend is running at http://localhost:3000
 ) else (
     echo [WARNING] Frontend not responding
-    echo [INFO] Checking frontend.log...
+    echo [INFO] Checking logs\frontend.log...
     echo.
     echo ======== FRONTEND LOG (Last 10 lines) ========
-    powershell -Command "Get-Content frontend.log -Tail 10"
+    powershell -Command "Get-Content logs\frontend.log -Tail 10"
     echo =============================================
     echo.
 )
@@ -187,8 +187,8 @@ echo   Frontend: http://localhost:3000
 echo   API Docs: http://localhost:8000/docs
 echo.
 echo   View real-time logs:
-echo   - powershell: Get-Content backend.log -Wait
-echo   - powershell: Get-Content frontend.log -Wait
+echo   - powershell: Get-Content logs\backend.log -Wait
+echo   - powershell: Get-Content logs\frontend.log -Wait
 echo.
 echo   Press Ctrl+C to stop all services and exit
 echo ========================================================================
@@ -199,6 +199,6 @@ REM Keep running and watch logs
 timeout /t 5 /nobreak >nul
 REM Show last 3 lines of each log every 5 seconds
 echo [%TIME%] Latest logs...
-powershell -Command "$backend = Get-Content backend.log -Tail 3 -ErrorAction SilentlyContinue; if($backend){Write-Host '[BACKEND]' -ForegroundColor Cyan; $backend}"
-powershell -Command "$frontend = Get-Content frontend.log -Tail 3 -ErrorAction SilentlyContinue; if($frontend){Write-Host '[FRONTEND]' -ForegroundColor Green; $frontend}"
+powershell -Command "$backend = Get-Content logs\backend.log -Tail 3 -ErrorAction SilentlyContinue; if($backend){Write-Host '[BACKEND]' -ForegroundColor Cyan; $backend}"
+powershell -Command "$frontend = Get-Content logs\frontend.log -Tail 3 -ErrorAction SilentlyContinue; if($frontend){Write-Host '[FRONTEND]' -ForegroundColor Green; $frontend}"
 goto loop
