@@ -90,7 +90,8 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             
         for platform in ['instagram', 'twitter', 'linkedin']:
             if social_profiles.get(platform):
-                social_username = social_profiles[platform].rstrip('/').split('/')[-1]
+                first_profile_url = social_profiles[platform].split(",")[0].strip()
+                social_username = first_profile_url.rstrip('/').split('/')[-1]
                 images.append(f"https://unavatar.io/{platform}/{social_username}?fallback=false")
                 
         # Deduplicate while preserving order
