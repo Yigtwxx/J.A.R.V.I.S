@@ -65,6 +65,5 @@ build/
 /build
 
 # Logs
-backend.log
-frontend.log
+logs/
 *.log
