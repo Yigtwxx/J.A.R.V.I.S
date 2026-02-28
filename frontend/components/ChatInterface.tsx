@@ -2,11 +2,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2, Cpu, TerminalSquare } from 'lucide-react';
+import { Send, Loader2, Cpu, TerminalSquare, Save, CheckCircle } from 'lucide-react';
 import { searchPerson, saveProfile } from '@/services/api';
 import { Message, SearchResponse } from '@/types/profile';
 import ProfileCard from './ProfileCard';
-import ApprovalDialog from './ApprovalDialog';
 import LoadingAnimation from './LoadingAnimation';
 import ReactMarkdown from 'react-markdown';
 
@@ -19,8 +18,6 @@ export default function ChatInterface() {
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [pendingProfile, setPendingProfile] = useState<SearchResponse | null>(null);
-    const [showApproval, setShowApproval] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -53,8 +50,6 @@ export default function ChatInterface() {
             };
 
             setMessages(prev => [...prev, assistantMessage]);
-            setPendingProfile(response);
-            setShowApproval(true);
 
         } catch (error: unknown) {
             const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
@@ -68,26 +63,29 @@ export default function ChatInterface() {
         }
     };
 
-    const handleApprove = async () => {
-        if (!pendingProfile) return;
-
+    const handleApprove = async (messageIndex: number, profileToSave: SearchResponse) => {
         try {
             await saveProfile({
-                name: pendingProfile.name,
-                github_url: pendingProfile.github_url,
-                instagram_url: pendingProfile.instagram_url,
-                twitter_url: pendingProfile.twitter_url,
-                linkedin_url: pendingProfile.linkedin_url,
-                description: pendingProfile.description,
-                additional_info: pendingProfile.additional_info,
-                similar_profiles: pendingProfile.similar_profiles
+                name: profileToSave.name,
+                github_url: profileToSave.github_url,
+                instagram_url: profileToSave.instagram_url,
+                twitter_url: profileToSave.twitter_url,
+                linkedin_url: profileToSave.linkedin_url,
+                description: profileToSave.description,
+                additional_info: profileToSave.additional_info,
+                similar_profiles: profileToSave.similar_profiles
             });
 
-            const successMessage: Message = {
-                role: 'assistant',
-                content: `Profile successfully archived. Target: ${pendingProfile.name}. Data secured.`
-            };
-            setMessages(prev => [...prev, successMessage]);
+            setMessages(prev => {
+                const newMessages = [...prev];
+                if (newMessages[messageIndex]) {
+                    newMessages[messageIndex] = {
+                        ...newMessages[messageIndex],
+                        isSaved: true
+                    };
+                }
+                return newMessages;
+            });
 
         } catch (error: unknown) {
             const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
@@ -96,20 +94,7 @@ export default function ChatInterface() {
                 content: `[ERROR] Archive failure: ${axiosError.response?.data?.detail || axiosError.message}`
             };
             setMessages(prev => [...prev, errorMessage]);
-        } finally {
-            setShowApproval(false);
-            setPendingProfile(null);
         }
-    };
-
-    const handleReject = () => {
-        const rejectMessage: Message = {
-            role: 'assistant',
-            content: 'Data discarded. Awaiting next command.'
-        };
-        setMessages(prev => [...prev, rejectMessage]);
-        setShowApproval(false);
-        setPendingProfile(null);
     };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -206,9 +191,9 @@ export default function ChatInterface() {
                                                         </li>
                                                     ),
                                                     img: ({ node, ...props }) => (
-                                                        <div className="my-4 rounded-xl overflow-hidden border-2 border-cyan-500/30 w-fit max-w-sm shadow-[0_0_15px_rgba(0,255,255,0.2)]">
+                                                        <span className="block my-4 rounded-xl overflow-hidden border-2 border-cyan-500/30 w-fit max-w-sm shadow-[0_0_15px_rgba(0,255,255,0.2)]">
                                                             <img className="w-full h-auto object-cover" {...props} alt={props.alt || "Profile Image"} />
-                                                        </div>
+                                                        </span>
                                                     ),
                                                     a: ({ node, ...props }) => <a className="text-blue-400 hover:text-cyan-300 underline underline-offset-4 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />
                                                 }}
@@ -217,7 +202,28 @@ export default function ChatInterface() {
                                             </ReactMarkdown>
                                         </div>
                                         {message.profileData && (
-                                            <ProfileCard profile={message.profileData} />
+                                            <div className="mt-4">
+                                                <ProfileCard profile={message.profileData} />
+                                                <div className="mt-3 flex flex-col md:flex-row items-end justify-between gap-3 text-right">
+                                                    <span className="text-gray-400 italic text-xs max-w-sm">
+                                                        Aradığınız sonuç doğruysa daha sonrası için veritabanına kaydetmeniz erişim açısından daha iyi olur.
+                                                    </span>
+                                                    {!message.isSaved ? (
+                                                        <button
+                                                            onClick={() => handleApprove(index, message.profileData!)}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-900/40 hover:border-cyan-400 transition-colors shadow-[0_0_10px_rgba(0,255,255,0.1)] shrink-0"
+                                                        >
+                                                            <Save className="w-4 h-4" />
+                                                            <span className="text-sm font-semibold tracking-wide">Kaydet</span>
+                                                        </button>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1.5 px-3 py-1.5 text-green-400 font-medium shrink-0">
+                                                            <CheckCircle className="w-5 h-5" />
+                                                            <span className="text-sm">DB'ye Kaydedildi</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 )}
@@ -273,15 +279,6 @@ export default function ChatInterface() {
                 </div>
             </motion.div>
 
-            {/* Approval Dialog */}
-            {pendingProfile && (
-                <ApprovalDialog
-                    profile={pendingProfile}
-                    isOpen={showApproval}
-                    onApprove={handleApprove}
-                    onReject={handleReject}
-                />
-            )}
         </div>
     );
 }
