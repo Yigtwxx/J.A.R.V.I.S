@@ -60,6 +60,11 @@ class JarvisLogger:
         console.print(f"[warning][PROCESS][/warning] [italic cyan]{thought}[/italic cyan]")
 
     @staticmethod
+    def log_warning(message: str):
+        """Log a warning message"""
+        console.print(f"[warning][WARN][/warning] {message}")
+
+    @staticmethod
     def display_panel(title: str, content: str, style: str = "cyan"):
         """Display important data in a styled panel"""
         panel = Panel(content, title=f"[{style}]{title}[/{style}]", border_style=style, width=80)
