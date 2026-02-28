@@ -17,8 +17,9 @@ class ScraperService:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
     
-    def _extract_url_from_yahoo(self, query: str, domain_pattern: str) -> Optional[str]:
-        """Helper to search Yahoo and extract a specific domain URL"""
+    def _extract_urls_from_yahoo(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
+        """Helper to search Yahoo and extract domain URLs returning up to max_results matches"""
+        results = []
         try:
             logger.log_action("Scanning global networks for targeted node", target=query)
             search_url = f"https://search.yahoo.com/search?p={requests.utils.quote(query)}"
@@ -36,47 +37,54 @@ class ScraperService:
                     if 'RU=' in href:
                         actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
                         if re.search(domain_pattern, actual_url, re.IGNORECASE):
-                            return actual_url
+                            if actual_url not in results:
+                                results.append(actual_url)
+                            if len(results) >= max_results:
+                                break
                 except IndexError:
                     pass
             
-            return None
+            return results
             
         except Exception as e:
             logger.log_error(f"Network scan failed during {query} extraction: {e}")
-            return None
+            return []
 
     def find_instagram_profile(self, name: str) -> Optional[str]:
-        """Try to find Instagram profile URL"""
+        """Try to find Instagram profile URLs"""
         query = f"{name} instagram"
-        url = self._extract_url_from_yahoo(query, r'instagram\.com/([a-zA-Z0-9._]+)')
-        if url:
-            # Clean up URL
+        urls = self._extract_urls_from_yahoo(query, r'instagram\.com/([a-zA-Z0-9._]+)')
+        valid_urls = []
+        for url in urls:
             match = re.search(r'instagram\.com/([a-zA-Z0-9._]+)', url)
-            if match:
-                return f"https://www.instagram.com/{match.group(1)}/"
-        return None
+            if match and match.group(1) not in ['p', 'reel', 'explore', 'tags']:
+                u = f"https://www.instagram.com/{match.group(1)}/"
+                if u not in valid_urls: valid_urls.append(u)
+        return ", ".join(valid_urls) if valid_urls else None
     
     def find_twitter_profile(self, name: str) -> Optional[str]:
-        """Try to find X (Twitter) profile URL"""
+        """Try to find X (Twitter) profile URLs"""
         query = f"{name} twitter"
-        # X or Twitter domain
-        url = self._extract_url_from_yahoo(query, r'(twitter|x)\.com/([a-zA-Z0-9_]+)')
-        if url:
+        urls = self._extract_urls_from_yahoo(query, r'(twitter|x)\.com/([a-zA-Z0-9_]+)')
+        valid_urls = []
+        for url in urls:
              match = re.search(r'(twitter|x)\.com/([a-zA-Z0-9_]+)', url)
              if match:
-                 return f"https://x.com/{match.group(2)}"
-        return None
+                 u = f"https://x.com/{match.group(2)}"
+                 if u not in valid_urls: valid_urls.append(u)
+        return ", ".join(valid_urls) if valid_urls else None
     
     def find_linkedin_profile(self, name: str) -> Optional[str]:
-        """Try to find LinkedIn profile URL"""
+        """Try to find LinkedIn profile URLs"""
         query = f"{name} linkedin"
-        url = self._extract_url_from_yahoo(query, r'linkedin\.com/in/([a-zA-Z0-9-]+)')
-        if url:
+        urls = self._extract_urls_from_yahoo(query, r'linkedin\.com/in/([a-zA-Z0-9-]+)')
+        valid_urls = []
+        for url in urls:
             match = re.search(r'linkedin\.com/in/([a-zA-Z0-9-]+)', url)
             if match:
-                return f"https://www.linkedin.com/in/{match.group(1)}/"
-        return None
+                u = f"https://www.linkedin.com/in/{match.group(1)}/"
+                if u not in valid_urls: valid_urls.append(u)
+        return ", ".join(valid_urls) if valid_urls else None
     
     def find_all_profiles(self, name: str) -> Dict[str, Optional[str]]:
         """Find all social media profiles for a person"""
