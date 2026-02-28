@@ -12,7 +12,6 @@ echo     =======================================================================
 echo                          J.A.R.V.I.S AI Assistant
 echo              Just A Rather Very Intelligent System - Starting...
 echo     ========================================================================
-echo.
 
 REM Check if Ollama is running
 echo [SYSTEM CHECK] Checking Ollama service...
@@ -27,11 +26,7 @@ if %errorlevel% neq 0 (
 echo [OK] Ollama is running
 echo.
 
-REM Setup Backend
-echo ========================================================================
-echo                          BACKEND SETUP
-echo ========================================================================
-echo.
+echo [SETUP] Initializing Backend...
 
 cd backend
 
@@ -74,11 +69,7 @@ if not exist ".env" (
 
 cd ..
 
-REM Setup Frontend
-echo ========================================================================
-echo                          FRONTEND SETUP
-echo ========================================================================
-echo.
+echo [SETUP] Initializing Frontend...
 
 cd frontend
 
@@ -108,16 +99,8 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr :3000') do taskkill /F /PID %
 timeout /t 2 /nobreak >nul
 echo.
 
-echo ========================================================================
-echo                       STARTING SERVICES
-echo ========================================================================
-echo.
-echo [INFO] Backend: http://localhost:8000
-echo [INFO] Frontend: http://localhost:3000
-echo [INFO] API Docs: http://localhost:8000/docs
-echo.
-echo ========================================================================
-echo.
+echo [INFO] Starting Services...
+echo [INFO] Backend: http://localhost:8000 ^| Frontend: http://localhost:3000 ^| Docs: http://localhost:8000/docs
 
 REM Start Backend in background (no window)
 echo [BACKEND] Starting FastAPI server...
@@ -179,20 +162,8 @@ timeout /t 3 /nobreak >nul
 start http://localhost:3000
 
 echo.
-echo ========================================================================
-echo   J.A.R.V.I.S is now running!
-echo.
-echo   Backend:  http://localhost:8000
-echo   Frontend: http://localhost:3000
-echo   API Docs: http://localhost:8000/docs
-echo.
-echo   View real-time logs:
-echo   - powershell: Get-Content logs\backend.log -Wait
-echo   - powershell: Get-Content logs\frontend.log -Wait
-echo.
-echo   Press Ctrl+C to stop all services and exit
-echo ========================================================================
-echo.
+echo [INFO] J.A.R.V.I.S is now online.
+echo [INFO] Press Ctrl+C to stop all services and exit.
 
 REM Keep running and watch logs
 :loop
