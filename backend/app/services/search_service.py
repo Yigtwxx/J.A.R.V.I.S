@@ -103,18 +103,11 @@ class SearchService:
                                 pass
                                 
                         snippet = snippet_elem.find_next_sibling('div').text.strip() if snippet_elem and snippet_elem.find_next_sibling('div') else ''
-                        
-                        # Try to find images in the snippet
-                        img_url = ""
-                        img_elem = div.find('img')
-                        if img_elem and img_elem.get('src'):
-                            img_url = img_elem.get('src')
                             
                         results.append({
                             'title': title_elem.text.strip(),
                             'url': real_url,
-                            'snippet': snippet,
-                            'image': img_url
+                            'snippet': snippet
                         })
                 except Exception as e:
                     continue
@@ -137,8 +130,6 @@ class SearchService:
             formatted += f"   URL: {result['url']}\n"
             if result.get('snippet'):
                 formatted += f"   {result['snippet']}\n"
-            if result.get('image'):
-                formatted += f"   Image: {result['image']}\n"
             formatted += "\n"
         
         return formatted
