@@ -112,12 +112,18 @@ export default function ChatInterface() {
 
             {/* Seamless HUD Header */}
             <motion.header
-                initial={{ y: -100 }}
-                animate={{ y: 0 }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-                className="w-full pt-8 pb-4 px-6 fixed top-0 left-0 z-50 pointer-events-none flex justify-center"
+                initial={{ top: "40%", left: "50%", x: "-50%", y: "-50%", scale: 1.2 }}
+                animate={{
+                    top: messages.length === 1 ? "40%" : "2rem",
+                    left: messages.length === 1 ? "50%" : "1.5rem",
+                    x: messages.length === 1 ? "-50%" : "0%",
+                    y: messages.length === 1 ? "-50%" : "0%",
+                    scale: messages.length === 1 ? 1.2 : 0.85
+                }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                className="fixed z-50 pointer-events-none origin-top-left"
             >
-                <div className="glass-strong px-10 py-4 rounded-full flex items-center gap-5 border-cyan-400/50 shadow-[0_0_30px_rgba(0,255,255,0.15)]">
+                <div className="glass-strong px-10 py-4 rounded-[2.5rem] flex items-center gap-5 border-cyan-400/50 shadow-[0_0_30px_rgba(0,255,255,0.15)] bg-cyan-950/40 backdrop-blur-md">
                     <Cpu className="w-8 h-8 text-cyan-400 animate-pulse-glow" />
                     <div className="flex flex-col">
                         <h1 className="text-3xl font-orbitron font-black text-gradient tracking-[0.2em] leading-none drop-shadow-lg">
@@ -134,7 +140,15 @@ export default function ChatInterface() {
             </motion.header>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto pt-36 pb-36 px-4 scroll-smooth">
+            <motion.div
+                initial={{ paddingTop: "52vh", paddingBottom: "8rem" }}
+                animate={{
+                    paddingTop: messages.length === 1 ? "52vh" : "8rem",
+                    paddingBottom: messages.length === 1 ? "8rem" : "9rem"
+                }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                className="flex-1 overflow-y-auto px-4 scroll-smooth"
+            >
                 <div className="max-w-4xl mx-auto space-y-8">
                     <AnimatePresence initial={false}>
                         {messages.map((message, index) => (
@@ -250,7 +264,7 @@ export default function ChatInterface() {
 
                     <div ref={messagesEndRef} className="h-4" />
                 </div>
-            </div>
+            </motion.div>
 
             {/* Futuristic Floating Input Bar */}
             <motion.div
