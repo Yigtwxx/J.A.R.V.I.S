@@ -166,7 +166,7 @@ export default function ChatInterface() {
                                     </div>
                                 ) : (
                                     <div className="w-full max-w-3xl space-y-6">
-                                        <div className="message-bubble message-ai text-white whitespace-pre-wrap font-mono text-[15px] leading-relaxed tracking-wide shadow-lg border-l-4 border-cyan-400">
+                                        <div className="message-bubble message-ai text-white font-mono text-[15px] leading-normal tracking-wide shadow-lg border-l-4 border-cyan-400">
                                             <div className="flex items-center gap-2 mb-3 text-cyan-400 font-bold pb-2 border-b border-cyan-500/30">
                                                 <TerminalSquare className="w-5 h-5 glow-cyan" />
                                                 <span className="text-sm uppercase tracking-[0.2em] glow-cyan">System Response</span>
@@ -197,8 +197,8 @@ export default function ChatInterface() {
                                                             </strong>
                                                         );
                                                     },
-                                                    p: ({ node, ...props }) => <p className="leading-relaxed text-gray-200 mb-4 last:mb-0" {...props} />,
-                                                    ul: ({ node, ...props }) => <ul className="list-none space-y-2 mb-4" {...props} />,
+                                                    p: ({ node, ...props }) => <p className="leading-normal text-gray-200 mb-2 last:mb-0" {...props} />,
+                                                    ul: ({ node, ...props }) => <ul className="list-none space-y-1 mb-2" {...props} />,
                                                     li: ({ node, ...props }) => (
                                                         <li className="flex gap-2">
                                                             <span className="text-cyan-500 mt-0.5">▹</span>
