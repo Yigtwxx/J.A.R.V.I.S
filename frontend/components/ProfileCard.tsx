@@ -80,15 +80,20 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
                                 {socialLinks.map(({ icon: Icon, url, label }) => {
                                     // Determine brand-specific colors
                                     let brandStyles = "border-cyan-400/40 bg-cyan-950/50 hover:bg-cyan-900/80 hover:border-cyan-400 text-cyan-400";
+                                    let platformKey = '';
 
                                     if (label === 'Instagram') {
                                         brandStyles = "border-pink-500/40 bg-fuchsia-950/40 hover:bg-fuchsia-900/60 hover:border-pink-400 text-pink-400 shadow-[0_4px_15px_rgba(236,72,153,0.15)]";
+                                        platformKey = 'instagram';
                                     } else if (label === 'X (Twitter)') {
                                         brandStyles = "border-slate-500/40 bg-slate-900/50 hover:bg-slate-800/80 hover:border-slate-300 text-slate-300 shadow-[0_4px_15px_rgba(148,163,184,0.15)]";
+                                        platformKey = 'twitter';
                                     } else if (label === 'LinkedIn') {
                                         brandStyles = "border-blue-500/40 bg-blue-950/50 hover:bg-blue-900/60 hover:border-blue-400 text-blue-400 shadow-[0_4px_15px_rgba(59,130,246,0.15)]";
+                                        platformKey = 'linkedin';
                                     } else if (label === 'GitHub') {
                                         brandStyles = "border-gray-500/40 bg-gray-900/50 hover:bg-gray-800/80 hover:border-gray-400 text-gray-300 shadow-[0_4px_15px_rgba(156,163,175,0.15)]";
+                                        platformKey = 'github';
                                     }
 
                                     return (
