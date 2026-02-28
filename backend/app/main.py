@@ -85,6 +85,31 @@ async def root():
     }
 
 
+from fastapi.responses import StreamingResponse
+import asyncio
+
+@app.get("/api/status/stream")
+async def stream_status():
+    """Stream live JARVIS activity logs via SSE"""
+    async def event_generator():
+        queue = asyncio.Queue()
+        logger.subscribers.add(queue)
+        try:
+            # Send initial connection success
+            yield f"data: [SYS] Virtual Intelligence Link Established\n\n"
+            while True:
+                message = await queue.get()
+                yield f"data: {message}\n\n"
+        except asyncio.CancelledError:
+            if queue in logger.subscribers:
+                logger.subscribers.remove(queue)
+        except Exception:
+            if queue in logger.subscribers:
+                logger.subscribers.remove(queue)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
