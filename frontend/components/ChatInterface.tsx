@@ -205,6 +205,11 @@ export default function ChatInterface() {
                                                             <span className="text-gray-300" {...props} />
                                                         </li>
                                                     ),
+                                                    img: ({ node, ...props }) => (
+                                                        <div className="my-4 rounded-xl overflow-hidden border-2 border-cyan-500/30 w-fit max-w-sm shadow-[0_0_15px_rgba(0,255,255,0.2)]">
+                                                            <img className="w-full h-auto object-cover" {...props} alt={props.alt || "Profile Image"} />
+                                                        </div>
+                                                    ),
                                                     a: ({ node, ...props }) => <a className="text-blue-400 hover:text-cyan-300 underline underline-offset-4 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />
                                                 }}
                                             >
