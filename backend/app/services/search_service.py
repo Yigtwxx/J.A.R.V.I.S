@@ -16,14 +16,13 @@ class SearchService:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
     
-    def search_google(self, query: str, num_results: int = 5) -> List[Dict[str, str]]:
+    def search_yahoo(self, query: str, num_results: int = 5) -> List[Dict[str, str]]:
         """
-        Search Google and return scraped results
+        Search Yahoo and return scraped results
         """
         try:
             logger.log_action("Accessing global data grid", target=query)
-            # Format query for Google
-            search_url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
+            search_url = f"https://search.yahoo.com/search?p={requests.utils.quote(query)}"
             
             response = requests.get(search_url, headers=self.headers, timeout=10)
             response.raise_for_status()
@@ -31,21 +30,33 @@ class SearchService:
             soup = BeautifulSoup(response.text, 'html.parser')
             results = []
             
-            # Find search result divs
-            search_divs = soup.find_all('div', class_='g')
+            import urllib.parse
+            # Find result divs
+            search_divs = soup.find_all('div', class_='algo')
             
             for div in search_divs[:num_results]:
                 try:
-                    # Extract title and link
-                    title_elem = div.find('h3')
-                    link_elem = div.find('a')
-                    snippet_elem = div.find('div', class_=['VwiC3b', 'yXK7lf'])
+                    # Extract title, link, snippet
+                    title_elem = div.find('h3', class_='title')
+                    link_elem = div.find('a', href=True)
+                    snippet_elem = div.find('div', class_='compTitle')
                     
                     if title_elem and link_elem:
+                        href = link_elem.get('href', '')
+                        real_url = href
+                        
+                        if 'RU=' in href:
+                            try:
+                                real_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
+                            except:
+                                pass
+                                
+                        snippet = snippet_elem.find_next_sibling('div').text.strip() if snippet_elem and snippet_elem.find_next_sibling('div') else ''
+                            
                         results.append({
-                            'title': title_elem.get_text(),
-                            'url': link_elem.get('href', ''),
-                            'snippet': snippet_elem.get_text() if snippet_elem else ''
+                            'title': title_elem.text.strip(),
+                            'url': real_url,
+                            'snippet': snippet
                         })
                 except Exception as e:
                     continue
@@ -86,9 +97,9 @@ class SearchService:
         
         all_results = []
         for query in queries:
-            results = self.search_google(query, num_results=3)
+            results = self.search_yahoo(query, num_results=3)
             all_results.extend(results)
-            time.sleep(1)  # Be nice to Google
+            time.sleep(1)  # Be nice to Yahoo
         
         logger.log_success("Data aggregation complete.")
         return self.format_search_results(all_results)
