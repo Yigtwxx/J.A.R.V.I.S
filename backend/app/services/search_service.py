@@ -25,6 +25,7 @@ class SearchService:
             
             # 1. First, search for the Wikipedia page title
             search_url = "https://en.wikipedia.org/w/api.php"
+            wiki_headers = {'User-Agent': 'JARVIS_Analyzer/1.0 (admin@local)'}
             search_params = {
                 "action": "query",
                 "format": "json",
@@ -33,7 +34,7 @@ class SearchService:
                 "srlimit": 1
             }
             
-            search_res = requests.get(search_url, params=search_params, headers=self.headers, timeout=5)
+            search_res = requests.get(search_url, params=search_params, headers=wiki_headers, timeout=5)
             search_data = search_res.json()
             
             if not search_data.get('query', {}).get('search'):
@@ -50,7 +51,7 @@ class SearchService:
                 "pithumbsize": 800  # Request a reasonably large image
             }
             
-            img_res = requests.get(search_url, params=image_params, headers=self.headers, timeout=5)
+            img_res = requests.get(search_url, params=image_params, headers=wiki_headers, timeout=5)
             img_data = img_res.json()
             
             pages = img_data.get('query', {}).get('pages', {})
@@ -142,9 +143,9 @@ class SearchService:
         
         return formatted
     
-    def search_person(self, name: str) -> str:
+    def search_person(self, name: str) -> tuple[str, str]:
         """
-        Search for a person and return formatted results
+        Search for a person and return (wiki_image_url, formatted_results)
         """
         logger.log_thought(f"Initiating cross-reference protocol for entity: {name}")
         
@@ -167,9 +168,5 @@ class SearchService:
         logger.log_success("Data aggregation complete.")
         
         formatted_text = self.format_search_results(all_results)
-        
-        # Prefix the wikipedia image to the context so AI easily sees it
-        if wiki_image:
-            formatted_text = f"Primary Found Image URL: {wiki_image}\n\n" + formatted_text
             
-        return formatted_text
+        return wiki_image, formatted_text
