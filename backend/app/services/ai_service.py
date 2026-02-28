@@ -53,6 +53,8 @@ When searching for people, provide:
 4. Recent activities, news, or statements (e.g., what did they do last week or recently)
 5. Similar people in their field
 
+If the context contains an Image URL, you MUST embed the image in your response using markdown syntax: `![Name](Image_URL)`.
+
 Be concise but informative. Do not use excessive blank lines between sentences or paragraphs. Format your response clearly and compactly."""
         
         user_prompt = f"\n\nUser Query: {query}"
