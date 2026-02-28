@@ -2,23 +2,45 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2, Cpu, TerminalSquare, Save, CheckCircle, Zap } from 'lucide-react';
-import { searchPerson, saveProfile } from '@/services/api';
-import { Message, SearchResponse } from '@/types/profile';
+import { Send, Loader2, Cpu, TerminalSquare, Save, CheckCircle, Zap, History, Trash2, Clock } from 'lucide-react';
+import { searchPerson, saveProfile, getSearchHistory, deleteHistoryItem } from '@/services/api';
+import { Message, SearchResponse, SearchHistoryItem } from '@/types/profile';
 import ProfileCard from './ProfileCard';
 import LoadingAnimation from './LoadingAnimation';
 import ReactMarkdown from 'react-markdown';
 
 export default function ChatInterface() {
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            role: 'assistant',
-            content: 'SYSTEM ONLINE.\nJ.A.R.V.I.S interface active. Awaiting input for profile analysis sequence.'
-        }
-    ]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [history, setHistory] = useState<SearchHistoryItem[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    const loadHistory = async () => {
+        try {
+            const data = await getSearchHistory();
+            setHistory(data);
+        } catch (error) {
+            console.error('Failed to load history', error);
+        }
+    };
+
+    const handleDeleteHistory = async (id: number) => {
+        try {
+            await deleteHistoryItem(id);
+            setHistory(prev => prev.filter(item => item.id !== id));
+        } catch (error) {
+            console.error('Failed to delete history item', error);
+        }
+    };
+
+    const handleHistoryClick = (query: string) => {
+        setInput(query);
+    };
+
+    useEffect(() => {
+        loadHistory();
+    }, []);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -50,6 +72,7 @@ export default function ChatInterface() {
             };
 
             setMessages(prev => [...prev, assistantMessage]);
+            loadHistory(); // Refresh history after new search
 
         } catch (error: unknown) {
             const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
@@ -114,11 +137,11 @@ export default function ChatInterface() {
             <motion.header
                 initial={{ top: "40%", left: "50%", x: "-50%", y: "-50%", scale: 1.2 }}
                 animate={{
-                    top: messages.length === 1 ? "40%" : "2rem",
-                    left: messages.length === 1 ? "50%" : "1.5rem",
-                    x: messages.length === 1 ? "-50%" : "0%",
-                    y: messages.length === 1 ? "-50%" : "0%",
-                    scale: messages.length === 1 ? 1.2 : 0.85
+                    top: messages.length === 0 ? "40%" : "2rem",
+                    left: messages.length === 0 ? "50%" : "1.5rem",
+                    x: messages.length === 0 ? "-50%" : "0%",
+                    y: messages.length === 0 ? "-50%" : "0%",
+                    scale: messages.length === 0 ? 1.2 : 0.85
                 }}
                 transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                 className="fixed z-50 pointer-events-none origin-top-left"
@@ -127,21 +150,29 @@ export default function ChatInterface() {
                     {/* Animated shine line across the pill */}
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -translate-x-[150%] animate-[shimmer_3s_infinite]" />
 
-                    {/* Premium Abstract Logo */}
-                    <div className="relative flex items-center justify-center w-14 h-14 shrink-0">
-                        {/* Outer rotating ring */}
-                        <div className="absolute inset-0 rounded-xl border border-cyan-500/30 rotate-45 group-hover/logo:rotate-90 transition-transform duration-700 shadow-[0_0_15px_rgba(0,255,255,0.3)]"></div>
-                        {/* Inner static base */}
-                        <div className="absolute inset-1 rounded-lg bg-gradient-to-br from-cyan-950 to-blue-900 border border-cyan-400/50 backdrop-blur-sm flex items-center justify-center overflow-hidden">
-                            <div className="absolute inset-0 bg-cyan-400/20 blur-md"></div>
-                            {/* The Symbol */}
-                            <Zap className="w-6 h-6 text-cyan-300 drop-shadow-[0_0_8px_rgba(103,232,249,1)] z-10" />
+                    <div className="relative flex items-center justify-center w-16 h-16 shrink-0 group-hover/logo:scale-110 transition-transform duration-700 ease-out">
+                        {/* Outer Glow */}
+                        <div className="absolute inset-0 bg-cyan-400/40 blur-xl rounded-full scale-75 group-hover/logo:scale-110 transition-transform duration-1000"></div>
+
+                        {/* Outer Dotted Ring (Slow Reverse Spin) */}
+                        <div className="absolute inset-[-4px] rounded-full border border-dashed border-cyan-500/30 animate-[spin_12s_linear_infinite_reverse]"></div>
+
+                        {/* Middle Segmented Ring (Medium Forward Spin) */}
+                        <div className="absolute inset-1 rounded-full border-[3px] border-transparent border-t-cyan-400 border-b-cyan-500/50 border-r-cyan-400/20 animate-[spin_8s_linear_infinite] shadow-[0_0_15px_rgba(0,255,255,0.4)]"></div>
+
+                        {/* Inner Dashed Ring (Fast Reverse Spin) */}
+                        <div className="absolute inset-3 rounded-full border-2 border-dotted border-cyan-300 animate-[spin_4s_linear_infinite_reverse]"></div>
+
+                        {/* Core Glowing Orb */}
+                        <div className="absolute inset-4 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-400 shadow-[0_0_20px_rgba(34,211,238,0.8)_inset] flex items-center justify-center overflow-hidden">
+                            <div className="absolute inset-0 bg-cyan-300/30 blur-sm animate-pulse"></div>
+                            <div className="w-2 h-2 bg-white rounded-full shadow-[0_0_10px_#fff]"></div>
                         </div>
                     </div>
 
                     <div className="flex flex-col justify-center">
                         <h1 className="text-4xl font-orbitron font-black tracking-[0.25em] leading-none mb-1 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-cyan-400 drop-shadow-[0_2px_10px_rgba(0,255,255,0.3)]">
-                            JARVIS
+                            J.A.R.V.I.S
                         </h1>
                         <div className="flex items-center gap-2.5 mt-1">
                             <span className="relative flex h-2 w-2">
@@ -149,12 +180,63 @@ export default function ChatInterface() {
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500 shadow-[0_0_8px_rgba(0,255,255,0.8)]"></span>
                             </span>
                             <p className="text-cyan-300/90 text-[10px] font-bold uppercase tracking-[0.4em] glow-cyan font-mono">
-                                Core System Online
+                                Just A Rather Very Intelligent System
                             </p>
                         </div>
                     </div>
                 </div>
             </motion.header>
+
+            {/* History Sidebar */}
+            <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
+                className={`fixed z-40 left-6 top-32 bottom-32 w-64 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden transition-all duration-700 ${messages.length === 0 ? 'translate-y-[15vh]' : 'translate-y-0'}`}
+            >
+                <div className="p-4 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full animate-[shimmer_5s_infinite]"></div>
+                    <History className="w-5 h-5 text-cyan-400" />
+                    <span className="text-xs font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan">Secure Logs</span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+                    {history.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-cyan-500/40 opacity-70">
+                            <Clock className="w-8 h-8 mb-2" />
+                            <p className="text-[10px] font-mono tracking-widest uppercase">No Records</p>
+                        </div>
+                    ) : (
+                        <AnimatePresence>
+                            {history.map((item) => (
+                                <motion.div
+                                    key={item.id}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    className="group/hist flex items-center justify-between p-2.5 rounded-lg hover:bg-cyan-900/40 border border-transparent hover:border-cyan-500/30 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_10px_rgba(0,255,255,0.1)]"
+                                    onClick={() => handleHistoryClick(item.query_name)}
+                                >
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500/50 group-hover/hist:bg-cyan-400 group-hover/hist:shadow-[0_0_5px_rgba(0,255,255,0.8)] transition-all shrink-0"></div>
+                                        <span className="text-[13px] text-gray-300 font-medium truncate group-hover/hist:text-white transition-colors">{item.query_name}</span>
+                                    </div>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteHistory(item.id); }}
+                                        className="opacity-0 group-hover/hist:opacity-100 p-1.5 text-cyan-700 hover:text-red-400 hover:bg-red-950/30 rounded-md transition-all shrink-0"
+                                        title="Delete Log"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    )}
+                </div>
+                <div className="px-4 py-2 border-t border-cyan-500/20 text-center bg-black/20">
+                    <span className="text-[9px] text-cyan-500/60 font-mono tracking-widest uppercase flex items-center justify-center gap-1.5"><Clock className="w-3 h-3" /> Logs expire in 7 days</span>
+                </div>
+            </motion.div>
 
             {/* Messages Area */}
             <motion.div
@@ -213,7 +295,15 @@ export default function ChatInterface() {
                                                             </strong>
                                                         );
                                                     },
-                                                    p: ({ node, ...props }) => <p className="leading-normal text-gray-200 mb-2 last:mb-0" {...props} />,
+                                                    p: ({ node, children, ...props }) => {
+                                                        const isImageContainer = React.Children.toArray(children).some(
+                                                            (child) => React.isValidElement(child) && (child as React.ReactElement<any>).props.node?.tagName === 'img'
+                                                        );
+                                                        if (isImageContainer) {
+                                                            return <div className="flex flex-wrap gap-4 mb-5 items-center justify-start">{children}</div>;
+                                                        }
+                                                        return <p className="leading-normal text-gray-200 mb-2 last:mb-0" {...props}>{children}</p>;
+                                                    },
                                                     ul: ({ node, ...props }) => <ul className="list-none space-y-1 mb-2" {...props} />,
                                                     li: ({ node, ...props }) => (
                                                         <li className="flex gap-2">
@@ -226,8 +316,11 @@ export default function ChatInterface() {
                                                         const isWikiLogo = src.includes('wikipedia') && src.endsWith('.png');
                                                         if (isWikiLogo) return null; // Filter out rogue wikipedia textual logos
                                                         return (
-                                                            <span className="block my-5 rounded-2xl overflow-hidden border-2 border-cyan-500/50 w-48 h-48 sm:w-64 sm:h-64 shadow-[0_0_20px_rgba(0,255,255,0.25)] ring-1 ring-cyan-300/20">
-                                                                <img className="w-full h-full object-cover object-top" {...props} alt={props.alt || "Profile Image"} />
+                                                            <span className="inline-block shrink-0 rounded-2xl overflow-hidden border-2 border-cyan-500/50 w-32 h-32 sm:w-40 sm:h-40 shadow-[0_0_20px_rgba(0,255,255,0.25)] ring-1 ring-cyan-300/20 transition-transform hover:scale-105">
+                                                                <img className="w-full h-full object-cover object-top" {...props} alt={props.alt || "Profile Image"} onError={(e) => {
+                                                                    const parent = (e.target as HTMLImageElement).parentElement;
+                                                                    if (parent) parent.style.display = 'none';
+                                                                }} />
                                                             </span>
                                                         );
                                                     },
@@ -297,7 +390,7 @@ export default function ChatInterface() {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyPress}
-                        placeholder="ENTER TARGET DESIGNATION..."
+                        placeholder="  Enter name or username (use '/' to separate)."
                         disabled={isLoading}
                         className="flex-1 input-jarvis rounded-xl border-none shadow-none bg-transparent focus:bg-transparent placeholder:tracking-widest text-lg font-bold"
                     />
