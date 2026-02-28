@@ -52,7 +52,7 @@ When searching for people, provide:
 3. Notable achievements or projects
 4. Similar people in their field
 
-Be concise but informative. Format your response clearly."""
+Be concise but informative. Do not use excessive blank lines between sentences or paragraphs. Format your response clearly and compactly."""
         
         user_prompt = f"\n\nUser Query: {query}"
         
