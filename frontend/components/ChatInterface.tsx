@@ -242,8 +242,8 @@ export default function ChatInterface() {
             <motion.div
                 initial={{ paddingTop: "52vh", paddingBottom: "8rem" }}
                 animate={{
-                    paddingTop: messages.length === 1 ? "52vh" : "8rem",
-                    paddingBottom: messages.length === 1 ? "8rem" : "9rem"
+                    paddingTop: messages.length === 0 ? "52vh" : "8rem",
+                    paddingBottom: messages.length === 0 ? "8rem" : "9rem"
                 }}
                 transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                 className="flex-1 overflow-y-auto px-4 scroll-smooth"
