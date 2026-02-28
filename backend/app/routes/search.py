@@ -57,7 +57,7 @@ async def search_person(query: SearchQuery):
         
         # 3. Search Google
         logger.log_action("Accessing global data grid...")
-        web_results = search_service.search_person(name)
+        wiki_image, web_results = search_service.search_person(name)
         context['web_search'] = web_results
         logger.log_success("Web search completed")
         
@@ -67,6 +67,11 @@ async def search_person(query: SearchQuery):
             prompt=f"Tell me everything you know about {name}",
             context=context
         )
+        
+        # 4.5. Force Image Injection
+        if wiki_image:
+            ai_response = f"![{name}]({wiki_image})\n\n" + ai_response
+            
         logger.log_success("Analysis complete")
         
         # 5. Extract structured data
