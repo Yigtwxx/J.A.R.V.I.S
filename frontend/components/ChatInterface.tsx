@@ -190,11 +190,16 @@ export default function ChatInterface() {
                                                             <span className="text-gray-300" {...props} />
                                                         </li>
                                                     ),
-                                                    img: ({ node, ...props }) => (
-                                                        <span className="block my-4 rounded-xl overflow-hidden border-2 border-cyan-500/30 w-fit max-w-sm shadow-[0_0_15px_rgba(0,255,255,0.2)]">
-                                                            <img className="w-full h-auto object-cover" {...props} alt={props.alt || "Profile Image"} />
-                                                        </span>
-                                                    ),
+                                                    img: ({ node, ...props }) => {
+                                                        const src = typeof props.src === 'string' ? props.src : '';
+                                                        const isWikiLogo = src.includes('wikipedia') && src.endsWith('.png');
+                                                        if (isWikiLogo) return null; // Filter out rogue wikipedia textual logos
+                                                        return (
+                                                            <span className="block my-5 rounded-2xl overflow-hidden border-2 border-cyan-500/50 w-48 h-48 sm:w-64 sm:h-64 shadow-[0_0_20px_rgba(0,255,255,0.25)] ring-1 ring-cyan-300/20">
+                                                                <img className="w-full h-full object-cover object-top" {...props} alt={props.alt || "Profile Image"} />
+                                                            </span>
+                                                        );
+                                                    },
                                                     a: ({ node, ...props }) => <a className="text-blue-400 hover:text-cyan-300 underline underline-offset-4 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />
                                                 }}
                                             >
