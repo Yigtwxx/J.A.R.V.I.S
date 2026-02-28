@@ -129,7 +129,7 @@ echo -e "${CYAN}[BACKEND]${NC} Starting FastAPI server..."
 cd backend
 source venv/bin/activate
 export PYTHONPATH="$PWD"
-python -m app.main > ../backend.log 2>&1 &
+python -m app.main > ../logs/backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..
 echo -e "${GREEN}[OK]${NC} Backend started in background (PID: $BACKEND_PID)"
@@ -147,7 +147,7 @@ else
     echo -e "${YELLOW}[INFO]${NC} Checking backend.log..."
     echo ""
     echo "======== BACKEND LOG (Last 10 lines) ========"
-    tail -10 backend.log
+    tail -10 logs/backend.log
     echo "============================================="
     echo ""
 fi
@@ -155,7 +155,7 @@ fi
 # Start Frontend in background
 echo -e "${CYAN}[FRONTEND]${NC} Starting Next.js development server..."
 cd frontend
-npm run dev > ../frontend.log 2>&1 &
+npm run dev > ../logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
 cd ..
 echo -e "${GREEN}[OK]${NC} Frontend started in background (PID: $FRONTEND_PID)"
@@ -173,7 +173,7 @@ else
     echo -e "${YELLOW}[INFO]${NC} Checking frontend.log..."
     echo ""
     echo "======== FRONTEND LOG (Last 10 lines) ========"
-    tail -10 frontend.log
+    tail -10 logs/frontend.log
     echo "============================================="
     echo ""
 fi
@@ -198,8 +198,8 @@ echo "  Frontend: http://localhost:3000"
 echo "  API Docs: http://localhost:8000/docs"
 echo ""
 echo "  View real-time logs:"
-echo "  - tail -f backend.log"
-echo "  - tail -f frontend.log"
+echo "  - tail -f logs/backend.log"
+echo "  - tail -f logs/frontend.log"
 echo ""
 echo "  Press Ctrl+C to stop all services and exit"
 echo "========================================================================"
@@ -223,7 +223,7 @@ while true; do
     sleep 5
     echo "[$(date +%H:%M:%S)] Latest logs..."
     echo -e "${CYAN}[BACKEND]${NC}"
-    tail -3 backend.log 2>/dev/null
+    tail -3 logs/backend.log 2>/dev/null
     echo -e "${GREEN}[FRONTEND]${NC}"
-    tail -3 frontend.log 2>/dev/null
+    tail -3 logs/frontend.log 2>/dev/null
 done
