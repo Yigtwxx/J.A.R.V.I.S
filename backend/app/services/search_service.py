@@ -37,10 +37,29 @@ class SearchService:
             search_res = requests.get(search_url, params=search_params, headers=wiki_headers, timeout=5)
             search_data = search_res.json()
             
+            import difflib
+            
             if not search_data.get('query', {}).get('search'):
                 return ""
                 
             page_title = search_data['query']['search'][0]['title']
+            
+            # Verify the title actually matches what we're looking for (prevent e.g. "Recep Tayyip Erdogan" for "Yigit Erdogan")
+            query_words = set(query.lower().split())
+            title_words = set(page_title.lower().split())
+            
+            # Allow minor differences like 'Erdoğan' vs 'Erdogan'
+            import unicodedata
+            def normalize_text(text):
+                return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+                
+            query_words_norm = {normalize_text(w) for w in query_words}
+            title_words_norm = {normalize_text(w) for w in title_words}
+            
+            # Check if all words from the query exist in the Wikipedia title
+            if not query_words_norm.issubset(title_words_norm):
+                logger.log_warning(f"Wikipedia result '{page_title}' failed subset check for '{query}'. Skipping visual extraction.")
+                return ""
             
             # 2. Then get the main image (pageimage) for that title
             image_params = {
