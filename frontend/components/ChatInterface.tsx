@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2, Cpu, TerminalSquare, Save, CheckCircle } from 'lucide-react';
+import { Send, Loader2, Cpu, TerminalSquare, Save, CheckCircle, Zap } from 'lucide-react';
 import { searchPerson, saveProfile } from '@/services/api';
 import { Message, SearchResponse } from '@/types/profile';
 import ProfileCard from './ProfileCard';
@@ -123,16 +123,33 @@ export default function ChatInterface() {
                 transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                 className="fixed z-50 pointer-events-none origin-top-left"
             >
-                <div className="glass-strong px-10 py-4 rounded-[2.5rem] flex items-center gap-5 border-cyan-400/50 shadow-[0_0_30px_rgba(0,255,255,0.15)] bg-cyan-950/40 backdrop-blur-md">
-                    <Cpu className="w-8 h-8 text-cyan-400 animate-pulse-glow" />
-                    <div className="flex flex-col">
-                        <h1 className="text-3xl font-orbitron font-black text-gradient tracking-[0.2em] leading-none drop-shadow-lg">
-                            J.A.R.V.I.S
+                <div className="glass-strong px-8 py-3.5 rounded-[2rem] flex items-center gap-6 border-cyan-400/40 shadow-[0_0_40px_rgba(0,255,255,0.1)] bg-cyan-950/40 backdrop-blur-md relative overflow-hidden group/logo">
+                    {/* Animated shine line across the pill */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -translate-x-[150%] animate-[shimmer_3s_infinite]" />
+
+                    {/* Premium Abstract Logo */}
+                    <div className="relative flex items-center justify-center w-14 h-14 shrink-0">
+                        {/* Outer rotating ring */}
+                        <div className="absolute inset-0 rounded-xl border border-cyan-500/30 rotate-45 group-hover/logo:rotate-90 transition-transform duration-700 shadow-[0_0_15px_rgba(0,255,255,0.3)]"></div>
+                        {/* Inner static base */}
+                        <div className="absolute inset-1 rounded-lg bg-gradient-to-br from-cyan-950 to-blue-900 border border-cyan-400/50 backdrop-blur-sm flex items-center justify-center overflow-hidden">
+                            <div className="absolute inset-0 bg-cyan-400/20 blur-md"></div>
+                            {/* The Symbol */}
+                            <Zap className="w-6 h-6 text-cyan-300 drop-shadow-[0_0_8px_rgba(103,232,249,1)] z-10" />
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col justify-center">
+                        <h1 className="text-4xl font-orbitron font-black tracking-[0.25em] leading-none mb-1 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-cyan-400 drop-shadow-[0_2px_10px_rgba(0,255,255,0.3)]">
+                            JARVIS
                         </h1>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" />
-                            <p className="text-cyan-400 text-xs font-bold uppercase tracking-[0.3em] glow-cyan">
-                                System Node Active
+                        <div className="flex items-center gap-2.5 mt-1">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500 shadow-[0_0_8px_rgba(0,255,255,0.8)]"></span>
+                            </span>
+                            <p className="text-cyan-300/90 text-[10px] font-bold uppercase tracking-[0.4em] glow-cyan font-mono">
+                                Core System Online
                             </p>
                         </div>
                     </div>
