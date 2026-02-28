@@ -16,6 +16,56 @@ class SearchService:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
     
+    def search_wikipedia_image(self, query: str) -> str:
+        """
+        Query Wikipedia API to find a high-quality main image for the person
+        """
+        try:
+            logger.log_thought(f"Querying biographical databases for visual identity of: {query}")
+            
+            # 1. First, search for the Wikipedia page title
+            search_url = "https://en.wikipedia.org/w/api.php"
+            search_params = {
+                "action": "query",
+                "format": "json",
+                "list": "search",
+                "srsearch": query,
+                "srlimit": 1
+            }
+            
+            search_res = requests.get(search_url, params=search_params, headers=self.headers, timeout=5)
+            search_data = search_res.json()
+            
+            if not search_data.get('query', {}).get('search'):
+                return ""
+                
+            page_title = search_data['query']['search'][0]['title']
+            
+            # 2. Then get the main image (pageimage) for that title
+            image_params = {
+                "action": "query",
+                "format": "json",
+                "prop": "pageimages",
+                "titles": page_title,
+                "pithumbsize": 800  # Request a reasonably large image
+            }
+            
+            img_res = requests.get(search_url, params=image_params, headers=self.headers, timeout=5)
+            img_data = img_res.json()
+            
+            pages = img_data.get('query', {}).get('pages', {})
+            for page_id, page_info in pages.items():
+                if 'thumbnail' in page_info and 'source' in page_info['thumbnail']:
+                    img_url = page_info['thumbnail']['source']
+                    logger.log_success(f"Visual identity confirmed. Source: {img_url}")
+                    return img_url
+                    
+            return ""
+            
+        except Exception as e:
+            logger.log_warning(f"Failed to extract biographical image: {e}")
+            return ""
+    
     def search_yahoo(self, query: str, num_results: int = 5) -> List[Dict[str, str]]:
         """
         Search Yahoo and return scraped results
@@ -52,11 +102,18 @@ class SearchService:
                                 pass
                                 
                         snippet = snippet_elem.find_next_sibling('div').text.strip() if snippet_elem and snippet_elem.find_next_sibling('div') else ''
+                        
+                        # Try to find images in the snippet
+                        img_url = ""
+                        img_elem = div.find('img')
+                        if img_elem and img_elem.get('src'):
+                            img_url = img_elem.get('src')
                             
                         results.append({
                             'title': title_elem.text.strip(),
                             'url': real_url,
-                            'snippet': snippet
+                            'snippet': snippet,
+                            'image': img_url
                         })
                 except Exception as e:
                     continue
@@ -79,6 +136,8 @@ class SearchService:
             formatted += f"   URL: {result['url']}\n"
             if result.get('snippet'):
                 formatted += f"   {result['snippet']}\n"
+            if result.get('image'):
+                formatted += f"   Image: {result['image']}\n"
             formatted += "\n"
         
         return formatted
@@ -88,7 +147,11 @@ class SearchService:
         Search for a person and return formatted results
         """
         logger.log_thought(f"Initiating cross-reference protocol for entity: {name}")
-        # Search with multiple queries for better results
+        
+        # 1. Fetch visual identity from Wikipedia first
+        wiki_image = self.search_wikipedia_image(name)
+        
+        # 2. Search with multiple queries for better results
         queries = [
             f"{name} profile",
             f"{name} github",
@@ -102,4 +165,11 @@ class SearchService:
             time.sleep(1)  # Be nice to Yahoo
         
         logger.log_success("Data aggregation complete.")
-        return self.format_search_results(all_results)
+        
+        formatted_text = self.format_search_results(all_results)
+        
+        # Prefix the wikipedia image to the context so AI easily sees it
+        if wiki_image:
+            formatted_text = f"Primary Found Image URL: {wiki_image}\n\n" + formatted_text
+            
+        return formatted_text
