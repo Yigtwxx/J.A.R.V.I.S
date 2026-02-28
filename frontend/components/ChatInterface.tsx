@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2, Cpu, TerminalSquare, Save, CheckCircle, Zap, History, Trash2, Clock } from 'lucide-react';
+import { Send, Loader2, Cpu, TerminalSquare, Save, CheckCircle, Zap, History, Trash2, Clock, Github, Instagram, Twitter, Linkedin, Globe, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import { searchPerson, saveProfile, getSearchHistory, deleteHistoryItem } from '@/services/api';
 import { Message, SearchResponse, SearchHistoryItem } from '@/types/profile';
 import ProfileCard from './ProfileCard';
@@ -14,7 +14,11 @@ export default function ChatInterface() {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [history, setHistory] = useState<SearchHistoryItem[]>([]);
+    const [isListening, setIsListening] = useState(false);
+    const [voiceEnabled, setVoiceEnabled] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const recognitionRef = useRef<any>(null);
 
     const loadHistory = async () => {
         try {
@@ -48,7 +52,66 @@ export default function ChatInterface() {
 
     useEffect(() => {
         scrollToBottom();
+
+        // Handle auto-speech for new assistant messages
+        const lastMessage = messages[messages.length - 1];
+        if (voiceEnabled && lastMessage?.role === 'assistant' && !isSpeaking) {
+            speakResponse(lastMessage.content);
+        }
     }, [messages]);
+
+    // Initialize Speech Recognition
+    useEffect(() => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognitionRef.current = new SpeechRecognition();
+            recognitionRef.current.continuous = false;
+            recognitionRef.current.interimResults = false;
+            recognitionRef.current.lang = 'tr-TR'; // Default to Turkish or 'en-US' based on context
+
+            recognitionRef.current.onresult = (event: any) => {
+                const transcript = event.results[0][0].transcript;
+                setInput(prev => prev + (prev ? ' ' : '') + transcript);
+                setIsListening(false);
+            };
+
+            recognitionRef.current.onerror = () => setIsListening(false);
+            recognitionRef.current.onend = () => setIsListening(false);
+        }
+    }, []);
+
+    const toggleListening = () => {
+        if (isListening) {
+            recognitionRef.current?.stop();
+            setIsListening(false);
+        } else {
+            recognitionRef.current?.start();
+            setIsListening(true);
+        }
+    };
+
+    const speakResponse = (text: string) => {
+        if (!text || !voiceEnabled) return;
+
+        // Clean markdown for cleaner speech
+        const cleanText = text.replace(/[*_#`\[\]()]/g, '').slice(0, 300); // Limit length for stability
+
+        window.speechSynthesis.cancel(); // Stop any current speech
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+
+        // Try to find a JARVIS-like voice (British Male)
+        const voices = window.speechSynthesis.getVoices();
+        const jarvisVoice = voices.find(v => v.name.includes('Google UK English Male') || v.lang === 'en-GB');
+        if (jarvisVoice) utterance.voice = jarvisVoice;
+
+        utterance.rate = 1.0;
+        utterance.pitch = 0.9; // Slightly deeper for JARVIS feel
+
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+
+        window.speechSynthesis.speak(utterance);
+    };
 
     const handleSearch = async () => {
         if (!input.trim() || isLoading) return;
@@ -238,6 +301,67 @@ export default function ChatInterface() {
                 </div>
             </motion.div>
 
+            {/* Right Sidebar: Network Nodes */}
+            {(() => {
+                // Find the latest assistant message with profileData
+                const lastProfile = [...messages].reverse().find(m => m.role === 'assistant' && m.profileData)?.profileData;
+                if (!lastProfile) return null;
+
+                const socialEntries = [
+                    { icon: Github, urls: lastProfile.github_url, label: 'GitHub', brandStyles: 'border-gray-500/40 bg-gray-900/50 hover:bg-gray-800/80 hover:border-gray-400 text-gray-300 shadow-[0_4px_15px_rgba(156,163,175,0.15)]' },
+                    { icon: Instagram, urls: lastProfile.instagram_url, label: 'Instagram', brandStyles: 'border-pink-500/40 bg-fuchsia-950/40 hover:bg-fuchsia-900/60 hover:border-pink-400 text-pink-400 shadow-[0_4px_15px_rgba(236,72,153,0.15)]' },
+                    { icon: Twitter, urls: lastProfile.twitter_url, label: 'X (Twitter)', brandStyles: 'border-slate-500/40 bg-slate-900/50 hover:bg-slate-800/80 hover:border-slate-300 text-slate-300 shadow-[0_4px_15px_rgba(148,163,184,0.15)]' },
+                    { icon: Linkedin, urls: lastProfile.linkedin_url, label: 'LinkedIn', brandStyles: 'border-blue-500/40 bg-blue-950/50 hover:bg-blue-900/60 hover:border-blue-400 text-blue-400 shadow-[0_4px_15px_rgba(59,130,246,0.15)]' },
+                ].filter(e => e.urls);
+
+                if (socialEntries.length === 0) return null;
+
+                return (
+                    <motion.div
+                        initial={{ opacity: 0, x: 50 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
+                        className="fixed z-40 right-6 top-6 w-56 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden"
+                    >
+                        <div className="p-3 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full animate-[shimmer_5s_infinite]" />
+                            <Globe className="w-4 h-4 text-cyan-400" />
+                            <span className="text-[10px] font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan">Network Nodes</span>
+                        </div>
+                        <div className="p-3 space-y-2 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                            <AnimatePresence>
+                                {socialEntries.flatMap(({ icon: Icon, urls, label, brandStyles }) => {
+                                    if (!urls) return [];
+                                    const parsedUrls = urls.split(',').map(u => u.trim()).filter(Boolean);
+                                    return parsedUrls.map((singleUrl, idx) => {
+                                        // Extract username from URL path
+                                        const username = singleUrl.replace(/\/+$/, '').split('/').pop() || '';
+                                        const displayLabel = parsedUrls.length > 1 ? `@${username}` : label;
+                                        return (
+                                            <motion.a
+                                                key={`${label}-${idx}`}
+                                                href={singleUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                initial={{ opacity: 0, x: 20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: idx * 0.05 }}
+                                                className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all group/link ${brandStyles}`}
+                                                whileHover={{ x: -3, scale: 1.02 }}
+                                                whileTap={{ scale: 0.98 }}
+                                            >
+                                                <Icon className="w-4 h-4 transition-colors group-hover/link:text-white shrink-0" />
+                                                <span className="text-xs text-white font-bold font-mono tracking-wider drop-shadow-sm truncate">{displayLabel}</span>
+                                            </motion.a>
+                                        );
+                                    });
+                                })}
+                            </AnimatePresence>
+                        </div>
+                    </motion.div>
+                );
+            })()}
+
             {/* Messages Area */}
             <motion.div
                 initial={{ paddingTop: "52vh", paddingBottom: "8rem" }}
@@ -381,19 +505,48 @@ export default function ChatInterface() {
                 initial={{ y: 100 }}
                 animate={{ y: 0 }}
                 transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-                className="fixed bottom-10 left-0 w-full px-6 flex justify-center z-50 pointer-events-none"
+                className="fixed bottom-10 left-0 w-full pl-[300px] pr-[280px] flex justify-center z-50 pointer-events-none"
             >
-                <div className="pointer-events-auto w-full max-w-3xl glass-strong p-2 rounded-2xl flex gap-3 items-center border-2 border-cyan-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-hidden group hover:border-cyan-400/60 transition-colors">
+                <div className="pointer-events-auto w-full max-w-4xl glass-strong p-4 rounded-3xl flex gap-4 items-center border-2 border-cyan-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-hidden group hover:border-cyan-400/60 transition-all duration-500">
                     <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+
+                    {/* Voice Toggle */}
+                    <button
+                        onClick={() => {
+                            if (voiceEnabled) window.speechSynthesis.cancel();
+                            setVoiceEnabled(!voiceEnabled);
+                        }}
+                        className={`p-3 rounded-xl border transition-all ${voiceEnabled ? 'border-cyan-400 bg-cyan-900/40 text-cyan-400 glow-cyan' : 'border-slate-700 bg-slate-900/40 text-slate-500'}`}
+                        title={voiceEnabled ? "Mute JARVIS" : "Enable JARVIS Voice"}
+                    >
+                        {voiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+                    </button>
+
                     <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyPress}
-                        placeholder="  Enter name or username (use '/' to separate)."
+                        placeholder="Enter name or username (use '/' to separate)..."
                         disabled={isLoading}
-                        className="flex-1 input-jarvis rounded-xl border-none shadow-none bg-transparent focus:bg-transparent placeholder:tracking-widest text-lg font-bold"
+                        className="flex-1 input-jarvis h-14 rounded-2xl border-none shadow-none bg-black/20 focus:bg-black/40 placeholder:tracking-widest text-xl font-bold px-8 transition-all"
                     />
+
+                    {/* Mic Button */}
+                    <button
+                        onClick={toggleListening}
+                        className={`relative w-14 h-14 rounded-xl flex items-center justify-center transition-all border-2 ${isListening ? 'border-red-500 bg-red-950/40 text-red-500' : 'border-cyan-500/50 bg-cyan-950/40 text-cyan-400 hover:border-cyan-300'}`}
+                    >
+                        {isListening && (
+                            <motion.div
+                                animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                                transition={{ repeat: Infinity, duration: 1.5 }}
+                                className="absolute inset-0 bg-red-500/30 rounded-full"
+                            />
+                        )}
+                        {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                    </button>
+
                     <button
                         onClick={handleSearch}
                         disabled={isLoading || !input.trim()}
