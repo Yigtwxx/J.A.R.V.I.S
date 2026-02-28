@@ -23,7 +23,7 @@ class AIService:
         Generate AI response using Ollama
         """
         try:
-            logger.log_thought("Constructing optimal search matrix and contextual parameters...")
+            logger.log_thought(f"Constructing optimal search matrix and contextual parameters for query...")
             # Build the full prompt
             full_prompt = self._build_prompt(prompt, context)
             
