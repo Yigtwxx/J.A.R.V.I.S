@@ -39,4 +39,13 @@ export const searchProfiles = async (name: string): Promise<ProfileData[]> => {
     return response.data;
 };
 
+export const getSearchHistory = async (): Promise<import('@/types/profile').SearchHistoryItem[]> => {
+    const response = await api.get<import('@/types/profile').SearchHistoryItem[]>('/api/history/');
+    return response.data;
+};
+
+export const deleteHistoryItem = async (id: number): Promise<void> => {
+    await api.delete(`/api/history/${id}`);
+};
+
 export default api;
