@@ -69,9 +69,10 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         
         # 3. Search Google (Prioritize Real Name)
         logger.log_action("Accessing global data grid...")
-        wiki_image, web_results = search_service.search_person(real_name)
+        wiki_image, web_results, deep_context, raw_sources = search_service.search_person(real_name)
         context['web_search'] = web_results
-        logger.log_success("Web search completed")
+        context['deep_context'] = deep_context
+        logger.log_success("Web search aggregation and deep-packet inspection completed")
         
         # 4. Generate AI response (Use Full Context Name)
         logger.log_action("Running cognitive analysis...")
@@ -119,6 +120,7 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             linkedin_url=social_profiles.get('linkedin'),
             description=structured_data.get('description'),
             similar_profiles=structured_data.get('similar_profiles', []),
+            sources=raw_sources,
             ai_response=ai_response
         )
         
