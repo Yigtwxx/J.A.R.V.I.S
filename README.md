@@ -35,6 +35,28 @@ The core philosophy of J.A.R.V.I.S relies on data privacy and local execution. A
 
 J.A.R.V.I.S utilizes a decoupled frontend-backend architecture integrated with a relational SQL memory layer.
 
+```mermaid
+graph TD;
+    subgraph Frontend [Next.js React Frontend]
+        UI[User Interface] -->|Target Name| CHAT[Chat Terminal]
+        CHAT -->|Display| CARDS[Profile Cards]
+    end
+
+    subgraph Backend [FastAPI Python Backend]
+        API[Search Endpoints] --> SS[Web Search Service]
+        API --> SC[Social Scraper]
+        API --> GH[GitHub API Service]
+        SS & SC & GH -->|Context| AI[Ollama AI Service]
+        AI -->|Structured JSON| API
+    end
+
+    subgraph Memory [PostgreSQL Database]
+        API -->|SQLAlchemy ORM| DB[(Profiles Table)]
+    end
+
+    Frontend <==>|Axios HTTP Requests| Backend
+```
+
 ### 2.1 Backend Core (Python / FastAPI)
 - **FastAPI:** Chosen for its asynchronous nature (`async/await`) allowing parallel I/O bound operations (like simultaneous Wikipedia, GitHub, and Yahoo requests) and native Pydantic validation.
 - **BeautifulSoup4 / Requests:** Powers the web extractors and scrapers. Handles HTTP communication and DOM parsing.
