@@ -1,7 +1,10 @@
+# J.A.R.V.I.S: The Ultimate AI-Powered Open Source Intelligence (OSINT) Framework
+
 <div align="center">
-  <h1>J.A.R.V.I.S</h1>
+  <img src="https://img.shields.io/badge/J.A.R.V.I.S-OSINT%20Framework-00f3ff?style=for-the-badge&logo=probot&logoColor=white" alt="JARVIS OSINT System" />
+  
   <p><strong>Just A Rather Very Intelligent System</strong></p>
-  <p><em>AI-Powered Web Scraping and Profile Analysis Assistant</em></p>
+  <p><em>A deeply integrated, full-stack, automated intelligence and profile synthesis architecture.</em></p>
 
   <div>
     <img src="https://img.shields.io/badge/Python-3.11+-blue?style=for-the-badge&logo=python" alt="Python" />
@@ -17,200 +20,251 @@
   </div>
 </div>
 
-<br />
+---
 
-## Overview
+## 📖 1. The Global Concept
 
-Inspired by Tony Stark's AI, **J.A.R.V.I.S** is a full-stack assistant built to search for individuals across the web, scrape relevant public data, and generate detailed profiles using local Large Language Models (LLMs).
+J.A.R.V.I.S was created to solve a complex engineering and human resourcing problem: **Manual Data Aggregation.**
 
-The project combines a **FastAPI** backend for handling web scraping and AI inference with a **Next.js** frontend featuring an Iron Man-themed Arc Reactor UI. You can search for anyone, compile their public digital footprint, and save the generated dossier into a PostgreSQL database.
+When researching a person—whether for hiring, reporting, or general curiosity—information is often siloed. A developer's technical skill lies on GitHub. Their visual identity is on Instagram or Wikipedia. Their professional history is locked behind LinkedIn. Identifying and synthesizing this data requires significant human willpower.
+
+J.A.R.V.I.S automates this entirely. You provide a single input (e.g., `Linus Torvalds`), and the system spins up multiple concurrent network threads. It bypasses conventional search engine restrictions, scrapes raw HTML, cleans it, extracts vital nodes, and streams this massive corpus of unstructured text directly into a locally hosted **Large Language Model (LLM)**. The LLM acts as the central brain—parsing context, ignoring hallucinations, and formatting a strict, professional 10-section intelligence dossier stored in a PostgreSQL database.
+
+Everything runs locally. Your data, your searches, and your AI remain entirely confidential on your host machine. No external SaaS APIs (like OpenAI) are required.
 
 ---
 
-## Features
+## 🏗️ 2. Extensive Architectural Breakdown
 
-- **Local AI Integration:** Uses Ollama (e.g., Llama 3) to analyze scraped text and structure it into a detailed JSON profile, avoiding costly external API subscriptions.
-- **Multi-Source Scraping:** Automatically extracts public information from GitHub, Instagram, X (Twitter), LinkedIn, and general web results via Yahoo Search bypassing.
-- **Image Extraction:** Integrates with the Wikipedia API to find and display public profile pictures.
-- **PostgreSQL Database:** Securely stores approved AI dossiers in a local database uses JSONB fields for flexibility.
-- **Modern UI:** A dark-mode, responsive frontend built with Next.js, Framer Motion, and Tailwind CSS.
-- **Real-time Terminal Output:** Live backend logs (like *"Searching GitHub..."*) stream directly into the frontend UI.
-- **Easy Setup:** One-click automated setup scripts (`.bat` and `.sh`) are provided to handle virtual environments, dependencies, and process management.
+The project follows a decoupling principle, broken strictly into three layers:
+1. **The Presentation Layer:** `Next.js 15`
+2. **The Logic & Ingestion Layer:** `FastAPI` (Python)
+3. **The Data Persistence Layer:** `PostgreSQL 16`
 
----
+### 2.1 The Codebase Topology
 
-## System Architecture
-
-```mermaid
-graph TD;
-    subgraph Frontend [Next.js React Frontend]
-        UI[User Interface] -->|Target Name| CHAT[Chat Terminal]
-        CHAT -->|Display| CARDS[Profile Cards]
-    end
-
-    subgraph Backend [FastAPI Python Backend]
-        API[Search Endpoints] --> SS[Web Search Service]
-        API --> SC[Social Scraper]
-        API --> GH[GitHub API Service]
-        SS & SC & GH -->|Context| AI[Ollama AI Service]
-        AI -->|Structured JSON| API
-    end
-
-    subgraph Memory [PostgreSQL Database]
-        API -->|SQLAlchemy ORM| DB[(Profiles Table)]
-    end
-
-    Frontend <==>|Axios HTTP Requests| Backend
+```text
+J.A.R.V.I.S/
+├── backend/                  # The Python Intelligence Engine
+│   ├── app/
+│   │   ├── config.py         # Parses strict local .env variables
+│   │   ├── main.py           # The FastAPI application core and CORS router
+│   │   ├── jarvis_logger.py  # Custom CLI formatting engine for terminal feedback
+│   │   ├── database/         # Connection pooling and SQLAlchemy engine
+│   │   ├── models/           # SQLAlchemy class mappings (SQL Tables)
+│   │   ├── schemas/          # Pydantic validation (In/Out HTTP models)
+│   │   ├── routes/           # REST Controllers
+│   │   │   ├── search.py     # Main Search Trigger
+│   │   │   └── history.py    # Database retrieval logic
+│   │   ├── services/         # The Heavy Lifters (Scrapers & AI)
+│   │   │   ├── ai_service.py       # Ollama integration
+│   │   │   ├── github_service.py   # GitHub API interactor
+│   │   │   ├── scraper_service.py  # Regex social media extractor
+│   │   │   └── search_service.py   # Yahoo + Wikipedia Deep Web parser
+│   └── requirements.txt
+│
+├── frontend/                 # The React User Interface
+│   ├── app/                  # Next.js App Router definitions
+│   │   ├── page.tsx          # Main entry layout
+│   │   ├── globals.css       # Global Tailwind directives
+│   ├── components/           # Atomic React Components
+│   │   ├── ApprovalDialog.tsx   # Modal for saving generated profiles
+│   │   ├── Background.tsx       # The customized Iron Man Arc Reactor SVG
+│   │   ├── ChatInterface.tsx    # The core interactive terminal
+│   │   ├── LoadingAnimation.tsx # Spinner components
+│   │   └── ProfileCard.tsx      # The actual Markdown dossier renderer
+│   ├── services/             # Axios API wrappers
+│   └── types/                # Typescript specific definitions
+│
+├── database/                 # SQL
+│   └── init.sql              # The primary table schema execution script
+├── start-jarvis.bat          # Windows Setup Executable
+└── start-jarvis.sh           # Unix Setup Executable
 ```
 
 ---
 
-## Installation & Setup
+## ⚙️ 3. Inside the Core Python Services (How it ACTUALLY works)
 
-### Prerequisites
+The magic of J.A.R.V.I.S lies inside the `backend/app/services/` directory. When `search.py` is invoked via a POST request, it sequentially yields to four services.
 
-Ensure you have the following installed on your system:
-- Python 3.11+
-- Node.js 18.x+
-- PostgreSQL 16.x+
-- Ollama (running locally)
+### 🕵️ 3.1 `github_service.py` - The Code Footprint Locator
+Because tech profiles are often requested, GitHub gives the purest signal of a developer's identity.
+*   **Mechanics:** The class initializes a `requests.Session` pointing to `api.github.com`. It attempts a direct `GET` to `/users/{requested_name}`. If that `404`s, the engine is smart enough to fallback to a fuzzy query (`/search/users?q={name}`) and grabs the exact `login_id` of the first match.
+*   **Data Extraction:** Once the `login_id` is locked, the service grabs the target's public email, company, location, and follower counts. It then fires a sub-query to `/users/{username}/repos`, sorting by `updated_at`, extracting the top 5 raw repositories.
+*   **Result:** It formats this into a raw context string for the AI: *"GitHub Profile: [url], Public Repos: 41, Top Repo: Linux (C) - 150K Stars."*
 
-### 1. Setup Local AI (Ollama)
+### 🌐 3.2 `scraper_service.py` - The Social Matrix Bypass
+Directly making requests to `instagram.com` or `linkedin.com` using Python results in HTTP 403 blocks. To circumvent corporate scraping limits, this service uses Yahoo! Search.
+*   **Mechanics:** When the script hunts for a LinkedIn URL, it formats a query: `requests.utils.quote(f"{name} linkedin")` and passes it to `search.yahoo.com`.
+*   **DOM Traversal:** `BeautifulSoup4` traverses the `html.parser` structure hunting for all `<a href>` tags.
+*   **De-obfuscation:** Yahoo hides direct links behind routing layers (`/RU=https...`). The script uses Python's `urllib.parse.unquote` to split the URI and isolate the pure outbound link.
+*   **Regex Trapping (The Secret Sauce):** The service passes the pure links against strict Regex engines. 
+    *   For Instagram: `r'instagram\.com/([a-zA-Z0-9._]+)'`. To avoid grabbing random posts, it explicitly rejects handles matching `"p"`, `"reel"`, `"explore"`, resolving to a pure `https://instagram.com/handle/` object.
 
+### 📚 3.3 `search_service.py` - The Deep Web Packet Extractor
+This is the most aggressive service in the backend, responsible for extracting the actual biographical text required to write a dossier.
+*   **Visual Authentication Constraint:** It queries the Wikipedia API (`en.wikipedia.org/w/api.php`) with the target name. To stop "Name Collisions" (e.g., matching a politician instead of a developer), it converts both strings to lowercase arrays (`query_words_norm.issubset(title_words_norm)`) and removes all Unicode accents (`unicodedata.normalize`). Only if the set perfectly overlaps does it pull an 800px profile thumbnail.
+*   **Corpus Expansion:** The script creates 5 distinct search queries (Name + Biography, Name + Education, etc.). It grabs 5 URLs per query, deduplicating them.
+*   **Deep Scraping (`fetch_content`):** It targets the top 4 URLs (explicitly avoiding social media sites like Facebook). It downloads the raw DOM and executes `element.decompose()` recursively on all `<script>`, `<style>`, `<header>`, and `<nav>` tags. 
+*   **Sanitization:** It extracts purely the `<p>`, `<h1>` and semantic text, strips white spaces, truncates it to the first 8,000 dense characters, and returns a massive text blob.
+
+### 🧠 3.4 `ai_service.py` - The Synthetic Orchestrator (Local LLM)
+This is where unstructured garbage text becomes pure intelligence.
+*   **The Model:** Uses `ollama` Python bindings. It interfaces via API with whatever model `app/config.py` specifies (default is `llama3` 8B parameter).
+*   **The Mega-Prompt:** The `_build_prompt` function merges all the raw text from Services 3.1, 3.2, and 3.3. It prepends an aggressive system instruction:
+    *   *“You are JARVIS, an Elite Strategic Intelligence Analyst... Format the intelligence dossier into ALL of these sections... STRATEGIC BIOGRAPHY, PSYCHOLOGICAL PROFILE, NOTABLE ACHIEVEMENTS...”*
+    *   *“CRITICAL RESTRICTION: You MUST ONLY write about the exact requested person. If the search context is about a CLEARLY DIFFERENT person, you MUST IGNORE that context entirely.”*
+*   **The JSON Pass:** The AI outputs a massive Markdown string. The service then queries the LLM a *second* time using `extraction_prompt` to force the AI to return strictly formatted `JSON`. It parses the response using `json.loads(json_str)`, capturing exact indices if the AI hallucinates markdown backticks.
+
+---
+
+## 💾 4. The Relational Memory Framework (Database)
+
+J.A.R.V.I.S uses `PostgreSQL 16`, manipulated via `SQLAlchemy`. The schema is deliberately designed around PostgreSQL’s native `JSONB` support.
+
+### The Standard `profiles` Table
+```sql
+CREATE TABLE IF NOT EXISTS profiles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    github_url TEXT,
+    instagram_url TEXT,
+    twitter_url TEXT,
+    linkedin_url TEXT,
+    description TEXT,              -- Holds the raw 1500+ word AI generated markdown dossier
+    additional_info JSONB,         -- Stores arbitrary dictionaries of metadata
+    similar_profiles JSONB,        -- Stores highly variable Array payloads
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+**Why JSONB?**
+Instead of creating separate tables for `SocialMediaLinks`, `SimilarProfiles`, and building complex `JOIN` relationships, `JSONB` allows J.A.R.V.I.S to inject dynamic AI payloads as standard dicts. The database natively compresses them, and they can be queried using standard SQL arrows (`profiles.similar_profiles->>0`).
+
+An operational trigger `update_updated_at_column()` hooks into `BEFORE UPDATE ON profiles` to ensure caching logic holds.
+
+---
+
+## 🎨 5. The User Interface Architecture (Next.js)
+
+The frontend is not a static site; it is a highly interactive React application mimicking a high-end HUD (Heads Up Display).
+
+### Component Breakdown
+*   **`ChatInterface.tsx` (The Engine Room):** The user enters a string in the bottom input. When `Enter` is pressed, an `Axios` POST is dispatched to FastAPI. While FastAPI blocks for 20-40 seconds processing the AI request, `ChatInterface.tsx` uses interval timeouts to inject "mock" terminal strings into the UI (e.g., `[SYS] Scouring global databanks...`). This keeps the user engaged during the heavy lifting.
+*   **`ProfileCard.tsx` (Data Mounting):** Upon receiving the Axios 200 OK response, the raw Markdown from `description` is fed into a `react-markdown` component, which renders the exact bold headings generated by `ai_service.py`. It uses `framer-motion` to stagger the load-in of social media buttons (Twitter, LinkedIn).
+*   **`Background.tsx` (Aesthetics):** Uses a complex, layered CSS SVG with `@keyframes` that creates an expanding `#00f3ff` (cyan) radial gradient, providing the visceral feeling of the Arc Reactor.
+*   **`ApprovalDialog.tsx`:** Standard `Dialog` modal. Emits the final `POST /api/profiles/` payload once you visually authenticate that the AI didn't hallucinate.
+
+---
+
+## 📦 6. Total Deployment Guide (From Scratch)
+
+Because J.A.R.V.I.S operates on isolated services, setting it up requires specific system tools.
+
+### Phase 1: Bare Metal Requirements
+- **Python 3.11+:** To handle `asyncio` and `typing`.
+- **Node v18.17+ / npm:** To compile the Next.js React DOM.
+- **PostgreSQL 16:** Available via `psql` command line.
+- **Ollama:** The daemon must be active. Download from `https://ollama.ai`.
+
+### Phase 2: Core Model Downloading
+Open a terminal and force Ollama to download the neural net weights to your local storage:
 ```bash
-# Download Ollama from https://ollama.ai/download
-
-# Pull the primary model configured in the backend 
 ollama pull llama3
 ```
 
-### 2. Database Setup
+### Phase 3: PostgreSQL Initialization
+We must build the root database manually to accept the application connections.
 
-You need to create the `jarvis` database and load the initial schema before running the app.
-
-<details>
-<summary><strong>Windows</strong></summary>
-
+**Windows CMD:**
 ```cmd
-# Make sure you have PostgreSQL installed and added to your PATH
 createdb jarvis
-
-# Load the initial schema
 psql -U postgres -d jarvis -f database/init.sql
 ```
-</details>
 
-<details>
-<summary><strong>macOS</strong></summary>
-
+**macOS/Linux Terminal:**
 ```bash
-# Using Homebrew
-brew install postgresql@16
-brew services start postgresql@16
-
-createdb jarvis
-psql -d jarvis -f database/init.sql
-```
-</details>
-
-<details>
-<summary><strong>Linux</strong></summary>
-
-```bash
-sudo apt update
-sudo apt install postgresql postgresql-contrib
-sudo systemctl start postgresql
-
+# If using Homebrew on Mac: brew services start postgresql@16
 sudo -u postgres createdb jarvis
 sudo -u postgres psql -d jarvis -f database/init.sql
 ```
-</details>
 
-### 3. Quick Start
+### Phase 4: Automated Execution Start
+The project provides `start-jarvis.bat` and `start-jarvis.sh`. These shell scripts execute the following dependency injections automatically:
+1. `cd backend -> python -m venv venv -> source activate -> pip install -r requirements.txt`.
+2. Triggers `uvicorn app.main:app --port 8000 --reload` in the background.
+3. `cd frontend -> npm install`.
+4. Triggers `npm run dev -- -p 3000` in the foreground.
+5. Issues the shell open command to load the browser. 
 
-The included boot scripts will install the required `pip` and `npm` dependencies, activate Python's virtual environment, and launch both the backend and frontend simultaneously.
-
-<details>
-<summary><strong>Windows</strong></summary>
-
+**Run in Windows:**
 ```cmd
-:: Run this from the project root:
 start-jarvis.bat
 ```
-</details>
 
-<details>
-<summary><strong>macOS / Linux</strong></summary>
-
+**Run in UNIX:**
 ```bash
-# Make the script executable first
 chmod +x start-jarvis.sh
-
-# Run the script
 ./start-jarvis.sh
 ```
-</details>
 
 ---
 
-## Usage Guide
+## 🔌 7. FastAPI Endpoint Complete Listing
 
-1. **Open the App**: The startup script will automatically open `http://localhost:3000` in your default browser.
-2. **Search**: Enter a person's name (e.g., "Linus Torvalds") in the main terminal input field.
-3. **Wait for Scraping**: J.A.R.V.I.S will display real-time terminal messages as it calls GitHub APIs, searches social media links, and downloads related articles.
-4. **AI Processing**: Once data gathering is finished, the text is sent to your local Ollama instance for summarization.
-5. **Save to Database**: Review the generated profile card. If you're happy with the results, click **Save** to persist the data to your PostgreSQL `profiles` table.
+For systems integrators looking to plug J.A.R.V.I.S into external applications, the FastAPI layer exposes standard REST paradigms on port `8000`.
 
-### Expected Backend Output
-You will see formatted logs directly in your Python terminal while a search runs:
+| Method | Complete Endpoint URI | Payload / Action | Return Signature |
+|--------|-----------------------|------------------|------------------|
+| `POST` | `/api/search/` | **Payload:** `{"query": "Target Name"}` <br> Triggers the 4-stage processing pipeline. This is a CPU-intensive, long-polling blocking call. It will not return until Ollama finishes its inference. | A pure JSON object matching `ProfileResponse` minus the ID. |
+| `GET`  | `/api/profiles/` | Executes `db.query(Profile).all()` | `List[ProfileResponse]` |
+| `GET`  | `/api/profiles/{id}` | Executes `db.query(Profile).filter(Profile.id == id).first()` | Single JSON Profile or HTTP 404 |
+| `POST` | `/api/profiles/` | **Payload:** `ProfileCreate` Pydantic Model. Adds object to SQLAlchemy session and calls `db.commit()`. | Database Inserted ID. |
+| `DELETE` | `/api/profiles/{id}` | Locates Profile by ID, executes `db.delete(profile)`. | Success message. |
+| `GET`  | `/api/profiles/search/{name}` | Fast Lookup. Executes SQL string `ILIKE %name%` to bypass the AI scraper heavily utilizing the index. | Cached Database Profile. |
 
-```text
+---
+
+## 🛡️ 8. Known Bottlenecks and Telemetry Handling
+
+J.A.R.V.I.S uses its own highly specific CLI formatting tool called `jarvis_logger.py` to output data.
+
+### Expected Backend CLI Stream Format:
+```yaml
 ============================================================
 🔍 NEW SEARCH REQUEST: Linus Torvalds
 ============================================================
-[1/4] 🐙 Searching GitHub...
-      ✅ GitHub profile match confirmed.
-[2/4] 📱 Searching social media arrays...
-      ✅ Found related Social Media nodes
-[3/4] 🌐 Executing fallback web search...
-      ✅ Scraped relevant biography articles
-[4/4] 🤖 JARVIS analyzing text data via Ollama...
-      ✅ Analysis complete
-
-✅ SEARCH PROTOCOL COMPLETED
+[1/4] 🐙 Querying GitHub central servers for entity: Linus Torvalds...
+      ✅ Direct GitHub profile match confirmed.
+[2/4] 📱 Scanning global networks for targeted node...
+      ✅ LinkedIn profile correlated.
+[3/4] 🌐 Infiltrating host and extracting raw data packets: kernel.org...
+      ✅ Data packet validation absolute.
+[4/4] 🤖 Constructing optimal search matrix and contextual parameters...
+      ✅ Model response synthesized.
 ============================================================
 ```
 
----
-
-## Core API Endpoints
-
-The FastAPI backend exposes the following REST endpoints on `http://localhost:8000`:
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/search/` | The core search engine endpoint. Accepts JSON: `{"query": "Name"}` |
-| `GET`  | `/api/profiles/` | Get all saved profiles from PostgreSQL |
-| `GET`  | `/api/profiles/{id}` | Get a specific saved profile by its database ID |
-| `POST` | `/api/profiles/` | Directly post a formatted profile JSON object to save it |
-| `DELETE` | `/api/profiles/{id}` | Delete a specific profile |
-| `GET`  | `/api/profiles/search/{name}` | Fast SQL index lookup against previously saved profiles |
+### Constraints:
+1. **Network Banning (HTTP 429):** The Yahoo SERP bypassing technique inside `scraper_service.py` is robust, but executing 10-15 sequential searches without delay will temporarily trigger IP blocks from Yahoo.
+2. **First-Load VRAM Transfer:** Ollama typically halts models when idle to save system memory. The primary search query of any session will experience a lag-time penalty (approx. 6 seconds) while the `llama3.gguf` file is copied from the SSD into the physical GPU/CPU memory spaces.
 
 ---
 
-## Known Limitations
+## 📋 9. Strict Licensing Parameters
 
-- **Scraping Blocks:** Direct scraping of Instagram, LinkedIn, and X/Twitter natively blocks bots aggressively. The app relies on Yahoo search regex fallbacks to locate profile URLs, which isn't always 100% reliable.
-- **Ollama Initial Load Time:** The very first query of your session spins up the LLM locally. This can increase the total response time for the initial search by several seconds.
+This project is open-source under the **MIT License**. It was developed strictly for OSINT, portfolio compilation, and development automation.
 
----
-
-## Developer
-
-**Yiğit Erdoğan**
+**CAUTION:** Integrating J.A.R.V.I.S into cron-jobs or high-availability scraping clusters against major corporate endpoints (LinkedIn, Meta, X) violates their public Terms of Service. Development environments are safe, but enterprise production usage requires dedicated residential proxy network routing. 
 
 ---
 
+## 👨‍💻 10. Engineering Lead
+
+**Yiğit Erdoğan** - System Architecture, Full-Stack Deployment, Model Tuning.
+
+<br />
 <div align="center">
   <p><em>"Sometimes you gotta run before you can walk."</em></p>
 </div>
