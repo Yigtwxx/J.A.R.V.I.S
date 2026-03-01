@@ -17,6 +17,7 @@ export default function ChatInterface() {
     const [isListening, setIsListening] = useState(false);
     const [voiceEnabled, setVoiceEnabled] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [liveStatus, setLiveStatus] = useState<string[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const recognitionRef = useRef<any>(null);
 
@@ -45,6 +46,32 @@ export default function ChatInterface() {
     useEffect(() => {
         loadHistory();
     }, []);
+
+    useEffect(() => {
+        let eventSource: EventSource | null = null;
+
+        if (isLoading) {
+            setLiveStatus(["Establishing secure link..."]);
+            // Use window.location.hostname to be dynamic if needed, but localhost:8000 is default for backend
+            eventSource = new EventSource('http://localhost:8000/api/status/stream');
+
+            eventSource.onmessage = (event) => {
+                setLiveStatus(prev => {
+                    // Keep only last 12 entries for clean HUD
+                    const newStatus = [...prev, event.data].slice(-12);
+                    return newStatus;
+                });
+            };
+
+            eventSource.onerror = () => {
+                eventSource?.close();
+            };
+        }
+
+        return () => {
+            if (eventSource) eventSource.close();
+        };
+    }, [isLoading]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -94,21 +121,22 @@ export default function ChatInterface() {
         if (!text || !voiceEnabled) return;
 
         // Clean markdown for cleaner speech
-        const cleanText = text.replace(/[*_#`\[\]()]/g, '').slice(0, 300); // Limit length for stability
+        const cleanText = text.replace(/[*_#`\[\]()]/g, '').slice(0, 500);
 
-        window.speechSynthesis.cancel(); // Stop any current speech
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(cleanText);
 
-        // Try to find a JARVIS-like voice (British Male)
+        // JARVIS Protocol: Force high-quality British accent
         const voices = window.speechSynthesis.getVoices();
         const jarvisVoice = voices.find(v => v.name.includes('Google UK English Male') || v.lang === 'en-GB');
         if (jarvisVoice) utterance.voice = jarvisVoice;
 
         utterance.rate = 1.0;
-        utterance.pitch = 0.9; // Slightly deeper for JARVIS feel
+        utterance.pitch = 0.9; // Deeper tone for JARVIS
 
         utterance.onstart = () => setIsSpeaking(true);
         utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
 
         window.speechSynthesis.speak(utterance);
     };
@@ -301,8 +329,49 @@ export default function ChatInterface() {
                 </div>
             </motion.div>
 
-            {/* Right Sidebar: Network Nodes */}
+            {/* Right Sidebar: Network Nodes or Live Status */}
             {(() => {
+                // If loading, show live status stream
+                if (isLoading) {
+                    return (
+                        <motion.div
+                            initial={{ opacity: 0, x: 50 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="fixed z-40 right-6 top-6 w-64 glass-strong rounded-[1.5rem] border border-cyan-500/40 bg-cyan-950/30 backdrop-blur-xl shadow-[0_0_30px_rgba(0,255,255,0.1)] flex flex-col overflow-hidden"
+                        >
+                            <div className="p-4 border-b border-cyan-500/30 bg-cyan-900/50 flex items-center gap-3 relative overflow-hidden">
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+                                <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_cyan]" />
+                                <span className="text-[11px] font-black font-orbitron tracking-[0.2em] text-cyan-300 uppercase glow-cyan">Live Monitoring</span>
+                            </div>
+                            <div className="p-4 space-y-3 font-mono">
+                                <AnimatePresence>
+                                    {liveStatus.map((status, idx) => (
+                                        <motion.div
+                                            key={`${status}-${idx}`}
+                                            initial={{ opacity: 0, x: 10, filter: 'blur(4px)' }}
+                                            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                                            exit={{ opacity: 0, x: -10, filter: 'blur(4px)' }}
+                                            transition={{ duration: 0.3 }}
+                                            className="text-[10px] leading-relaxed flex gap-2 items-start"
+                                        >
+                                            <span className="text-cyan-500 shrink-0 select-none opacity-50">[{new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span>
+                                            <span className={`${status.includes('[OK]') ? 'text-green-400' : status.includes('[ERR]') ? 'text-red-400' : 'text-cyan-100/80'} break-words`}>
+                                                {status.replace(/\[(SYS|OK|ERR|PROCESS|WARN)\]\s*/, '')}
+                                            </span>
+                                        </motion.div>
+                                    ))}
+                                </AnimatePresence>
+                                <motion.div
+                                    animate={{ opacity: [0.3, 1, 0.3] }}
+                                    transition={{ repeat: Infinity, duration: 1 }}
+                                    className="w-full h-px bg-cyan-500/30 mt-4"
+                                />
+                            </div>
+                        </motion.div>
+                    );
+                }
+
                 // Find the latest assistant message with profileData
                 const lastProfile = [...messages].reverse().find(m => m.role === 'assistant' && m.profileData)?.profileData;
                 if (!lastProfile) return null;
@@ -330,6 +399,7 @@ export default function ChatInterface() {
                         </div>
                         <div className="p-3 space-y-2 overflow-y-auto max-h-[70vh] custom-scrollbar">
                             <AnimatePresence>
+                                {/* Network Nodes Section */}
                                 {socialEntries.flatMap(({ icon: Icon, urls, label, brandStyles }) => {
                                     if (!urls) return [];
                                     const parsedUrls = urls.split(',').map(u => u.trim()).filter(Boolean);
@@ -356,6 +426,44 @@ export default function ChatInterface() {
                                         );
                                     });
                                 })}
+
+                                {/* Intelligence Sources Section */}
+                                {lastProfile.sources && lastProfile.sources.length > 0 && (
+                                    <motion.div
+                                        key="intelligence-sources"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="flex flex-col gap-2"
+                                    >
+                                        <div className="pt-2 pb-1 border-t border-cyan-500/20 mt-2">
+                                            <div className="flex items-center gap-2 px-1">
+                                                <TerminalSquare className="w-3.5 h-3.5 text-cyan-400" />
+                                                <span className="text-[9px] font-bold font-mono tracking-widest text-cyan-500/80 uppercase">Intelligence Sources</span>
+                                            </div>
+                                        </div>
+                                        {lastProfile.sources.slice(0, 4).map((source, idx) => (
+                                            <motion.a
+                                                key={`source-${idx}`}
+                                                href={source.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                initial={{ opacity: 0, x: 20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: 0.2 + idx * 0.05 }}
+                                                className="flex flex-col gap-0.5 p-2.5 rounded-xl border border-cyan-500/20 bg-cyan-950/40 hover:bg-cyan-900/60 hover:border-cyan-400/50 transition-all group/source"
+                                                whileHover={{ x: -3, scale: 1.02 }}
+                                                whileTap={{ scale: 0.98 }}
+                                            >
+                                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                                    <Globe className="w-3 h-3 text-cyan-500/60 group-hover/source:text-cyan-400" />
+                                                    <span className="text-[10px] text-cyan-100/90 font-bold font-mono truncate">{source.title}</span>
+                                                </div>
+                                                <span className="text-[8px] text-cyan-500/50 truncate pl-4 font-mono">{new URL(source.url).hostname}</span>
+                                            </motion.a>
+                                        ))}
+                                    </motion.div>
+                                )}
                             </AnimatePresence>
                         </div>
                     </motion.div>
@@ -560,7 +668,6 @@ export default function ChatInterface() {
                     </button>
                 </div>
             </motion.div>
-
         </div>
     );
 }
