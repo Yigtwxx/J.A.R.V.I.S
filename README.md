@@ -264,6 +264,10 @@ This project is open-source under the **MIT License**. It was developed strictly
 
 **Yiğit Erdoğan** - System Architecture, Full-Stack Deployment, Model Tuning.
 
+- 💼 **LinkedIn:** [yiğit-erdoğan-ba7a64294](https://www.linkedin.com/in/yi%C4%9Fit-erdo%C4%9Fan-ba7a64294)
+- 🤖 **Reddit:** [u/Yigtwx6](https://www.reddit.com/user/Yigtwx6/)
+- 🐙 **GitHub:** [Yigtwxx](https://github.com/Yigtwxx)
+
 <br />
 <div align="center">
   <p><em>"Sometimes you gotta run before you can walk."</em></p>
