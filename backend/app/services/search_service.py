@@ -1,8 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict
-from app.jarvis_logger import logger
 import time
+import urllib.parse
+from app.jarvis_logger import logger
 import warnings
 
 # Suppress InsecureRequestWarning
@@ -137,6 +138,32 @@ class SearchService:
         except Exception as e:
             logger.log_error(f"Global grid access denied or timed out: {e}")
             return []
+            
+    def _is_relevant(self, title: str, snippet: str, query: str) -> bool:
+        """Check if a search result title/snippet actually mentions the person or a closely related typo"""
+        text = f"{title} {snippet}".lower()
+        query_words = [w for w in query.lower().split() if len(w) > 2] # Ignore short words
+        
+        # If the exact full query is in the text, it's definitely relevant
+        if query.lower() in text:
+            return True
+            
+        import difflib
+        text_words = text.split()
+        
+        # Check if at least one significant word from the query is exactly in the text,
+        # or has a very close fuzzy match (e.g. 'ekkkin' -> 'ekin').
+        for word in query_words:
+            if word in text:
+                return True
+                
+            # Allow minor typos (like 1 letter difference) for words longer than 3 chars
+            if len(word) >= 4:
+                matches = difflib.get_close_matches(word, text_words, n=1, cutoff=0.8)
+                if matches:
+                    return True
+                    
+        return False
     
     def format_search_results(self, results: List[Dict[str, str]]) -> str:
         """Format search results for AI context"""
@@ -152,31 +179,90 @@ class SearchService:
             formatted += "\n"
         
         return formatted
-    
-    def search_person(self, name: str) -> tuple[str, str]:
+
+    def fetch_content(self, url: str) -> str:
         """
-        Search for a person and return (wiki_image_url, formatted_results)
+        Fetch and clean the visible text from a URL for deep analysis.
+        """
+        # Skip social media domains as they are often blocked or need JS
+        if any(domain in url.lower() for domain in ['instagram.com', 'twitter.com', 'x.com', 'linkedin.com', 'facebook.com']):
+            return ""
+            
+        try:
+            logger.log_thought(f"Infiltrating host and extracting raw data packets: {url}")
+            response = requests.get(url, headers=self.headers, timeout=12, verify=False)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Remove noisy elements
+            for element in soup(['script', 'style', 'header', 'footer', 'nav', 'aside', 'form', 'button']):
+                element.decompose()
+                
+            # Extract and sanitize text
+            text = soup.get_text(separator=' ')
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            clean_text = '\n'.join(chunk for chunk in chunks if chunk)
+            
+            return clean_text[:8000]  # Expanded for deeper analysis
+            
+        except Exception as e:
+            logger.log_warning(f"Data packet extraction failed for {url}: {str(e)}")
+            return ""
+    
+    def search_person(self, name: str) -> tuple[str, str, str, List[Dict[str, str]]]:
+        """
+        Search for a person and return (wiki_image_url, formatted_results, deep_context, raw_results)
         """
         logger.log_thought(f"Initiating cross-reference protocol for entity: {name}")
         
         # 1. Fetch visual identity from Wikipedia first
         wiki_image = self.search_wikipedia_image(name)
         
-        # 2. Search with multiple queries for better results
+        # 2. Search with multiple diverse queries for comprehensive results
         queries = [
+            f"{name} biography OR education",
+            f"{name} career OR profession",
+            f"{name} interview OR news",
             f"{name} profile",
-            f"{name} github",
-            f"{name} linkedin",
+            f"{name}",
         ]
         
         all_results = []
+        seen_urls = set()
         for query in queries:
-            results = self.search_yahoo(query, num_results=3)
-            all_results.extend(results)
-            time.sleep(1)  # Be nice to Yahoo
+            logger.log_action(f"Scanning subspace for: {query}")
+            results = self.search_yahoo(query, num_results=5)
+            # Deduplicate results by URL and filter irrelevant ones
+            for r in results:
+                if r['url'] not in seen_urls:
+                    # STRICT FILTER: Only keep results that actually resemble the target name
+                    if self._is_relevant(r.get('title', ''), r.get('snippet', ''), name):
+                        seen_urls.add(r['url'])
+                        all_results.append(r)
+            logger.log_thought(f"Extracted {len(all_results)} verified data nodes so far.")
+            time.sleep(1)
         
-        logger.log_success("Data aggregation complete.")
+        # 3. Deep-Scraping Protocol: Extract full content from top relevant links
+        logger.log_action("Executing deep-packet inspection on primary sources...")
+        logger.log_thought("Filtering nodes for high-density information...")
+        deep_context = ""
+        # Find top 4 non-social results for deep scraping (increased from 2)
+        scrapable_results = [r for r in all_results if not any(d in r['url'].lower() for d in ['instagram.com', 'twitter.com', 'x.com', 'linkedin.com', 'facebook.com', 'youtube.com'])][:4]
+        
+        for res in scrapable_results:
+            # Use urllib.parse.urlparse to get the hostname safely
+            parsed_url = urllib.parse.urlparse(res['url'])
+            hostname = parsed_url.hostname if parsed_url.scheme and parsed_url.netloc else res['url']
+            logger.log_action(f"Infiltrating NODE: {hostname}")
+            content = self.fetch_content(res['url'])
+            if content:
+                deep_context += f"--- NODE: {res['url']} ---\n{content}\n\n"
+                logger.log_success(f"Packet integrity verified for {res['url']}")
+        
+        logger.log_success("Data aggregation and content synthesis complete.")
         
         formatted_text = self.format_search_results(all_results)
             
-        return wiki_image, formatted_text
+        return wiki_image, formatted_text, deep_context, all_results
