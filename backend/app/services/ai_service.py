@@ -110,6 +110,8 @@ extract and return ONLY a JSON object with these fields:
 - name: string
 - description: string (brief summary)
 - similar_profiles: array of strings (names of similar people)
+- estimated_location: string (guessed country)
+- capital_city: string (capital of that country)
 
 Previous Information:
 {ai_response}
