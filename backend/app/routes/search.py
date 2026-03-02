@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.history import SearchHistory
 from app.schemas import SearchQuery, SearchResponse
-from app.services import AIService, SearchService, GitHubService, ScraperService
+from app.services import AIService, SearchService, GitHubService, ScraperService, WeatherService
 import asyncio
 
 router = APIRouter(prefix="/api/search", tags=["search"])
@@ -13,6 +13,7 @@ ai_service = AIService()
 search_service = SearchService()
 github_service = GitHubService()
 scraper_service = ScraperService()
+weather_service = WeatherService()
 
 
 @router.post("/", response_model=SearchResponse)
@@ -111,6 +112,11 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         # 5. Extract structured data
         structured_data = await ai_service.extract_profile_data(ai_response, real_name)
         
+        # 5.5 Fetch Weather for guessed location
+        weather_info = None
+        if structured_data.get('capital_city'):
+            weather_info = weather_service.get_weather(structured_data['capital_city'])
+
         # Build response
         response = SearchResponse(
             name=structured_data.get('name', real_name),
@@ -120,6 +126,9 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             linkedin_url=social_profiles.get('linkedin'),
             spotify_url=social_profiles.get('spotify'),
             tiktok_url=social_profiles.get('tiktok'),
+            location_country=structured_data.get('estimated_location'),
+            location_city=structured_data.get('capital_city'),
+            weather_info=weather_info,
             description=structured_data.get('description'),
             similar_profiles=structured_data.get('similar_profiles', []),
             sources=raw_sources,
