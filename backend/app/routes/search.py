@@ -91,8 +91,9 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             images.append(github_data['avatar_url'])
             
         for platform in ['instagram', 'twitter', 'linkedin', 'spotify', 'tiktok']:
-            if social_profiles.get(platform):
-                first_profile_url = social_profiles[platform].split(",")[0].strip()
+            items = social_profiles.get(platform, [])
+            if items:
+                first_profile_url = items[0]['url'].split(",")[0].strip()
                 social_username = first_profile_url.rstrip('/').split('/')[-1]
                 images.append(f"https://unavatar.io/{platform}/{social_username}?fallback=false")
                 
@@ -121,11 +122,11 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         response = SearchResponse(
             name=structured_data.get('name', real_name),
             github_url=github_url,
-            instagram_url=social_profiles.get('instagram'),
-            twitter_url=social_profiles.get('twitter'),
-            linkedin_url=social_profiles.get('linkedin'),
-            spotify_url=social_profiles.get('spotify'),
-            tiktok_url=social_profiles.get('tiktok'),
+            instagram_url=", ".join([p['url'] for p in social_profiles.get('instagram', [])]) or None,
+            twitter_url=", ".join([p['url'] for p in social_profiles.get('twitter', [])]) or None,
+            linkedin_url=", ".join([p['url'] for p in social_profiles.get('linkedin', [])]) or None,
+            spotify_url=", ".join([p['url'] for p in social_profiles.get('spotify', [])]) or None,
+            tiktok_url=", ".join([p['url'] for p in social_profiles.get('tiktok', [])]) or None,
             location_country=structured_data.get('estimated_location'),
             location_city=structured_data.get('capital_city'),
             weather_info=weather_info,
