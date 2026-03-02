@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2, Cpu, TerminalSquare, Save, CheckCircle, Zap, History, Trash2, Clock, Github, Instagram, Twitter, Linkedin, Globe, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import { Send, Loader2, Cpu, TerminalSquare, Save, CheckCircle, Zap, History, Trash2, Clock, Github, Instagram, Twitter, Linkedin, Globe, Mic, MicOff, Volume2, VolumeX, Music, Video } from 'lucide-react';
 import { searchPerson, saveProfile, getSearchHistory, deleteHistoryItem } from '@/services/api';
 import { Message, SearchResponse, SearchHistoryItem } from '@/types/profile';
 import ProfileCard from './ProfileCard';
@@ -185,6 +185,8 @@ export default function ChatInterface() {
                 instagram_url: profileToSave.instagram_url,
                 twitter_url: profileToSave.twitter_url,
                 linkedin_url: profileToSave.linkedin_url,
+                spotify_url: profileToSave.spotify_url,
+                tiktok_url: profileToSave.tiktok_url,
                 description: profileToSave.description,
                 additional_info: profileToSave.additional_info,
                 similar_profiles: profileToSave.similar_profiles
@@ -381,6 +383,8 @@ export default function ChatInterface() {
                     { icon: Instagram, urls: lastProfile.instagram_url, label: 'Instagram', brandStyles: 'border-pink-500/40 bg-fuchsia-950/40 hover:bg-fuchsia-900/60 hover:border-pink-400 text-pink-400 shadow-[0_4px_15px_rgba(236,72,153,0.15)]' },
                     { icon: Twitter, urls: lastProfile.twitter_url, label: 'X (Twitter)', brandStyles: 'border-slate-500/40 bg-slate-900/50 hover:bg-slate-800/80 hover:border-slate-300 text-slate-300 shadow-[0_4px_15px_rgba(148,163,184,0.15)]' },
                     { icon: Linkedin, urls: lastProfile.linkedin_url, label: 'LinkedIn', brandStyles: 'border-blue-500/40 bg-blue-950/50 hover:bg-blue-900/60 hover:border-blue-400 text-blue-400 shadow-[0_4px_15px_rgba(59,130,246,0.15)]' },
+                    { icon: Music, urls: lastProfile.spotify_url, label: 'Spotify', brandStyles: 'border-green-500/40 bg-emerald-950/40 hover:bg-emerald-900/60 hover:border-green-400 text-green-400 shadow-[0_4px_15px_rgba(34,197,94,0.15)]' },
+                    { icon: Video, urls: lastProfile.tiktok_url, label: 'TikTok', brandStyles: 'border-rose-500/40 bg-rose-950/40 hover:bg-rose-900/60 hover:border-rose-400 text-rose-400 shadow-[0_4px_15px_rgba(244,63,94,0.15)]' },
                 ].filter(e => e.urls);
 
                 if (socialEntries.length === 0) return null;
