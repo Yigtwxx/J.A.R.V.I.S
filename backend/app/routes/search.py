@@ -89,7 +89,7 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         if github_data and github_data.get('avatar_url'):
             images.append(github_data['avatar_url'])
             
-        for platform in ['instagram', 'twitter', 'linkedin']:
+        for platform in ['instagram', 'twitter', 'linkedin', 'spotify', 'tiktok']:
             if social_profiles.get(platform):
                 first_profile_url = social_profiles[platform].split(",")[0].strip()
                 social_username = first_profile_url.rstrip('/').split('/')[-1]
@@ -118,6 +118,8 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             instagram_url=social_profiles.get('instagram'),
             twitter_url=social_profiles.get('twitter'),
             linkedin_url=social_profiles.get('linkedin'),
+            spotify_url=social_profiles.get('spotify'),
+            tiktok_url=social_profiles.get('tiktok'),
             description=structured_data.get('description'),
             similar_profiles=structured_data.get('similar_profiles', []),
             sources=raw_sources,
