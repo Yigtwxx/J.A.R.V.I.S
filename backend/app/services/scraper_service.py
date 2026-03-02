@@ -85,6 +85,30 @@ class ScraperService:
                 u = f"https://www.linkedin.com/in/{match.group(1)}/"
                 if u not in valid_urls: valid_urls.append(u)
         return ", ".join(valid_urls) if valid_urls else None
+
+    def find_spotify_profile(self, name: str) -> Optional[str]:
+        """Try to find Spotify profile URLs"""
+        query = f"{name} spotify profile"
+        urls = self._extract_urls_from_yahoo(query, r'open\.spotify\.com/(user|artist)/([a-zA-Z0-9._-]+)')
+        valid_urls = []
+        for url in urls:
+            match = re.search(r'open\.spotify\.com/(user|artist)/([a-zA-Z0-9._-]+)', url)
+            if match:
+                u = f"https://open.spotify.com/{match.group(1)}/{match.group(2)}"
+                if u not in valid_urls: valid_urls.append(u)
+        return ", ".join(valid_urls) if valid_urls else None
+
+    def find_tiktok_profile(self, name: str) -> Optional[str]:
+        """Try to find TikTok profile URLs"""
+        query = f"{name} tiktok"
+        urls = self._extract_urls_from_yahoo(query, r'tiktok\.com/@([a-zA-Z0-9._-]+)')
+        valid_urls = []
+        for url in urls:
+            match = re.search(r'tiktok\.com/@([a-zA-Z0-9._-]+)', url)
+            if match:
+                u = f"https://www.tiktok.com/@{match.group(1)}"
+                if u not in valid_urls: valid_urls.append(u)
+        return ", ".join(valid_urls) if valid_urls else None
     
     def find_all_profiles(self, name: str) -> Dict[str, Optional[str]]:
         """Find all social media profiles for a person"""
@@ -94,7 +118,9 @@ class ScraperService:
         profiles = {
             'instagram': None,
             'twitter': None,
-            'linkedin': None
+            'linkedin': None,
+            'spotify': None,
+            'tiktok': None
         }
         
         profiles['instagram'] = self.find_instagram_profile(name)
@@ -107,6 +133,14 @@ class ScraperService:
         
         profiles['linkedin'] = self.find_linkedin_profile(name)
         if profiles['linkedin']: logger.log_success(f"LinkedIn profile correlated: {profiles['linkedin']}")
+        time.sleep(1)
+
+        profiles['spotify'] = self.find_spotify_profile(name)
+        if profiles['spotify']: logger.log_success(f"Spotify profile correlated: {profiles['spotify']}")
+        time.sleep(1)
+
+        profiles['tiktok'] = self.find_tiktok_profile(name)
+        if profiles['tiktok']: logger.log_success(f"TikTok profile correlated: {profiles['tiktok']}")
         
         return profiles
     
@@ -122,6 +156,12 @@ class ScraperService:
         
         if profiles.get('linkedin'):
             formatted += f"LinkedIn: {profiles['linkedin']}\n"
+        
+        if profiles.get('spotify'):
+            formatted += f"Spotify: {profiles['spotify']}\n"
+        
+        if profiles.get('tiktok'):
+            formatted += f"TikTok: {profiles['tiktok']}\n"
         
         if not any(profiles.values()):
             formatted += "No social media profiles found.\n"
