@@ -17,6 +17,15 @@ class ScraperService:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
     
+    def _is_url_active(self, url: str) -> bool:
+        """Check if a URL is active (returns 200 OK)"""
+        try:
+            # Use GET with stream=True to avoid downloading full content
+            response = requests.get(url, headers=self.headers, timeout=5, stream=True)
+            return response.status_code == 200
+        except Exception:
+            return False
+    
     def _extract_urls_from_yahoo(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
         """Helper to search Yahoo and extract domain URLs returning up to max_results matches"""
         results = []
@@ -59,7 +68,8 @@ class ScraperService:
             match = re.search(r'instagram\.com/([a-zA-Z0-9._]+)', url)
             if match and match.group(1) not in ['p', 'reel', 'explore', 'tags']:
                 u = f"https://www.instagram.com/{match.group(1)}/"
-                if u not in valid_urls: valid_urls.append(u)
+                if u not in valid_urls and self._is_url_active(u): 
+                    valid_urls.append(u)
         return ", ".join(valid_urls) if valid_urls else None
     
     def find_twitter_profile(self, name: str) -> Optional[str]:
@@ -71,7 +81,8 @@ class ScraperService:
              match = re.search(r'(twitter|x)\.com/([a-zA-Z0-9_]+)', url)
              if match:
                  u = f"https://x.com/{match.group(2)}"
-                 if u not in valid_urls: valid_urls.append(u)
+                 if u not in valid_urls and self._is_url_active(u): 
+                     valid_urls.append(u)
         return ", ".join(valid_urls) if valid_urls else None
     
     def find_linkedin_profile(self, name: str) -> Optional[str]:
@@ -83,7 +94,8 @@ class ScraperService:
             match = re.search(r'linkedin\.com/in/([a-zA-Z0-9-]+)', url)
             if match:
                 u = f"https://www.linkedin.com/in/{match.group(1)}/"
-                if u not in valid_urls: valid_urls.append(u)
+                if u not in valid_urls and self._is_url_active(u): 
+                    valid_urls.append(u)
         return ", ".join(valid_urls) if valid_urls else None
 
     def find_spotify_profile(self, name: str) -> Optional[str]:
@@ -95,7 +107,8 @@ class ScraperService:
             match = re.search(r'open\.spotify\.com/(user|artist)/([a-zA-Z0-9._-]+)', url)
             if match:
                 u = f"https://open.spotify.com/{match.group(1)}/{match.group(2)}"
-                if u not in valid_urls: valid_urls.append(u)
+                if u not in valid_urls and self._is_url_active(u): 
+                    valid_urls.append(u)
         return ", ".join(valid_urls) if valid_urls else None
 
     def find_tiktok_profile(self, name: str) -> Optional[str]:
@@ -107,7 +120,8 @@ class ScraperService:
             match = re.search(r'tiktok\.com/@([a-zA-Z0-9._-]+)', url)
             if match:
                 u = f"https://www.tiktok.com/@{match.group(1)}"
-                if u not in valid_urls: valid_urls.append(u)
+                if u not in valid_urls and self._is_url_active(u): 
+                    valid_urls.append(u)
         return ", ".join(valid_urls) if valid_urls else None
     
     def find_all_profiles(self, name: str) -> Dict[str, Optional[str]]:
