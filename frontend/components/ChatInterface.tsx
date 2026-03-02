@@ -484,86 +484,84 @@ export default function ChatInterface() {
 
                 return (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.8, x: 20 }}
-                        animate={{ opacity: 1, scale: 1, x: 0 }}
-                        transition={{ duration: 0.6, delay: 0.4 }}
-                        className="fixed z-40 right-[16rem] top-6 w-56 pointer-events-none"
+                        initial={{ opacity: 0, x: 50 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
+                        className="fixed z-40 right-[16rem] top-6 w-56 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden pointer-events-auto group/weather"
                     >
-                        <div className="glass-strong rounded-[1.5rem] border border-cyan-500/30 bg-cyan-950/40 backdrop-blur-xl shadow-[0_0_30px_rgba(0,255,255,0.15)] flex flex-col relative overflow-hidden pointer-events-auto group/weather">
-                            {/* Weather Header */}
-                            <div className="p-3 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full animate-[shimmer_5s_infinite]" />
-                                <Cloud className="w-4 h-4 text-cyan-400" />
-                                <span className="text-[10px] font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan">Weather Scan</span>
-                            </div>
+                        {/* Weather Header */}
+                        <div className="p-3 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full animate-[shimmer_5s_infinite]" />
+                            <Cloud className="w-4 h-4 text-cyan-400" />
+                            <span className="text-[10px] font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan">Weather Scan</span>
+                        </div>
 
-                            <div className="p-4 flex flex-col gap-3">
-                                {/* Decorative scan line */}
-                                <div className="absolute top-0 left-0 w-full h-0.5 bg-cyan-400/30 animate-[scan_3s_linear_infinite]" />
+                        <div className="p-4 flex flex-col gap-3">
+                            {/* Decorative scan line */}
+                            <div className="absolute top-0 left-0 w-full h-0.5 bg-cyan-400/30 animate-[scan_3s_linear_infinite]" />
 
-                                {/* Weather Icon / Environment Display */}
-                                <div className="relative h-24 w-full rounded-xl bg-gradient-to-b from-black/40 to-cyan-900/20 border border-white/5 flex items-center justify-center overflow-hidden">
-                                    {isSunny ? (
-                                        <div className="relative">
-                                            <motion.div
-                                                animate={{ rotate: 360 }}
-                                                transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
-                                                className="absolute inset-0 bg-yellow-400/20 blur-2xl rounded-full scale-150"
-                                            />
-                                            <Sun className="w-12 h-12 text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)] relative z-10" />
-                                        </div>
-                                    ) : (
-                                        <div className="relative">
-                                            <motion.div
-                                                animate={{ x: [-10, 10, -10] }}
-                                                transition={{ repeat: Infinity, duration: 8, ease: "easeInOut" }}
-                                                className="absolute -top-2 -left-4 opacity-50"
-                                            >
-                                                <Cloud className="w-10 h-10 text-slate-400" />
-                                            </motion.div>
-                                            <Cloud className="w-14 h-14 text-slate-300 drop-shadow-[0_0_10px_rgba(203,213,225,0.5)] relative z-10" />
-                                        </div>
-                                    )}
-
-                                    {/* Temperature Overlay */}
-                                    {weather && (
-                                        <div className="absolute bottom-2 right-3 flex items-center gap-1">
-                                            <Thermometer className="w-3 h-3 text-cyan-400" />
-                                            <span className="text-sm font-orbitron font-black text-white glow-white">{weather.temperature}°C</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Location & Status */}
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-1.5 overflow-hidden">
-                                        <MapPin className="w-3 h-3 text-cyan-400 shrink-0" />
-                                        <span className="text-[10px] font-black font-orbitron tracking-widest text-white uppercase truncate drop-shadow-sm">
-                                            {lastProfile.location_city || "Unknown Node"}
-                                        </span>
+                            {/* Weather Icon / Environment Display */}
+                            <div className="relative h-24 w-full rounded-xl bg-gradient-to-b from-black/40 to-cyan-900/20 border border-white/5 flex items-center justify-center overflow-hidden">
+                                {isSunny ? (
+                                    <div className="relative">
+                                        <motion.div
+                                            animate={{ rotate: 360 }}
+                                            transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
+                                            className="absolute inset-0 bg-yellow-400/20 blur-2xl rounded-full scale-150"
+                                        />
+                                        <Sun className="w-12 h-12 text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)] relative z-10" />
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <div className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
-                                        <span className="text-[8px] font-bold font-mono tracking-widest text-cyan-400 uppercase glow-cyan">
-                                            {weather?.description || "Syncing..."}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Wind speed if available */}
-                                {weather?.windspeed && (
-                                    <div className="pt-2 border-t border-cyan-500/10 flex justify-between items-center opacity-70">
-                                        <span className="text-[7px] font-mono text-cyan-500 uppercase tracking-tighter">Atmospheric Flow</span>
-                                        <div className="flex items-center gap-1">
-                                            <Wind className="w-3 h-3 text-cyan-300" />
-                                            <span className="text-[10px] font-mono font-bold text-white">{weather.windspeed} <span className="text-[7px]">km/h</span></span>
-                                        </div>
+                                ) : (
+                                    <div className="relative">
+                                        <motion.div
+                                            animate={{ x: [-10, 10, -10] }}
+                                            transition={{ repeat: Infinity, duration: 8, ease: "easeInOut" }}
+                                            className="absolute -top-2 -left-4 opacity-50"
+                                        >
+                                            <Cloud className="w-10 h-10 text-slate-400" />
+                                        </motion.div>
+                                        <Cloud className="w-14 h-14 text-slate-300 drop-shadow-[0_0_10px_rgba(203,213,225,0.5)] relative z-10" />
                                     </div>
                                 )}
 
-                                {/* Hover effect highlight */}
-                                <div className="absolute inset-0 border-2 border-transparent group-hover/weather:border-cyan-400/20 rounded-2xl transition-all duration-500" />
+                                {/* Temperature Overlay */}
+                                {weather && (
+                                    <div className="absolute bottom-2 right-3 flex items-center gap-1">
+                                        <Thermometer className="w-3 h-3 text-cyan-400" />
+                                        <span className="text-sm font-orbitron font-black text-white glow-white">{weather.temperature}°C</span>
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Location & Status */}
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                    <MapPin className="w-3 h-3 text-cyan-400 shrink-0" />
+                                    <span className="text-[10px] font-black font-orbitron tracking-widest text-white uppercase truncate drop-shadow-sm">
+                                        {lastProfile.location_city || "Unknown Node"}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
+                                    <span className="text-[8px] font-bold font-mono tracking-widest text-cyan-400 uppercase glow-cyan">
+                                        {weather?.description || "Syncing..."}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Wind speed if available */}
+                            {weather?.windspeed && (
+                                <div className="pt-2 border-t border-cyan-500/10 flex justify-between items-center opacity-70">
+                                    <span className="text-[7px] font-mono text-cyan-500 uppercase tracking-tighter">Atmospheric Flow</span>
+                                    <div className="flex items-center gap-1">
+                                        <Wind className="w-3 h-3 text-cyan-300" />
+                                        <span className="text-[10px] font-mono font-bold text-white">{weather.windspeed} <span className="text-[7px]">km/h</span></span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Hover effect highlight */}
+                            <div className="absolute inset-0 border-2 border-transparent group-hover/weather:border-cyan-400/20 rounded-2xl transition-all duration-500" />
                         </div>
                     </motion.div>
                 );
