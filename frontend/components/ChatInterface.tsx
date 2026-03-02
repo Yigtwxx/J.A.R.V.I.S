@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2, Cpu, TerminalSquare, Save, CheckCircle, Zap, History, Trash2, Clock, Github, Instagram, Twitter, Linkedin, Globe, Mic, MicOff, Volume2, VolumeX, Music, Video } from 'lucide-react';
+import { Send, Loader2, Cpu, TerminalSquare, Save, CheckCircle, Zap, History, Trash2, Clock, Github, Instagram, Twitter, Linkedin, Globe, Mic, MicOff, Volume2, VolumeX, Music, Video, MapPin, Thermometer, Cloud, Sun, Wind } from 'lucide-react';
 import { searchPerson, saveProfile, getSearchHistory, deleteHistoryItem } from '@/services/api';
 import { Message, SearchResponse, SearchHistoryItem } from '@/types/profile';
 import ProfileCard from './ProfileCard';
@@ -403,6 +403,41 @@ export default function ChatInterface() {
                         </div>
                         <div className="p-3 space-y-2 overflow-y-auto max-h-[70vh] custom-scrollbar">
                             <AnimatePresence>
+                                {/* Atmospheric Data Section */}
+                                {(lastProfile.location_city || lastProfile.weather_info) && (
+                                    <motion.div
+                                        key="atmospheric-context"
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="mb-4 pb-4 border-b border-cyan-500/10"
+                                    >
+                                        <div className="flex items-center gap-2 px-1 mb-3">
+                                            <MapPin className="w-3.5 h-4 text-cyan-400" />
+                                            <span className="text-[9px] font-bold font-mono tracking-widest text-cyan-500/80 uppercase">Atmospheric Scan</span>
+                                        </div>
+                                        <div className="flex flex-col gap-2.5">
+                                            {lastProfile.location_city && (
+                                                <div className="px-3 py-2 rounded-xl bg-cyan-900/30 border border-cyan-500/20 flex flex-col gap-1">
+                                                    <span className="text-[8px] text-cyan-500/60 uppercase font-mono tracking-tighter">Current Location Matrix</span>
+                                                    <span className="text-[11px] text-white font-bold font-orbitron tracking-wider">{lastProfile.location_city}</span>
+                                                </div>
+                                            )}
+                                            {lastProfile.weather_info && (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="p-2.5 rounded-xl bg-blue-900/40 border border-blue-400/30 flex items-center justify-center gap-2">
+                                                        <Thermometer className="w-4 h-4 text-blue-400" />
+                                                        <span className="text-xs text-white font-mono font-bold leading-none">{lastProfile.weather_info.temperature}°C</span>
+                                                    </div>
+                                                    <div className="p-2.5 rounded-xl bg-slate-800/60 border border-white/10 flex items-center justify-center gap-2">
+                                                        {lastProfile.weather_info.temperature > 20 ? <Sun className="w-4 h-4 text-yellow-500 shadow-[0_0_8px_orange]" /> : <Cloud className="w-4 h-4 text-slate-300" />}
+                                                        <span className="text-[10px] text-slate-100 font-mono font-bold leading-none uppercase tracking-tighter">{lastProfile.weather_info.description}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                )}
+
                                 {/* Network Nodes Section */}
                                 {socialEntries.flatMap(({ icon: Icon, urls, label, brandStyles }) => {
                                     if (!urls) return [];
