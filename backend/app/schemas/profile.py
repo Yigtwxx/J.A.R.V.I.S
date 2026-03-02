@@ -54,5 +54,8 @@ class SearchResponse(BaseModel):
     description: Optional[str] = None
     additional_info: Optional[Dict[str, Any]] = None
     similar_profiles: Optional[List[str]] = None
+    location_country: Optional[str] = None
+    location_city: Optional[str] = None
+    weather_info: Optional[Dict[str, Any]] = None
     sources: Optional[List[Dict[str, str]]] = None  # Raw search results/sources
     ai_response: str  # JARVIS's formatted response
