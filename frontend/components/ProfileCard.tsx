@@ -10,14 +10,24 @@ interface ProfileCardProps {
 }
 
 export default function ProfileCard({ profile }: ProfileCardProps) {
-    const socialLinks = [
+    const allSocials = [
         { icon: Github, url: profile.github_url, label: 'GitHub', color: 'text-white' },
         { icon: Instagram, url: profile.instagram_url, label: 'Instagram', color: 'text-pink-400' },
         { icon: Twitter, url: profile.twitter_url, label: 'X (Twitter)', color: 'text-sky-400' },
         { icon: Linkedin, url: profile.linkedin_url, label: 'LinkedIn', color: 'text-blue-400' },
         { icon: Music, url: profile.spotify_url, label: 'Spotify', color: 'text-green-400' },
         { icon: Video, url: profile.tiktok_url, label: 'TikTok', color: 'text-rose-400' },
-    ].filter(link => link.url);
+    ];
+
+    const socialLinks = allSocials.flatMap(social => {
+        if (!social.url) return [];
+        const urls = social.url.split(',').map(u => u.trim()).filter(Boolean);
+        return urls.map((url, i) => ({
+            ...social,
+            url,
+            label: urls.length > 1 ? `${social.label} #${i + 1}` : social.label
+        }));
+    });
 
     const weather = profile.weather_info;
 
