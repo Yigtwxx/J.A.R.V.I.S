@@ -18,11 +18,38 @@ class ScraperService:
         }
     
     def _is_url_active(self, url: str) -> bool:
-        """Check if a URL is active (returns 200 OK)"""
+        """Check if a URL is active (returns 200 OK and isn't a known error/login page)"""
         try:
-            # Use GET with stream=True to avoid downloading full content
-            response = requests.get(url, headers=self.headers, timeout=5, stream=True)
-            return response.status_code == 200
+            # Add specific headers to mimic a browser better
+            check_headers = self.headers.copy()
+            
+            # For social media, we often get 200 but on a 'login' or 'not found' page
+            response = requests.get(url, headers=check_headers, timeout=7, allow_redirects=True)
+            
+            if response.status_code != 200:
+                return False
+                
+            # If the final URL contains 'login' or 'accounts/login', it's likely restricted/dead
+            if "login" in response.url.lower() and "login" not in url.lower():
+                return False
+                
+            # Check for common 'not found' signatures in content (first 5KB for speed)
+            content_snippet = response.text[:5000].lower()
+            not_found_signatures = [
+                "page not found", 
+                "sorry, this page isn't available",
+                "doesn't exist",
+                "user not found",
+                "account not found",
+                "not a valid user",
+                "content is currently unavailable",
+                "expired"
+            ]
+            
+            if any(sig in content_snippet for sig in not_found_signatures):
+                return False
+                
+            return True
         except Exception:
             return False
     
