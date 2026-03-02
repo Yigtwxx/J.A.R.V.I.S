@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { SearchResponse } from '@/types/profile';
-import { Github, Instagram, Twitter, Linkedin, User, Users, ChevronRight, Activity, Music, Video, MapPin } from 'lucide-react';
+import { User, Users, ChevronRight, Activity } from 'lucide-react';
 
 interface ProfileCardProps {
     profile: SearchResponse;
