@@ -487,7 +487,7 @@ export default function ChatInterface() {
                         initial={{ opacity: 0, scale: 0.8, x: 20 }}
                         animate={{ opacity: 1, scale: 1, x: 0 }}
                         transition={{ duration: 0.6, delay: 0.4 }}
-                        className="fixed z-40 right-[16rem] top-32 w-48 pointer-events-none"
+                        className="fixed z-40 right-[16rem] top-0 w-48 pointer-events-none"
                     >
                         <div className="glass-strong rounded-2xl p-4 border border-cyan-500/30 bg-cyan-950/40 backdrop-blur-xl shadow-[0_0_30px_rgba(0,255,255,0.15)] flex flex-col gap-3 relative overflow-hidden pointer-events-auto group/weather">
                             {/* Decorative scan line */}
