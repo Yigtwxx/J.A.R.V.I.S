@@ -16,6 +16,8 @@ class Profile(Base):
     instagram_url = Column(Text, nullable=True)
     twitter_url = Column(Text, nullable=True)
     linkedin_url = Column(Text, nullable=True)
+    spotify_url = Column(Text, nullable=True)
+    tiktok_url = Column(Text, nullable=True)
     
     # Information
     description = Column(Text, nullable=True)
