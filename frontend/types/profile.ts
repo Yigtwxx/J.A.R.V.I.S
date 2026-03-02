@@ -7,6 +7,9 @@ export interface ProfileData {
   linkedin_url?: string;
   spotify_url?: string;
   tiktok_url?: string;
+  location_country?: string;
+  location_city?: string;
+  weather_info?: any;
   description?: string;
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
@@ -22,6 +25,9 @@ export interface SearchResponse {
   linkedin_url?: string;
   spotify_url?: string;
   tiktok_url?: string;
+  location_country?: string;
+  location_city?: string;
+  weather_info?: any;
   description?: string;
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
