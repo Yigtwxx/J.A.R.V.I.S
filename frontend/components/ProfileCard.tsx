@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { SearchResponse } from '@/types/profile';
-import { Github, Instagram, Twitter, Linkedin, User, Users, ChevronRight, Activity } from 'lucide-react';
+import { Github, Instagram, Twitter, Linkedin, User, Users, ChevronRight, Activity, Music, Video, ExternalLink } from 'lucide-react';
 
 interface ProfileCardProps {
     profile: SearchResponse;
@@ -11,10 +11,12 @@ interface ProfileCardProps {
 
 export default function ProfileCard({ profile }: ProfileCardProps) {
     const socialLinks = [
-        { icon: Github, url: profile.github_url, label: 'GitHub' },
-        { icon: Instagram, url: profile.instagram_url, label: 'Instagram' },
-        { icon: Twitter, url: profile.twitter_url, label: 'X (Twitter)' },
-        { icon: Linkedin, url: profile.linkedin_url, label: 'LinkedIn' },
+        { icon: Github, url: profile.github_url, label: 'GitHub', color: 'text-white' },
+        { icon: Instagram, url: profile.instagram_url, label: 'Instagram', color: 'text-pink-400' },
+        { icon: Twitter, url: profile.twitter_url, label: 'X (Twitter)', color: 'text-sky-400' },
+        { icon: Linkedin, url: profile.linkedin_url, label: 'LinkedIn', color: 'text-blue-400' },
+        { icon: Music, url: profile.spotify_url, label: 'Spotify', color: 'text-green-400' },
+        { icon: Video, url: profile.tiktok_url, label: 'TikTok', color: 'text-rose-400' },
     ].filter(link => link.url);
 
     return (
@@ -57,7 +59,7 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
 
 
                 {/* Content Grid */}
-                <div className="grid grid-cols-1 gap-8 relative">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
 
                     {/* Left Column: Bio & Correlated Targets */}
                     <div className="space-y-8 flex flex-col justify-start">
@@ -90,6 +92,39 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
                                         >
                                             {name}
                                         </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right Column: Social Footprint */}
+                    <div className="space-y-8 flex flex-col justify-start">
+                        {socialLinks.length > 0 && (
+                            <div>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <ChevronRight className="w-5 h-5 text-cyan-400 glow-cyan" />
+                                    <h4 className="text-white font-orbitron font-bold text-sm tracking-[0.15em] uppercase drop-shadow-md glow-cyan">Digital Footprint</h4>
+                                </div>
+                                <div className="grid grid-cols-1 gap-3 pl-6">
+                                    {socialLinks.map((link, index) => (
+                                        <a
+                                            key={index}
+                                            href={link.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-between p-3 rounded-xl bg-slate-900/40 border border-cyan-500/20 hover:border-cyan-400/50 transition-all duration-300 group/link overflow-hidden relative"
+                                        >
+                                            <div className="flex items-center gap-3 relative z-10">
+                                                <div className={`p-2 rounded-lg bg-slate-800/50 border border-white/10 ${link.color}`}>
+                                                    <link.icon className="w-4 h-4" />
+                                                </div>
+                                                <span className="text-slate-200 font-mono text-sm font-bold tracking-wider">{link.label}</span>
+                                            </div>
+                                            <ExternalLink className="w-4 h-4 text-cyan-400/50 group-hover/link:text-cyan-400 transition-colors relative z-10" />
+                                            {/* Hover Glow Effect */}
+                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full group-hover/link:translate-x-full transition-transform duration-700" />
+                                        </a>
                                     ))}
                                 </div>
                             </div>
