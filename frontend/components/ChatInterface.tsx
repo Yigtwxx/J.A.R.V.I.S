@@ -11,14 +11,18 @@ import ReactMarkdown from 'react-markdown';
 
 // Custom Brand Icons
 const SpotifyIcon = ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.503 17.306c-.218.358-.684.474-1.042.256-2.868-1.754-6.478-2.15-10.732-1.176-.411.094-.821-.161-.914-.572-.094-.411.161-.821.572-.914 4.655-1.064 8.653-.615 11.86 1.344.358.218.474.684.256 1.042zm1.47-3.253c-.276.449-.861.593-1.311.317-3.284-2.018-8.29-2.604-12.176-1.425-.506.154-1.043-.131-1.197-.637-.154-.506.131-1.043.637-1.197 4.444-1.349 9.948-.696 13.73 1.625.449.277.593.861.317 1.317zm.126-3.393C15.222 8.24 8.847 8.028 5.12 9.16c-.579.176-1.192-.154-1.368-.733-.176-.579.154-1.192.733-1.368 4.288-1.302 11.332-1.056 15.795 1.593.523.311.693.985.382 1.508-.311.523-.985.693-1.508.382z" />
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="12" fill="#1DB954" />
+        <path d="M17.503 17.306c-.218.358-.684.474-1.042.256-2.868-1.754-6.478-2.15-10.732-1.176-.411.094-.821-.161-.914-.572-.094-.411.161-.821.572-.914 4.655-1.064 8.653-.615 11.86 1.344.358.218.474.684.256 1.042zm1.47-3.253c-.276.449-.861.593-1.311.317-3.284-2.018-8.29-2.604-12.176-1.425-.506.154-1.043-.131-1.197-.637-.154-.506.131-1.043.637-1.197 4.444-1.349 9.948-.696 13.73 1.625.449.277.593.861.317 1.317zm.126-3.393C15.222 8.24 8.847 8.028 5.12 9.16c-.579.176-1.192-.154-1.368-.733-.176-.579.154-1.192.733-1.368 4.288-1.302 11.332-1.056 15.795 1.593.523.311.693.985.382 1.508-.311.523-.985.693-1.508.382z" fill="white" />
     </svg>
 );
 
 const TikTokIcon = ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.01.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.06-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.74.02 1.48-.04 2.96-.04 4.44-.57-.12-1.17-.14-1.74-.02-1.11.23-2.13.91-2.73 1.89-.54.82-.79 1.8-.7 2.78.1 1.08.64 2.15 1.54 2.77.83.6 1.86.85 2.87.7 1.16-.14 2.22-.84 2.79-1.85.36-.63.54-1.35.54-2.07 0-3.8 0-7.6 0-11.4-.01-.7.01-1.4 0-2.1z" />
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+        {/* TikTok secondary colors for depth */}
+        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.01.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.06-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.74.02 1.48-.04 2.96-.04 4.44-.57-.12-1.17-.14-1.74-.02-1.11.23-2.13.91-2.73 1.89-.54.82-.79 1.8-.7 2.78.1 1.08.64 2.15 1.54 2.77.83.6 1.86.85 2.87.7 1.16-.14 2.22-.84 2.79-1.85.36-.63.54-1.35.54-2.07 0-3.8 0-7.6 0-11.4-.01-.7.01-1.4 0-2.1z" fill="white" />
+        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.01.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79" stroke="#25F4EE" strokeWidth="0.5" strokeOpacity="0.8" />
+        <path d="M9 13c0 3.8 0 7.6 0 11.4-.01.7.01 1.4 0 2.1" stroke="#FE2C55" strokeWidth="0.5" strokeOpacity="0.8" />
     </svg>
 );
 
@@ -56,6 +60,36 @@ export default function ChatInterface() {
         setInput(query);
     };
 
+    // Initialize Speech Recognition
+    useEffect(() => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognitionRef.current = new SpeechRecognition();
+            recognitionRef.current.continuous = false;
+            recognitionRef.current.interimResults = false;
+            recognitionRef.current.lang = 'tr-TR'; // Default to Turkish or 'en-US' based on context
+
+            recognitionRef.current.onresult = (event: any) => {
+                const transcript = event.results[0][0].transcript;
+                setInput(prev => prev + (prev ? ' ' : '') + transcript);
+                setIsListening(false);
+            };
+
+            recognitionRef.current.onerror = () => setIsListening(false);
+            recognitionRef.current.onend = () => setIsListening(false);
+        }
+    }, []);
+
+    const toggleListening = () => {
+        if (isListening) {
+            recognitionRef.current?.stop();
+            setIsListening(false);
+        } else {
+            recognitionRef.current?.start();
+            setIsListening(true);
+        }
+    };
+
     useEffect(() => {
         loadHistory();
     }, []);
@@ -90,47 +124,7 @@ export default function ChatInterface() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    useEffect(() => {
-        scrollToBottom();
-
-        // Handle auto-speech for new assistant messages
-        const lastMessage = messages[messages.length - 1];
-        if (voiceEnabled && lastMessage?.role === 'assistant' && !isSpeaking) {
-            speakResponse(lastMessage.content);
-        }
-    }, [messages]);
-
-    // Initialize Speech Recognition
-    useEffect(() => {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = false;
-            recognitionRef.current.interimResults = false;
-            recognitionRef.current.lang = 'tr-TR'; // Default to Turkish or 'en-US' based on context
-
-            recognitionRef.current.onresult = (event: any) => {
-                const transcript = event.results[0][0].transcript;
-                setInput(prev => prev + (prev ? ' ' : '') + transcript);
-                setIsListening(false);
-            };
-
-            recognitionRef.current.onerror = () => setIsListening(false);
-            recognitionRef.current.onend = () => setIsListening(false);
-        }
-    }, []);
-
-    const toggleListening = () => {
-        if (isListening) {
-            recognitionRef.current?.stop();
-            setIsListening(false);
-        } else {
-            recognitionRef.current?.start();
-            setIsListening(true);
-        }
-    };
-
-    const speakResponse = (text: string) => {
+    const speakResponse = React.useCallback((text: string) => {
         if (!text || !voiceEnabled) return;
 
         // Clean markdown for cleaner speech
@@ -152,7 +146,17 @@ export default function ChatInterface() {
         utterance.onerror = () => setIsSpeaking(false);
 
         window.speechSynthesis.speak(utterance);
-    };
+    }, [voiceEnabled]);
+
+    useEffect(() => {
+        scrollToBottom();
+
+        // Handle auto-speech for new assistant messages
+        const lastMessage = messages[messages.length - 1];
+        if (voiceEnabled && lastMessage?.role === 'assistant' && !isSpeaking) {
+            speakResponse(lastMessage.content);
+        }
+    }, [messages, voiceEnabled, isSpeaking, speakResponse]);
 
     const handleSearch = async () => {
         if (!input.trim() || isLoading) return;
@@ -500,7 +504,7 @@ export default function ChatInterface() {
                         initial={{ opacity: 0, x: 50 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
-                        className="fixed z-40 right-[16rem] top-6 w-56 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden pointer-events-auto group/weather"
+                        className="fixed z-40 right-[17rem] top-6 w-56 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden pointer-events-auto group/weather"
                     >
                         {/* Weather Header */}
                         <div className="p-3 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
@@ -509,7 +513,7 @@ export default function ChatInterface() {
                             <span className="text-[10px] font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan">Weather Scan</span>
                         </div>
 
-                        <div className="p-4 flex flex-col gap-3">
+                        <div className="p-3 flex flex-col gap-3">
                             {/* Decorative scan line */}
                             <div className="absolute top-0 left-0 w-full h-0.5 bg-cyan-400/30 animate-[scan_3s_linear_infinite]" />
 
@@ -520,9 +524,9 @@ export default function ChatInterface() {
                                         <motion.div
                                             animate={{ rotate: 360 }}
                                             transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
-                                            className="absolute inset-0 bg-yellow-400/20 blur-2xl rounded-full scale-150"
+                                            className="absolute inset-0 bg-yellow-400/20 blur-2xl rounded-full scale-125"
                                         />
-                                        <Sun className="w-12 h-12 text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)] relative z-10" />
+                                        <Sun className="w-10 h-10 text-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.7)] relative z-10" />
                                     </div>
                                 ) : (
                                     <div className="relative">
@@ -565,10 +569,10 @@ export default function ChatInterface() {
                             {/* Wind speed if available */}
                             {weather?.windspeed && (
                                 <div className="pt-2 border-t border-cyan-500/10 flex justify-between items-center opacity-70">
-                                    <span className="text-[7px] font-mono text-cyan-500 uppercase tracking-tighter">Atmospheric Flow</span>
+                                    <span className="text-[9px] font-mono text-cyan-500 uppercase tracking-tighter">Atmospheric Flow</span>
                                     <div className="flex items-center gap-1">
-                                        <Wind className="w-3 h-3 text-cyan-300" />
-                                        <span className="text-[10px] font-mono font-bold text-white">{weather.windspeed} <span className="text-[7px]">km/h</span></span>
+                                        <Wind className="w-3.5 h-3.5 text-cyan-300" />
+                                        <span className="text-[10px] font-mono font-bold text-white">{weather.windspeed} <span className="text-[8px]">km/h</span></span>
                                     </div>
                                 </div>
                             )}
@@ -613,7 +617,7 @@ export default function ChatInterface() {
                                             </div>
                                             <ReactMarkdown
                                                 components={{
-                                                    strong: ({ node, children, ...props }) => {
+                                                    strong: ({ children, ...props }) => {
                                                         // Simple static hash to ensure the same header gets the same color consistently
                                                         const getHash = (str: string) => {
                                                             let hash = 0;
@@ -637,7 +641,7 @@ export default function ChatInterface() {
                                                             </strong>
                                                         );
                                                     },
-                                                    p: ({ node, children, ...props }) => {
+                                                    p: ({ children, ...props }) => {
                                                         const isImageContainer = React.Children.toArray(children).some(
                                                             (child) => React.isValidElement(child) && (child as React.ReactElement<any>).props.node?.tagName === 'img'
                                                         );
@@ -646,14 +650,14 @@ export default function ChatInterface() {
                                                         }
                                                         return <p className="leading-normal text-gray-200 mb-2 last:mb-0" {...props}>{children}</p>;
                                                     },
-                                                    ul: ({ node, ...props }) => <ul className="list-none space-y-1 mb-2" {...props} />,
-                                                    li: ({ node, ...props }) => (
+                                                    ul: ({ ...props }) => <ul className="list-none space-y-1 mb-2" {...props} />,
+                                                    li: ({ ...props }) => (
                                                         <li className="flex gap-2">
                                                             <span className="text-cyan-500 mt-0.5">▹</span>
                                                             <span className="text-gray-300" {...props} />
                                                         </li>
                                                     ),
-                                                    img: ({ node, ...props }) => {
+                                                    img: ({ ...props }) => {
                                                         const src = typeof props.src === 'string' ? props.src : '';
                                                         const isWikiLogo = src.includes('wikipedia') && src.endsWith('.png');
                                                         if (isWikiLogo) return null; // Filter out rogue wikipedia textual logos
@@ -666,7 +670,7 @@ export default function ChatInterface() {
                                                             </span>
                                                         );
                                                     },
-                                                    a: ({ node, ...props }) => <a className="text-blue-400 hover:text-cyan-300 underline underline-offset-4 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />
+                                                    a: ({ ...props }) => <a className="text-blue-400 hover:text-cyan-300 underline underline-offset-4 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />
                                                 }}
                                             >
                                                 {message.content}
