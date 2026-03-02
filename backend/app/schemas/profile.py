@@ -15,6 +15,8 @@ class ProfileCreate(BaseModel):
     instagram_url: Optional[str] = None
     twitter_url: Optional[str] = None
     linkedin_url: Optional[str] = None
+    spotify_url: Optional[str] = None
+    tiktok_url: Optional[str] = None
     description: Optional[str] = None
     additional_info: Optional[Dict[str, Any]] = None
     similar_profiles: Optional[List[str]] = None
@@ -28,6 +30,8 @@ class ProfileResponse(BaseModel):
     instagram_url: Optional[str] = None
     twitter_url: Optional[str] = None
     linkedin_url: Optional[str] = None
+    spotify_url: Optional[str] = None
+    tiktok_url: Optional[str] = None
     description: Optional[str] = None
     additional_info: Optional[Dict[str, Any]] = None
     similar_profiles: Optional[List[str]] = None
@@ -45,6 +49,8 @@ class SearchResponse(BaseModel):
     instagram_url: Optional[str] = None
     twitter_url: Optional[str] = None
     linkedin_url: Optional[str] = None
+    spotify_url: Optional[str] = None
+    tiktok_url: Optional[str] = None
     description: Optional[str] = None
     additional_info: Optional[Dict[str, Any]] = None
     similar_profiles: Optional[List[str]] = None
