@@ -140,30 +140,49 @@ class SearchService:
             return []
             
     def _is_relevant(self, title: str, snippet: str, query: str) -> bool:
-        """Check if a search result title/snippet actually mentions the person or a closely related typo"""
+        """
+        Check if a search result is actually relevant to the target name.
+        Uses stricter matching to avoid famous-name hallucinations.
+        """
         text = f"{title} {snippet}".lower()
-        query_words = [w for w in query.lower().split() if len(w) > 2] # Ignore short words
+        query = query.lower().strip()
+        query_words = [w for w in query.split() if len(w) > 2]
         
-        # If the exact full query is in the text, it's definitely relevant
-        if query.lower() in text:
+        if not query_words:
+            return query in text
+
+        # 1. Exact Full Name Match (Highest confidence)
+        if query in text:
             return True
             
-        import difflib
-        text_words = text.split()
+        # 2. Split match check:
+        # If the query is "Yiğit Erdoğan", we want BOTH "Yiğit" and "Erdoğan" to be present.
+        # This prevents "Recep Tayyip Erdoğan" matching "Yiğit Erdoğan" just because of the surname.
+        import unicodedata
+        def normalize(t):
+            return "".join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn')
+            
+        text_norm = normalize(text)
+        query_words_norm = [normalize(w) for w in query_words]
         
-        # Check if at least one significant word from the query is exactly in the text,
-        # or has a very close fuzzy match (e.g. 'ekkkin' -> 'ekin').
-        for word in query_words:
-            if word in text:
-                return True
-                
-            # Allow minor typos (like 1 letter difference) for words longer than 3 chars
-            if len(word) >= 4:
-                matches = difflib.get_close_matches(word, text_words, n=1, cutoff=0.8)
-                if matches:
-                    return True
+        # All major components of the name must be present in the text
+        if all(word in text_norm for word in query_words_norm):
+            return True
+            
+        # 3. Fuzzy matching for typos (only if the query is unique enough)
+        import difflib
+        text_words = text_norm.split()
+        matches_found = 0
+        for word in query_words_norm:
+            if word in text_norm:
+                matches_found += 1
+            elif len(word) >= 4:
+                # Check for close matches in any of the title/snippet words
+                if div_matches := difflib.get_close_matches(word, text_words, n=1, cutoff=0.85):
+                    matches_found += 1
                     
-        return False
+        # Require at least 80% of query words to match if they are not all present
+        return matches_found >= len(query_words)
     
     def format_search_results(self, results: List[Dict[str, str]]) -> str:
         """Format search results for AI context"""
