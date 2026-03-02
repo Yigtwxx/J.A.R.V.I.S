@@ -5,6 +5,8 @@ export interface ProfileData {
   instagram_url?: string;
   twitter_url?: string;
   linkedin_url?: string;
+  spotify_url?: string;
+  tiktok_url?: string;
   description?: string;
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
@@ -18,6 +20,8 @@ export interface SearchResponse {
   instagram_url?: string;
   twitter_url?: string;
   linkedin_url?: string;
+  spotify_url?: string;
+  tiktok_url?: string;
   description?: string;
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
