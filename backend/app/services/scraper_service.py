@@ -54,7 +54,7 @@ class ScraperService:
             return False
     
     def _extract_urls_from_yahoo(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
-        """Helper to search Yahoo and extract domain URLs returning up to max_results matches"""
+        """Helper to search Yahoo and extract domain URLs with snippets/bios"""
         results = []
         try:
             logger.log_action("Scanning global networks for targeted node", target=query)
@@ -64,17 +64,29 @@ class ScraperService:
             soup = BeautifulSoup(response.text, 'html.parser')
             
             import urllib.parse
-            # Find all links in Yahoo results
-            links = soup.find_all('a', href=True)
+            # Find result items
+            items = soup.find_all('div', class_='algo')
             
-            for link in links:
-                href = link.get('href', '')
+            for item in items:
+                link_elem = item.find('a', href=True)
+                snippet_elem = item.find('div', class_='compTitle')
+                
+                if not link_elem:
+                    continue
+                    
+                href = link_elem.get('href', '')
                 try:
                     if 'RU=' in href:
                         actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
                         if re.search(domain_pattern, actual_url, re.IGNORECASE):
-                            if actual_url not in results:
-                                results.append(actual_url)
+                            if not any(r['url'] == actual_url for r in results):
+                                # Extract snippet as bio
+                                snippet = ""
+                                sibling = snippet_elem.find_next_sibling('div') if snippet_elem else None
+                                if sibling:
+                                    snippet = sibling.text.strip()
+                                
+                                results.append({"url": actual_url, "bio": snippet})
                             if len(results) >= max_results:
                                 break
                 except IndexError:
@@ -86,125 +98,126 @@ class ScraperService:
             logger.log_error(f"Network scan failed during {query} extraction: {e}")
             return []
 
-    def find_instagram_profile(self, name: str) -> Optional[str]:
-        """Try to find Instagram profile URLs"""
+    def find_instagram_profile(self, name: str) -> list:
+        """Try to find Instagram profile URLs and bios"""
         query = f"{name} instagram"
-        urls = self._extract_urls_from_yahoo(query, r'instagram\.com/([a-zA-Z0-9._]+)')
-        valid_urls = []
-        for url in urls:
+        items = self._extract_urls_from_yahoo(query, r'instagram\.com/([a-zA-Z0-9._]+)')
+        valid_profiles = []
+        for item in items:
+            url = item['url']
             match = re.search(r'instagram\.com/([a-zA-Z0-9._]+)', url)
             if match and match.group(1) not in ['p', 'reel', 'explore', 'tags']:
                 u = f"https://www.instagram.com/{match.group(1)}/"
-                if u not in valid_urls and self._is_url_active(u): 
-                    valid_urls.append(u)
-        return ", ".join(valid_urls) if valid_urls else None
+                if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u): 
+                    valid_profiles.append({"url": u, "bio": item['bio']})
+        return valid_profiles
     
-    def find_twitter_profile(self, name: str) -> Optional[str]:
-        """Try to find X (Twitter) profile URLs"""
+    def find_twitter_profile(self, name: str) -> list:
+        """Try to find X (Twitter) profile URLs and bios"""
         query = f"{name} twitter"
-        urls = self._extract_urls_from_yahoo(query, r'(twitter|x)\.com/([a-zA-Z0-9_]+)')
-        valid_urls = []
-        for url in urls:
+        items = self._extract_urls_from_yahoo(query, r'(twitter|x)\.com/([a-zA-Z0-9_]+)')
+        valid_profiles = []
+        for item in items:
+             url = item['url']
              match = re.search(r'(twitter|x)\.com/([a-zA-Z0-9_]+)', url)
              if match:
                  u = f"https://x.com/{match.group(2)}"
-                 if u not in valid_urls and self._is_url_active(u): 
-                     valid_urls.append(u)
-        return ", ".join(valid_urls) if valid_urls else None
+                 if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u): 
+                     valid_profiles.append({"url": u, "bio": item['bio']})
+        return valid_profiles
     
-    def find_linkedin_profile(self, name: str) -> Optional[str]:
-        """Try to find LinkedIn profile URLs"""
+    def find_linkedin_profile(self, name: str) -> list:
+        """Try to find LinkedIn profile URLs and bios"""
         query = f"{name} linkedin"
-        urls = self._extract_urls_from_yahoo(query, r'linkedin\.com/in/([a-zA-Z0-9-]+)')
-        valid_urls = []
-        for url in urls:
+        items = self._extract_urls_from_yahoo(query, r'linkedin\.com/in/([a-zA-Z0-9-]+)')
+        valid_profiles = []
+        for item in items:
+            url = item['url']
             match = re.search(r'linkedin\.com/in/([a-zA-Z0-9-]+)', url)
             if match:
                 u = f"https://www.linkedin.com/in/{match.group(1)}/"
-                if u not in valid_urls and self._is_url_active(u): 
-                    valid_urls.append(u)
-        return ", ".join(valid_urls) if valid_urls else None
+                if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u): 
+                    valid_profiles.append({"url": u, "bio": item['bio']})
+        return valid_profiles
 
-    def find_spotify_profile(self, name: str) -> Optional[str]:
-        """Try to find Spotify profile URLs"""
+    def find_spotify_profile(self, name: str) -> list:
+        """Try to find Spotify profile URLs and bios"""
         query = f"{name} spotify profile"
-        urls = self._extract_urls_from_yahoo(query, r'open\.spotify\.com/(user|artist)/([a-zA-Z0-9._-]+)')
-        valid_urls = []
-        for url in urls:
+        items = self._extract_urls_from_yahoo(query, r'open\.spotify\.com/(user|artist)/([a-zA-Z0-9._-]+)')
+        valid_profiles = []
+        for item in items:
+            url = item['url']
             match = re.search(r'open\.spotify\.com/(user|artist)/([a-zA-Z0-9._-]+)', url)
             if match:
                 u = f"https://open.spotify.com/{match.group(1)}/{match.group(2)}"
-                if u not in valid_urls and self._is_url_active(u): 
-                    valid_urls.append(u)
-        return ", ".join(valid_urls) if valid_urls else None
+                if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u): 
+                    valid_profiles.append({"url": u, "bio": item['bio']})
+        return valid_profiles
 
-    def find_tiktok_profile(self, name: str) -> Optional[str]:
-        """Try to find TikTok profile URLs"""
+    def find_tiktok_profile(self, name: str) -> list:
+        """Try to find TikTok profile URLs and bios"""
         query = f"{name} tiktok"
-        urls = self._extract_urls_from_yahoo(query, r'tiktok\.com/@([a-zA-Z0-9._-]+)')
-        valid_urls = []
-        for url in urls:
+        items = self._extract_urls_from_yahoo(query, r'tiktok\.com/@([a-zA-Z0-9._-]+)')
+        valid_profiles = []
+        for item in items:
+            url = item['url']
             match = re.search(r'tiktok\.com/@([a-zA-Z0-9._-]+)', url)
             if match:
                 u = f"https://www.tiktok.com/@{match.group(1)}"
-                if u not in valid_urls and self._is_url_active(u): 
-                    valid_urls.append(u)
-        return ", ".join(valid_urls) if valid_urls else None
+                if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u): 
+                    valid_profiles.append({"url": u, "bio": item['bio']})
+        return valid_profiles
     
-    def find_all_profiles(self, name: str) -> Dict[str, Optional[str]]:
-        """Find all social media profiles for a person"""
+    def find_all_profiles(self, name: str) -> Dict[str, list]:
+        """Find all social media profiles and bios for a person"""
         import time
         logger.log_thought(f"Initiating deep-web scraping protocol for entity: {name}")
         
         profiles = {
-            'instagram': None,
-            'twitter': None,
-            'linkedin': None,
-            'spotify': None,
-            'tiktok': None
+            'instagram': [],
+            'twitter': [],
+            'linkedin': [],
+            'spotify': [],
+            'tiktok': []
         }
         
         profiles['instagram'] = self.find_instagram_profile(name)
-        if profiles['instagram']: logger.log_success(f"Instagram profile correlated: {profiles['instagram']}")
+        if profiles['instagram']: logger.log_success(f"Instagram profile correlated: {len(profiles['instagram'])} found")
         time.sleep(1)
         
         profiles['twitter'] = self.find_twitter_profile(name)
-        if profiles['twitter']: logger.log_success(f"X (Twitter) profile correlated: {profiles['twitter']}")
+        if profiles['twitter']: logger.log_success(f"X (Twitter) profile correlated: {len(profiles['twitter'])} found")
         time.sleep(1)
         
         profiles['linkedin'] = self.find_linkedin_profile(name)
-        if profiles['linkedin']: logger.log_success(f"LinkedIn profile correlated: {profiles['linkedin']}")
+        if profiles['linkedin']: logger.log_success(f"LinkedIn profile correlated: {len(profiles['linkedin'])} found")
         time.sleep(1)
-
+ 
         profiles['spotify'] = self.find_spotify_profile(name)
-        if profiles['spotify']: logger.log_success(f"Spotify profile correlated: {profiles['spotify']}")
+        if profiles['spotify']: logger.log_success(f"Spotify profile correlated: {len(profiles['spotify'])} found")
         time.sleep(1)
-
+ 
         profiles['tiktok'] = self.find_tiktok_profile(name)
-        if profiles['tiktok']: logger.log_success(f"TikTok profile correlated: {profiles['tiktok']}")
+        if profiles['tiktok']: logger.log_success(f"TikTok profile correlated: {len(profiles['tiktok'])} found")
         
         return profiles
     
-    def format_social_profiles(self, profiles: Dict[str, Optional[str]]) -> str:
-        """Format social media profiles for AI context"""
-        formatted = "Social Media Profiles:\n"
+    def format_social_profiles(self, profiles: Dict[str, list]) -> str:
+        """Format social media profiles and their bios for AI context"""
+        formatted = "Social Media Profiles and Bios:\n"
         
-        if profiles.get('instagram'):
-            formatted += f"Instagram: {profiles['instagram']}\n"
+        found_any = False
+        for platform, items in profiles.items():
+            if items:
+                found_any = True
+                formatted += f"[{platform.upper()}]\n"
+                for item in items:
+                    formatted += f"- URL: {item['url']}\n"
+                    if item.get('bio'):
+                        formatted += f"  Bio/Snippet: {item['bio']}\n"
+                formatted += "\n"
         
-        if profiles.get('twitter'):
-            formatted += f"X (Twitter): {profiles['twitter']}\n"
-        
-        if profiles.get('linkedin'):
-            formatted += f"LinkedIn: {profiles['linkedin']}\n"
-        
-        if profiles.get('spotify'):
-            formatted += f"Spotify: {profiles['spotify']}\n"
-        
-        if profiles.get('tiktok'):
-            formatted += f"TikTok: {profiles['tiktok']}\n"
-        
-        if not any(profiles.values()):
+        if not found_any:
             formatted += "No social media profiles found.\n"
         
         return formatted
