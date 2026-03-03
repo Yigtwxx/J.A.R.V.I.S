@@ -16,7 +16,7 @@ class AIService:
     
     def __init__(self):
         self.model = settings.ollama_model
-        self.client = ollama
+        self.client = ollama.AsyncClient()
     
     async def generate_response(self, prompt: str, context: Dict[str, Any] = None) -> str:
         """
@@ -28,14 +28,22 @@ class AIService:
             full_prompt = self._build_prompt(prompt, context)
             
             logger.log_action("Interrogating local AI models", target=self.model)
-            # Call Ollama
-            response = self.client.generate(
+            # Call Ollama with streaming enabled
+            stream = await self.client.generate(
                 model=self.model,
-                prompt=full_prompt
+                prompt=full_prompt,
+                stream=True
             )
             
+            full_response = ""
+            async for chunk in stream:
+                token = chunk['response']
+                full_response += token
+                # Stream directly to the frontend HUD
+                logger.stream_token(token)
+            
             logger.log_success("Model response synthesized.")
-            return response['response']
+            return full_response
         
         except Exception as e:
             logger.log_error(f"Core failure during model synthesis: {str(e)}")
@@ -120,6 +128,7 @@ extract and return ONLY a JSON object with these fields:
 - capital_city: string (capital of that country)
 - social_media_score: integer (0-100, estimate based on number of linked accounts and recency of posts/activity)
 - last_activity_summary: string (brief 2-4 word summary of when they were last active, e.g., "Active today", "Active last week", "No recent activity")
+- cross_validation_issues: array of strings (Identify any significant inconsistencies across different data sources. E.g., 'GitHub location is Turkey but LinkedIn says USA' or 'Web results indicate doctor, GitHub indicates programmer'. If all sources match and refer to the same person, return an empty array [])
 
 Previous Information:
 {ai_response}
@@ -128,7 +137,7 @@ Return ONLY valid JSON, no other text."""
         
         try:
             logger.log_thought("Attempting to parse bio-data and network nodes from unstructured text...")
-            response = self.client.generate(
+            response = await self.client.generate(
                 model=self.model,
                 prompt=extraction_prompt
             )
@@ -152,7 +161,8 @@ Return ONLY valid JSON, no other text."""
             return {
                 "name": query,
                 "description": ai_response[:500],
-                "similar_profiles": []
+                "similar_profiles": [],
+                "cross_validation_issues": []
             }
         
         except Exception as e:
@@ -160,5 +170,6 @@ Return ONLY valid JSON, no other text."""
             return {
                 "name": query,
                 "description": ai_response[:500] if ai_response else "",
-                "similar_profiles": []
+                "similar_profiles": [],
+                "cross_validation_issues": []
             }
