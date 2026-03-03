@@ -44,6 +44,22 @@ class JarvisLogger:
             except Exception:
                 pass
 
+    def stream_token(self, token: str):
+        """Push a raw stream token directly to frontend without regex stripping"""
+        escaped_token = token.replace('\n', '\\n')
+        msg = f"[STREAM] {escaped_token}"
+        for queue in self.subscribers:
+            try:
+                loop = None
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    pass
+                if loop and loop.is_running():
+                    loop.call_soon_threadsafe(queue.put_nowait, msg)
+            except Exception:
+                pass
+
     def print_header(self):
         """Print the JARVIS startup header"""
         console.clear()
