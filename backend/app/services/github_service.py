@@ -15,12 +15,13 @@ class GitHubService:
     
     def __init__(self):
         self.base_url = "https://api.github.com"
-        self.headers = {
+        self.session = requests.Session()
+        self.session.headers.update({
             'Accept': 'application/vnd.github.v3+json',
-        }
+        })
         
         if settings.github_token:
-            self.headers['Authorization'] = f'token {settings.github_token}'
+            self.session.headers['Authorization'] = f'token {settings.github_token}'
             logger.log_success("GitHub authentication protocol loaded.")
     
     def search_user(self, username: str) -> Optional[Dict]:
@@ -40,7 +41,7 @@ class GitHubService:
             search_url = f"{self.base_url}/search/users"
             params = {'q': username, 'per_page': 1}
             
-            response = requests.get(search_url, headers=self.headers, params=params, timeout=10)
+            response = requests.get(search_url, headers=self.session.headers, params=params, timeout=10)
             response.raise_for_status()
             
             data = response.json()
@@ -61,7 +62,7 @@ class GitHubService:
         try:
             logger.log_action("Downloading profile schematics", target=username)
             user_url = f"{self.base_url}/users/{username}"
-            response = requests.get(user_url, headers=self.headers, timeout=10)
+            response = self.session.get(user_url, timeout=10)
             
             if response.status_code == 404:
                 return None
@@ -104,7 +105,7 @@ class GitHubService:
                 'per_page': max_repos
             }
             
-            response = requests.get(repos_url, headers=self.headers, params=params, timeout=10)
+            response = self.session.get(repos_url, params=params, timeout=10)
             response.raise_for_status()
             
             repos_data = response.json()
