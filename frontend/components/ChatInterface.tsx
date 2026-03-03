@@ -677,10 +677,28 @@ export default function ChatInterface() {
                                                         if (isWikiLogo) return null; // Filter out rogue wikipedia textual logos
                                                         return (
                                                             <span className="inline-block shrink-0 rounded-2xl overflow-hidden border-2 border-cyan-500/50 w-32 h-32 sm:w-40 sm:h-40 shadow-[0_0_20px_rgba(0,255,255,0.25)] ring-1 ring-cyan-300/20 transition-transform hover:scale-105">
-                                                                <img className="w-full h-full object-cover object-top" {...props} alt={props.alt || "Profile Image"} onError={(e) => {
-                                                                    const parent = (e.target as HTMLImageElement).parentElement;
-                                                                    if (parent) parent.style.display = 'none';
-                                                                }} />
+                                                                <img
+                                                                    className="w-full h-full object-cover object-top"
+                                                                    {...props}
+                                                                    alt={props.alt || "Profile Image"}
+                                                                    onLoad={(e) => {
+                                                                        const target = e.target as HTMLImageElement;
+                                                                        // unavatar.io default generic fallback images usually render at 400x400 dimension exactly
+                                                                        if (target.src.includes('unavatar.io') && target.naturalWidth === 400 && target.naturalHeight === 400) {
+                                                                            const spanWrapper = target.parentElement;
+                                                                            if (spanWrapper) spanWrapper.style.display = 'none';
+                                                                            target.style.display = 'none';
+                                                                        }
+                                                                    }}
+                                                                    onError={(e) => {
+                                                                        const target = e.target as HTMLImageElement;
+                                                                        const spanWrapper = target.parentElement;
+                                                                        if (spanWrapper) {
+                                                                            spanWrapper.style.display = 'none';
+                                                                        }
+                                                                        target.style.display = 'none';
+                                                                    }}
+                                                                />
                                                             </span>
                                                         );
                                                     },
