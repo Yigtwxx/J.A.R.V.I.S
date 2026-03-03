@@ -20,9 +20,12 @@ class WeatherService:
                 
             logger.log_thought(f"Scanning atmospheric conditions for metropolitan hub: {city}")
             
-            # 1. Geocoding: Get lat/long for the city
+            # Sanitize the city name
+            search_city = city.split(',')[0].strip()
+            search_city = search_city.replace(' D.C.', '').replace(' D.C', '')
+            
             geo_params = {
-                "name": city,
+                "name": search_city,
                 "count": 1,
                 "language": "en",
                 "format": "json"
@@ -32,7 +35,7 @@ class WeatherService:
             geo_data = geo_res.json()
             
             if not geo_data.get('results'):
-                logger.log_warning(f"Metropolitan hub {city} not found in global coordinate grid.")
+                logger.log_warning(f"Metropolitan hub {city} (search: {search_city}) not found in global coordinate grid.")
                 return None
                 
             location = geo_data['results'][0]
