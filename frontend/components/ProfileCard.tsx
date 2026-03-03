@@ -9,7 +9,7 @@ interface ProfileCardProps {
     profile: SearchResponse;
 }
 
-export default function ProfileCard({ profile }: ProfileCardProps) {
+function ProfileCard({ profile }: ProfileCardProps) {
 
     return (
         <motion.div
@@ -92,3 +92,5 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
         </motion.div>
     );
 }
+
+export default React.memo(ProfileCard);
