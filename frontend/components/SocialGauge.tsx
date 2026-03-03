@@ -9,7 +9,7 @@ interface SocialGaugeProps {
     lastActive?: string;
 }
 
-export default function SocialGauge({ score, lastActive }: SocialGaugeProps) {
+function SocialGauge({ score, lastActive }: SocialGaugeProps) {
     const [animatedScore, setAnimatedScore] = useState(0);
 
     // Provide default values if missing
@@ -64,7 +64,7 @@ export default function SocialGauge({ score, lastActive }: SocialGaugeProps) {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
-            className={`fixed z-40 right-6 bottom-32 w-56 glass-strong rounded-[1.5rem] border border-white/5 bg-black/40 backdrop-blur-xl flex flex-col overflow-hidden pointer-events-auto group/gauge ${glowClass} transition-shadow duration-1000`}
+            className={`fixed z-40 right-6 bottom-6 w-56 glass-strong rounded-[1.5rem] border border-white/5 bg-black/40 backdrop-blur-xl flex flex-col overflow-hidden pointer-events-auto group/gauge ${glowClass} transition-shadow duration-1000`}
         >
             {/* Header */}
             <div className="p-3 border-b border-white/10 bg-black/40 flex items-center gap-2 relative overflow-hidden">
@@ -151,3 +151,5 @@ export default function SocialGauge({ score, lastActive }: SocialGaugeProps) {
         </motion.div>
     );
 }
+
+export default React.memo(SocialGauge);
