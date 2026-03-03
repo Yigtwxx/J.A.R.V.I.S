@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { SearchResponse } from '@/types/profile';
-import { User, Users, ChevronRight, Activity } from 'lucide-react';
+import { User, Users, ChevronRight, Activity, AlertTriangle } from 'lucide-react';
 
 interface ProfileCardProps {
     profile: SearchResponse;
@@ -62,6 +62,31 @@ function ProfileCard({ profile }: ProfileCardProps) {
                             <p className="text-slate-100 font-medium text-[15px] pl-6 border-l-2 border-cyan-500/30 ml-2 leading-relaxed">
                                 {profile.description}
                             </p>
+                        </div>
+                    )}
+
+                    {/* Cross Validation Warnings */}
+                    {profile.cross_validation_issues && profile.cross_validation_issues.length > 0 && (
+                        <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-5 relative overflow-hidden group/warning">
+                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/50 to-transparent" />
+                            <div className="flex items-start gap-4 relative z-10">
+                                <div className="p-2 bg-orange-500/20 rounded-lg shrink-0 mt-0.5 border border-orange-500/20">
+                                    <AlertTriangle className="w-5 h-5 text-orange-400 group-hover/warning:animate-pulse" />
+                                </div>
+                                <div className="space-y-3 flex-1">
+                                    <h4 className="text-orange-400 font-orbitron font-bold text-sm tracking-[0.1em] uppercase drop-shadow-md">
+                                        Data Integrity Warning
+                                    </h4>
+                                    <ul className="space-y-2">
+                                        {profile.cross_validation_issues.map((issue, idx) => (
+                                            <li key={idx} className="flex gap-2 text-orange-200/90 text-sm leading-relaxed">
+                                                <span className="text-orange-500 font-bold mt-0.5">›</span>
+                                                {issue}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                     )}
 
