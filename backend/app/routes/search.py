@@ -16,6 +16,65 @@ scraper_service = ScraperService()
 weather_service = WeatherService()
 
 
+def cross_validate(github_data: dict, social_profiles: dict, web_results: str, real_name: str) -> list[str]:
+    """
+    Algorithmically cross-validate data from different sources.
+    Returns a list of detected inconsistency strings.
+    """
+    issues = []
+
+    # --- 1. GitHub Location vs Web Results Location ---
+    if github_data:
+        gh_location = (github_data.get('location') or '').strip().lower()
+        if gh_location and web_results:
+            # Check if GitHub's stated location appears anywhere in web results
+            web_lower = web_results.lower()
+            if gh_location and len(gh_location) > 2 and gh_location not in web_lower:
+                issues.append(
+                    f"GitHub location is '{github_data.get('location')}' but web search results don't mention this location."
+                )
+
+    # --- 2. GitHub Display Name vs Searched Name ---
+    if github_data:
+        gh_name = (github_data.get('name') or '').strip().lower()
+        search_name_lower = real_name.strip().lower()
+        if gh_name and search_name_lower:
+            # Check if the names share any common word (at least one word overlap)
+            gh_words = set(gh_name.split())
+            search_words = set(search_name_lower.split())
+            if gh_words and search_words and not gh_words.intersection(search_words):
+                issues.append(
+                    f"GitHub display name '{github_data.get('name')}' has no common words with searched name '{real_name}'. Possible identity mismatch."
+                )
+
+    # --- 3. Social media platform count vs web presence ---
+    found_platforms = [k for k, v in social_profiles.items() if v]
+    if not found_platforms and web_results and len(web_results) > 500:
+        issues.append(
+            "No social media profiles were found, but significant web results exist. The person may use different usernames online."
+        )
+
+    # --- 4. GitHub bio vs social media bio mismatch ---
+    if github_data:
+        gh_bio = (github_data.get('bio') or '').strip().lower()
+        if gh_bio and len(gh_bio) > 10:
+            # Check if LinkedIn profiles exist and if there's a role keyword mismatch
+            linkedin_profiles = social_profiles.get('linkedin', [])
+            if linkedin_profiles:
+                linkedin_url = linkedin_profiles[0].get('url', '').lower()
+                # Simple heuristic: if GitHub bio says "student" but LinkedIn suggests professional role
+                student_keywords = ['student', 'öğrenci', 'university', 'üniversite']
+                pro_keywords = ['ceo', 'founder', 'engineer', 'manager', 'director', 'lead']
+                is_student_gh = any(kw in gh_bio for kw in student_keywords)
+                is_pro_gh = any(kw in gh_bio for kw in pro_keywords)
+                if is_student_gh and is_pro_gh:
+                    issues.append(
+                        f"GitHub bio contains both student and professional keywords, which may indicate outdated profile information."
+                    )
+
+    return issues
+
+
 @router.post("/", response_model=SearchResponse)
 async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
     """
@@ -123,6 +182,13 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         # 5. Extract structured data
         structured_data = await ai_service.extract_profile_data(ai_response, real_name)
         
+        # 5.1 Algorithmic Cross-Validation (merge with AI-detected issues)
+        algo_issues = cross_validate(github_data or {}, social_profiles, web_results or '', real_name)
+        ai_issues = structured_data.get('cross_validation_issues', [])
+        # Merge and deduplicate
+        all_issues = list(dict.fromkeys(algo_issues + ai_issues))
+        logger.log_action(f"Cross-validation complete: {len(all_issues)} issue(s) detected")
+        
         # 5.5 Fetch Weather for guessed location
         weather_info = None
         if structured_data.get('capital_city'):
@@ -144,6 +210,7 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             last_activity_summary=structured_data.get('last_activity_summary'),
             description=structured_data.get('description'),
             similar_profiles=structured_data.get('similar_profiles', []),
+            cross_validation_issues=all_issues,
             sources=raw_sources,
             ai_response=ai_response
         )
