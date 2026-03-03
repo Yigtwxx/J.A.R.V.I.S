@@ -86,6 +86,7 @@ class GitHubService:
                 'following': user_data.get('following'),
                 'profile_url': user_data.get('html_url'),
                 'avatar_url': user_data.get('avatar_url'),
+                'last_active': user_data.get('updated_at'),
                 'repositories': repos
             }
         
@@ -115,7 +116,8 @@ class GitHubService:
                     'description': repo.get('description'),
                     'url': repo.get('html_url'),
                     'stars': repo.get('stargazers_count'),
-                    'language': repo.get('language')
+                    'language': repo.get('language'),
+                    'updated_at': repo.get('updated_at')
                 })
             
             return repos
@@ -147,6 +149,9 @@ class GitHubService:
         formatted += f"Public Repos: {github_data.get('public_repos', 0)}\n"
         formatted += f"Followers: {github_data.get('followers', 0)}\n"
         
+        if github_data.get('last_active'):
+            formatted += f"Last Account Activity: {github_data['last_active']}\n"
+        
         if github_data.get('repositories'):
             formatted += "\nTop Repositories:\n"
             for repo in github_data['repositories']:
@@ -155,6 +160,8 @@ class GitHubService:
                     formatted += f" ({repo['language']})"
                 if repo.get('stars'):
                     formatted += f" - ⭐ {repo['stars']}"
+                if repo.get('updated_at'):
+                    formatted += f" [Last updated: {repo['updated_at']}]"
                 formatted += "\n"
                 if repo.get('description'):
                     formatted += f"    {repo['description']}\n"
