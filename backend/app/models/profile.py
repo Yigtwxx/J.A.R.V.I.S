@@ -23,6 +23,7 @@ class Profile(Base):
     description = Column(Text, nullable=True)
     additional_info = Column(JSON, nullable=True)  # Flexible JSON field
     similar_profiles = Column(JSON, nullable=True)  # List of similar people
+    cross_validation_issues = Column(JSON, nullable=True)  # List of data inconsistencies
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
