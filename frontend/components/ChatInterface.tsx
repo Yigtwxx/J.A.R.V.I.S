@@ -6,6 +6,7 @@ import { Send, Loader2, TerminalSquare, Save, CheckCircle, History, Trash2, Cloc
 import { searchPerson, saveProfile, getSearchHistory, deleteHistoryItem } from '@/services/api';
 import { Message, SearchResponse, SearchHistoryItem } from '@/types/profile';
 import ProfileCard from './ProfileCard';
+import SocialGauge from './SocialGauge';
 import LoadingAnimation from './LoadingAnimation';
 import ReactMarkdown from 'react-markdown';
 
@@ -581,6 +582,19 @@ export default function ChatInterface() {
                             <div className="absolute inset-0 border-2 border-transparent group-hover/weather:border-cyan-400/20 rounded-2xl transition-all duration-500" />
                         </div>
                     </motion.div>
+                );
+            })()}
+
+            {/* Social Gauge Widget */}
+            {(() => {
+                const lastProfile = [...messages].reverse().find(m => m.role === 'assistant' && m.profileData)?.profileData;
+                if (!lastProfile || typeof lastProfile.social_media_score === 'undefined') return null;
+
+                return (
+                    <SocialGauge
+                        score={lastProfile.social_media_score}
+                        lastActive={lastProfile.last_activity_summary}
+                    />
                 );
             })()}
 
