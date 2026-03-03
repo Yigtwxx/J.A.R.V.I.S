@@ -118,6 +118,8 @@ extract and return ONLY a JSON object with these fields:
 - similar_profiles: array of strings (names of similar people)
 - estimated_location: string (guessed country)
 - capital_city: string (capital of that country)
+- social_media_score: integer (0-100, estimate based on number of linked accounts and recency of posts/activity)
+- last_activity_summary: string (brief 2-4 word summary of when they were last active, e.g., "Active today", "Active last week", "No recent activity")
 
 Previous Information:
 {ai_response}
