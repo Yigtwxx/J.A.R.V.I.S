@@ -36,6 +36,7 @@ export default function ChatInterface() {
     const [voiceEnabled, setVoiceEnabled] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [liveStatus, setLiveStatus] = useState<string[]>([]);
+    const [streamingContent, setStreamingContent] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const recognitionRef = useRef<any>(null);
 
@@ -100,20 +101,30 @@ export default function ChatInterface() {
 
         if (isLoading) {
             setLiveStatus(["Establishing secure link..."]);
+            setStreamingContent('');
             // Use window.location.hostname to be dynamic if needed, but localhost:8000 is default for backend
             eventSource = new EventSource('http://localhost:8000/api/status/stream');
 
             eventSource.onmessage = (event) => {
-                setLiveStatus(prev => {
-                    // Keep only last 12 entries for clean HUD
-                    const newStatus = [...prev, event.data].slice(-12);
-                    return newStatus;
-                });
+                const data = event.data as string;
+                if (data.startsWith('[STREAM] ')) {
+                    const token = data.substring(9); // remove "[STREAM] "
+                    // Keep replacing \n with actual newlines if any are escaped
+                    setStreamingContent(prev => prev + token.replace(/\\n/g, '\n'));
+                } else {
+                    setLiveStatus(prev => {
+                        // Keep only last 12 entries for clean HUD
+                        const newStatus = [...prev, data].slice(-12);
+                        return newStatus;
+                    });
+                }
             };
 
             eventSource.onerror = () => {
                 eventSource?.close();
             };
+        } else {
+            setStreamingContent('');
         }
 
         return () => {
@@ -157,7 +168,7 @@ export default function ChatInterface() {
         if (voiceEnabled && lastMessage?.role === 'assistant' && !isSpeaking) {
             speakResponse(lastMessage.content);
         }
-    }, [messages, voiceEnabled, isSpeaking, speakResponse]);
+    }, [messages, streamingContent, voiceEnabled, isSpeaking, speakResponse]);
 
     const handleSearch = async () => {
         if (!input.trim() || isLoading) return;
@@ -174,6 +185,7 @@ export default function ChatInterface() {
         try {
             const response = await searchPerson(input.trim());
 
+            // The full response replaces the streaming content
             const assistantMessage: Message = {
                 role: 'assistant',
                 content: response.ai_response,
@@ -181,9 +193,11 @@ export default function ChatInterface() {
             };
 
             setMessages(prev => [...prev, assistantMessage]);
+            setStreamingContent('');
             loadHistory(); // Refresh history after new search
 
         } catch (error: unknown) {
+            setStreamingContent('');
             const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
             const errorMessage: Message = {
                 role: 'assistant',
@@ -207,7 +221,8 @@ export default function ChatInterface() {
                 tiktok_url: profileToSave.tiktok_url,
                 description: profileToSave.description,
                 additional_info: profileToSave.additional_info,
-                similar_profiles: profileToSave.similar_profiles
+                similar_profiles: profileToSave.similar_profiles,
+                cross_validation_issues: profileToSave.cross_validation_issues
             });
 
             setMessages(prev => {
@@ -736,9 +751,35 @@ export default function ChatInterface() {
                                 )}
                             </motion.div>
                         ))}
+
+                        {/* Live Streaming Message Bubble */}
+                        {isLoading && streamingContent && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex justify-start"
+                            >
+                                <div className="w-full max-w-3xl space-y-6">
+                                    <div className="message-bubble message-ai text-white font-mono text-[15px] leading-normal tracking-wide shadow-lg border-l-4 border-cyan-400 relative">
+                                        <div className="flex items-center gap-2 mb-3 text-cyan-400 font-bold pb-2 border-b border-cyan-500/30">
+                                            <TerminalSquare className="w-5 h-5 glow-cyan animate-pulse" />
+                                            <span className="text-sm uppercase tracking-[0.2em] glow-cyan">Receiving Transmission...</span>
+                                        </div>
+                                        <ReactMarkdown
+                                            components={{
+                                                p: ({ children, ...props }) => <p className="leading-normal text-gray-200 mb-2 last:mb-0" {...props}>{children}</p>,
+                                            }}
+                                        >
+                                            {streamingContent}
+                                        </ReactMarkdown>
+                                        <span className="inline-block w-2.5 h-4 ml-1 bg-cyan-400 animate-pulse align-middle shadow-[0_0_8px_cyan]" />
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
                     </AnimatePresence>
 
-                    {isLoading && (
+                    {isLoading && !streamingContent && (
                         <motion.div
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
