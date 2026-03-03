@@ -8,6 +8,7 @@ class WeatherService:
     def __init__(self):
         self.geo_url = "https://geocoding-api.open-meteo.com/v1/search"
         self.weather_url = "https://api.open-meteo.com/v1/forecast"
+        self.session = requests.Session()
     
     def get_weather(self, city: str) -> Optional[Dict[str, Any]]:
         """
@@ -31,7 +32,7 @@ class WeatherService:
                 "format": "json"
             }
             
-            geo_res = requests.get(self.geo_url, params=geo_params, timeout=5)
+            geo_res = self.session.get(self.geo_url, params=geo_params, timeout=5)
             geo_data = geo_res.json()
             
             if not geo_data.get('results'):
@@ -51,7 +52,7 @@ class WeatherService:
                 "timezone": "auto"
             }
             
-            weather_res = requests.get(self.weather_url, params=weather_params, timeout=5)
+            weather_res = self.session.get(self.weather_url, params=weather_params, timeout=5)
             weather_data = weather_res.json()
             
             if 'current_weather' not in weather_data:
