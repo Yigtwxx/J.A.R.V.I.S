@@ -3,7 +3,9 @@ from bs4 import BeautifulSoup
 from typing import Optional, Dict
 from app.jarvis_logger import logger
 import re
+import urllib.parse
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -13,18 +15,16 @@ class ScraperService:
     """Service for scraping social media profiles"""
     
     def __init__(self):
-        self.headers = {
+        self.session = requests.Session()
+        self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
+        })
     
     def _is_url_active(self, url: str) -> bool:
         """Check if a URL is active (returns 200 OK and isn't a known error/login page)"""
         try:
-            # Add specific headers to mimic a browser better
-            check_headers = self.headers.copy()
-            
             # For social media, we often get 200 but on a 'login' or 'not found' page
-            response = requests.get(url, headers=check_headers, timeout=7, allow_redirects=True)
+            response = self.session.get(url, timeout=7, allow_redirects=True)
             
             if response.status_code != 200:
                 return False
@@ -58,12 +58,11 @@ class ScraperService:
         results = []
         try:
             logger.log_action("Scanning global networks for targeted node", target=query)
-            search_url = f"https://search.yahoo.com/search?p={requests.utils.quote(query)}"
+            search_url = f"https://search.yahoo.com/search?p={urllib.parse.quote(query)}"
             
-            response = requests.get(search_url, headers=self.headers, timeout=10)
+            response = self.session.get(search_url, timeout=10)
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            import urllib.parse
             # Find result items
             items = soup.find_all('div', class_='algo')
             
@@ -169,36 +168,30 @@ class ScraperService:
         return valid_profiles
     
     def find_all_profiles(self, name: str) -> Dict[str, list]:
-        """Find all social media profiles and bios for a person"""
-        import time
+        """Find all social media profiles and bios for a person (PARALLEL)"""
         logger.log_thought(f"Initiating deep-web scraping protocol for entity: {name}")
         
-        profiles = {
-            'instagram': [],
-            'twitter': [],
-            'linkedin': [],
-            'spotify': [],
-            'tiktok': []
+        platform_fns = {
+            'instagram': self.find_instagram_profile,
+            'twitter': self.find_twitter_profile,
+            'linkedin': self.find_linkedin_profile,
+            'spotify': self.find_spotify_profile,
+            'tiktok': self.find_tiktok_profile,
         }
         
-        profiles['instagram'] = self.find_instagram_profile(name)
-        if profiles['instagram']: logger.log_success(f"Instagram profile correlated: {len(profiles['instagram'])} found")
-        time.sleep(1)
+        profiles: Dict[str, list] = {k: [] for k in platform_fns}
         
-        profiles['twitter'] = self.find_twitter_profile(name)
-        if profiles['twitter']: logger.log_success(f"X (Twitter) profile correlated: {len(profiles['twitter'])} found")
-        time.sleep(1)
-        
-        profiles['linkedin'] = self.find_linkedin_profile(name)
-        if profiles['linkedin']: logger.log_success(f"LinkedIn profile correlated: {len(profiles['linkedin'])} found")
-        time.sleep(1)
- 
-        profiles['spotify'] = self.find_spotify_profile(name)
-        if profiles['spotify']: logger.log_success(f"Spotify profile correlated: {len(profiles['spotify'])} found")
-        time.sleep(1)
- 
-        profiles['tiktok'] = self.find_tiktok_profile(name)
-        if profiles['tiktok']: logger.log_success(f"TikTok profile correlated: {len(profiles['tiktok'])} found")
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {executor.submit(fn, name): platform for platform, fn in platform_fns.items()}
+            for future in as_completed(futures):
+                platform = futures[future]
+                try:
+                    result = future.result()
+                    profiles[platform] = result
+                    if result:
+                        logger.log_success(f"{platform.capitalize()} profile correlated: {len(result)} found")
+                except Exception as e:
+                    logger.log_warning(f"{platform.capitalize()} scan failed: {e}")
         
         return profiles
     
