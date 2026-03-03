@@ -15,6 +15,7 @@ export interface ProfileData {
   description?: string;
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
+  cross_validation_issues?: string[];
   created_at?: string;
   updated_at?: string;
 }
@@ -35,6 +36,7 @@ export interface SearchResponse {
   description?: string;
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
+  cross_validation_issues?: string[];
   sources?: { title: string; url: string; snippet: string }[];
   ai_response: string;
 }
