@@ -495,7 +495,7 @@ export default function ChatInterface() {
             {/* Floating Atmospheric Widget (Between Chat and Right Sidebar) */}
             {(() => {
                 const lastProfile = [...messages].reverse().find(m => m.role === 'assistant' && m.profileData)?.profileData;
-                if (!lastProfile || (!lastProfile.location_city && !lastProfile.weather_info)) return null;
+                if (!lastProfile || !lastProfile.weather_info) return null;
 
                 const weather = lastProfile.weather_info;
                 const isSunny = weather && (weather.temperature > 20 || weather.description.toLowerCase().includes('clear') || weather.description.toLowerCase().includes('sunny'));
@@ -560,9 +560,9 @@ export default function ChatInterface() {
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
-                                    <div className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
-                                    <span className="text-[8px] font-bold font-mono tracking-widest text-cyan-400 uppercase glow-cyan">
-                                        {weather?.description || "Syncing..."}
+                                    <div className={`w-1 h-1 rounded-full ${weather ? 'bg-cyan-400 animate-pulse' : 'bg-red-500'}`} />
+                                    <span className={`text-[8px] font-bold font-mono tracking-widest uppercase ${weather ? 'text-cyan-400 glow-cyan' : 'text-red-400'}`}>
+                                        {weather?.description || "OFFLINE"}
                                     </span>
                                 </div>
                             </div>
