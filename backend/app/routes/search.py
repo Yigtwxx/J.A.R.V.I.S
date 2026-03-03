@@ -50,9 +50,23 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         from app.jarvis_logger import logger
         logger.log_thought(f"Incoming connection detected on secure channel: {raw_query}")
         
-        # 1. Search GitHub (Prioritize Username)
-        logger.log_action("Querying GitHub central servers...")
-        github_data = github_service.search_user(username)
+        # === PARALLEL DATA FETCHING ===
+        # Run GitHub, social media, and web search concurrently
+        loop = asyncio.get_event_loop()
+        
+        logger.log_action("Launching parallel intelligence gathering...")
+        
+        github_future = loop.run_in_executor(None, github_service.search_user, username)
+        social_future = loop.run_in_executor(None, scraper_service.find_all_profiles, username)
+        search_future = loop.run_in_executor(None, search_service.search_person, real_name)
+        
+        github_data, social_profiles, search_results = await asyncio.gather(
+            github_future, social_future, search_future
+        )
+        
+        wiki_image, web_results, deep_context, raw_sources = search_results
+        
+        # Process GitHub results
         if github_data:
             context['github'] = github_service.format_github_data(github_data)
             github_url = github_data.get('profile_url')
@@ -61,16 +75,12 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             github_url = None
             logger.log_warning("No GitHub profile found")
         
-        # 2. Scrape social media profiles (Prioritize Username)
-        logger.log_action("Initiating social media sweep...")
-        social_profiles = scraper_service.find_all_profiles(username)
+        # Process social media results
         context['social_media'] = scraper_service.format_social_profiles(social_profiles)
         found_count = sum(1 for v in social_profiles.values() if v)
         logger.log_success(f"Found {found_count} social media profiles")
         
-        # 3. Search Google (Prioritize Real Name)
-        logger.log_action("Accessing global data grid...")
-        wiki_image, web_results, deep_context, raw_sources = search_service.search_person(real_name)
+        # Process web search results
         context['web_search'] = web_results
         context['deep_context'] = deep_context
         logger.log_success("Web search aggregation and deep-packet inspection completed")
