@@ -100,12 +100,11 @@ async def stream_status():
             while True:
                 message = await queue.get()
                 yield f"data: {message}\n\n"
-        except asyncio.CancelledError:
-            if queue in logger.subscribers:
-                logger.subscribers.remove(queue)
-        except Exception:
-            if queue in logger.subscribers:
-                logger.subscribers.remove(queue)
+        except (asyncio.CancelledError, Exception):
+            pass
+        finally:
+            # Guarantee cleanup on any exit path (disconnect, error, GeneratorExit)
+            logger.subscribers.discard(queue)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
