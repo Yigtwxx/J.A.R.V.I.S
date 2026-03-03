@@ -10,6 +10,8 @@ export interface ProfileData {
   location_country?: string;
   location_city?: string;
   weather_info?: any;
+  social_media_score?: number;
+  last_activity_summary?: string;
   description?: string;
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
@@ -28,6 +30,8 @@ export interface SearchResponse {
   location_country?: string;
   location_city?: string;
   weather_info?: any;
+  social_media_score?: number;
+  last_activity_summary?: string;
   description?: string;
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
