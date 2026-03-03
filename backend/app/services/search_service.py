@@ -3,6 +3,8 @@ from bs4 import BeautifulSoup
 from typing import List, Dict
 import time
 import urllib.parse
+import difflib
+import unicodedata
 from app.jarvis_logger import logger
 import warnings
 
@@ -13,9 +15,10 @@ class SearchService:
     """Service for web search using Google scraping"""
     
     def __init__(self):
-        self.headers = {
+        self.session = requests.Session()
+        self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
+        })
     
     def search_wikipedia_image(self, query: str) -> str:
         """
@@ -38,19 +41,16 @@ class SearchService:
             search_res = requests.get(search_url, params=search_params, headers=wiki_headers, timeout=5)
             search_data = search_res.json()
             
-            import difflib
-            
             if not search_data.get('query', {}).get('search'):
                 return ""
                 
             page_title = search_data['query']['search'][0]['title']
             
-            # Verify the title actually matches what we're looking for (prevent e.g. "Recep Tayyip Erdogan" for "Yigit Erdogan")
+            # Verify the title actually matches what we're looking for
             query_words = set(query.lower().split())
             title_words = set(page_title.lower().split())
             
             # Allow minor differences like 'Erdoğan' vs 'Erdogan'
-            import unicodedata
             def normalize_text(text):
                 return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
                 
@@ -95,13 +95,12 @@ class SearchService:
             logger.log_action("Accessing global data grid", target=query)
             search_url = f"https://search.yahoo.com/search?p={requests.utils.quote(query)}"
             
-            response = requests.get(search_url, headers=self.headers, timeout=10)
+            response = self.session.get(search_url, timeout=10)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.text, 'html.parser')
             results = []
             
-            import urllib.parse
             # Find result divs
             search_divs = soup.find_all('div', class_='algo')
             
@@ -158,7 +157,6 @@ class SearchService:
         # 2. Split match check:
         # If the query is "Yiğit Erdoğan", we want BOTH "Yiğit" and "Erdoğan" to be present.
         # This prevents "Recep Tayyip Erdoğan" matching "Yiğit Erdoğan" just because of the surname.
-        import unicodedata
         def normalize(t):
             return "".join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn')
             
@@ -170,7 +168,6 @@ class SearchService:
             return True
             
         # 3. Fuzzy matching for typos (only if the query is unique enough)
-        import difflib
         text_words = text_norm.split()
         matches_found = 0
         for word in query_words_norm:
@@ -209,7 +206,7 @@ class SearchService:
             
         try:
             logger.log_thought(f"Infiltrating host and extracting raw data packets: {url}")
-            response = requests.get(url, headers=self.headers, timeout=12, verify=False)
+            response = self.session.get(url, timeout=12, verify=False)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.text, 'html.parser')
