@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from typing import Optional, Dict
-from app.jarvis_logger import logger
+from app.utils.logger import logger
 import re
 import urllib.parse
 import warnings
@@ -166,7 +166,100 @@ class ScraperService:
                 if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u): 
                     valid_profiles.append({"url": u, "bio": item['bio']})
         return valid_profiles
-    
+
+    def find_snapchat_profile(self, name: str) -> list:
+        """Try to find Snapchat profile URLs via Yahoo search"""
+        query = f"{name} snapchat"
+        items = self._extract_urls_from_yahoo(query, r'snapchat\.com/add/([a-zA-Z0-9._-]+)')
+        valid_profiles = []
+        for item in items:
+            url = item['url']
+            match = re.search(r'snapchat\.com/add/([a-zA-Z0-9._-]+)', url)
+            if match:
+                u = f"https://www.snapchat.com/add/{match.group(1)}"
+                if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u):
+                    valid_profiles.append({"url": u, "bio": item['bio']})
+        return valid_profiles
+
+    def find_tumblr_profile(self, name: str) -> list:
+        """Try to find Tumblr profile URLs via Yahoo search"""
+        query = f"{name} tumblr"
+        items = self._extract_urls_from_yahoo(query, r'([a-zA-Z0-9_-]+)\.tumblr\.com')
+        valid_profiles = []
+        for item in items:
+            url = item['url']
+            match = re.search(r'([a-zA-Z0-9_-]+)\.tumblr\.com', url)
+            if match:
+                subdomain = match.group(1)
+                if subdomain.lower() in ['www', 'assets', 'media', 'support', 'staff', 'engineering']:
+                    continue
+                u = f"https://{subdomain}.tumblr.com"
+                if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u):
+                    valid_profiles.append({"url": u, "bio": item['bio']})
+        return valid_profiles
+
+    def find_tinder_mention(self, name: str) -> list:
+        """Search for Tinder mentions — profiles are private, only detect references"""
+        query = f"{name} tinder profile"
+        items = self._extract_urls_from_yahoo(query, r'tinder', max_results=2)
+        mentions = []
+        for item in items:
+            snippet = item.get('bio', '').strip()
+            if snippet and 'tinder' in snippet.lower():
+                mentions.append({"url": item['url'], "bio": f"[Mention] {snippet[:200]}"})
+        return mentions
+
+    def find_bumble_mention(self, name: str) -> list:
+        """Search for Bumble mentions — profiles are private, only detect references"""
+        query = f"{name} bumble profile"
+        items = self._extract_urls_from_yahoo(query, r'bumble', max_results=2)
+        mentions = []
+        for item in items:
+            snippet = item.get('bio', '').strip()
+            if snippet and 'bumble' in snippet.lower():
+                mentions.append({"url": item['url'], "bio": f"[Mention] {snippet[:200]}"})
+        return mentions
+
+    def extract_phone_numbers(self, name: str, deep_context: str) -> list:
+        """
+        Extract phone numbers from deep web context using regex.
+        Supports international formats: +90 555 123 4567, (555) 123-4567, etc.
+        """
+        if not deep_context:
+            return []
+
+        phone_patterns = [
+            r'\+?\d{1,3}[\s.-]?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{2,4}',  # International
+            r'\(\d{3}\)[\s.-]?\d{3}[\s.-]?\d{4}',                              # US (555) 123-4567
+            r'\b0\d{3}[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}\b',               # TR 0555 123 45 67
+        ]
+
+        found = set()
+        name_lower = name.lower()
+
+        # Only extract from lines that seem contextually related to the target name
+        for line in deep_context.split('\n'):
+            line_lower = line.lower()
+            # Proximity check: line should contain part of the name or be near contact info
+            name_parts = [w for w in name_lower.split() if len(w) > 2]
+            has_name_context = any(part in line_lower for part in name_parts)
+            has_contact_keyword = any(kw in line_lower for kw in ['phone', 'tel', 'call', 'contact', 'mobile', 'cell', 'telefon', 'iletişim', 'numara', 'gsm', 'cep'])
+
+            if has_name_context or has_contact_keyword:
+                for pattern in phone_patterns:
+                    matches = re.findall(pattern, line)
+                    for m in matches:
+                        cleaned = re.sub(r'[\s.()-]', '', m)
+                        # Filter: must be 7-15 digits, not look like a year or ID
+                        digits_only = re.sub(r'\D', '', cleaned)
+                        if 7 <= len(digits_only) <= 15 and not (len(digits_only) == 4 and digits_only.startswith('20')):
+                            found.add(m.strip())
+
+        result = list(found)[:5]  # Cap to 5 numbers
+        if result:
+            logger.log_success(f"Phone numbers extracted: {len(result)} found")
+        return result
+
     def find_all_profiles(self, name: str) -> Dict[str, list]:
         """Find all social media profiles and bios for a person (PARALLEL)"""
         logger.log_thought(f"Initiating deep-web scraping protocol for entity: {name}")
@@ -177,11 +270,15 @@ class ScraperService:
             'linkedin': self.find_linkedin_profile,
             'spotify': self.find_spotify_profile,
             'tiktok': self.find_tiktok_profile,
+            'snapchat': self.find_snapchat_profile,
+            'tumblr': self.find_tumblr_profile,
+            'tinder': self.find_tinder_mention,
+            'bumble': self.find_bumble_mention,
         }
         
         profiles: Dict[str, list] = {k: [] for k in platform_fns}
         
-        with ThreadPoolExecutor(max_workers=5) as executor:
+        with ThreadPoolExecutor(max_workers=9) as executor:
             futures = {executor.submit(fn, name): platform for platform, fn in platform_fns.items()}
             for future in as_completed(futures):
                 platform = futures[future]
@@ -189,7 +286,8 @@ class ScraperService:
                     result = future.result()
                     profiles[platform] = result
                     if result:
-                        logger.log_success(f"{platform.capitalize()} profile correlated: {len(result)} found")
+                        label = "mention" if platform in ('tinder', 'bumble') else "profile"
+                        logger.log_success(f"{platform.capitalize()} {label} correlated: {len(result)} found")
                 except Exception as e:
                     logger.log_warning(f"{platform.capitalize()} scan failed: {e}")
         
@@ -203,7 +301,8 @@ class ScraperService:
         for platform, items in profiles.items():
             if items:
                 found_any = True
-                formatted += f"[{platform.upper()}]\n"
+                label = "MENTION" if platform in ('tinder', 'bumble') else platform.upper()
+                formatted += f"[{label}: {platform.upper()}]\n"
                 for item in items:
                     formatted += f"- URL: {item['url']}\n"
                     if item.get('bio'):
