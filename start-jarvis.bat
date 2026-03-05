@@ -7,6 +7,9 @@ REM =======================================
 
 color 0F
 
+REM Navigate to project root (where this script lives)
+cd /d "%~dp0"
+
 echo.
 echo     ========================================================================
 echo                          J.A.R.V.I.S AI Assistant
@@ -67,6 +70,12 @@ if not exist ".env" (
     echo [INFO] Please check backend\.env file for correct database credentials
 )
 
+REM Ensure data directory exists for SQLite
+if not exist "data" (
+    mkdir data
+    echo [OK] Data directory created
+)
+
 cd ..
 
 echo [SETUP] Initializing Frontend...
@@ -91,6 +100,11 @@ if exist ".next" (
 )
 
 cd ..
+
+REM Ensure logs directory exists
+if not exist "logs" (
+    mkdir logs
+)
 
 REM Kill any existing services
 echo [INFO] Cleaning up any existing services...
