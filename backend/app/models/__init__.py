@@ -1,3 +1,4 @@
 from .profile import Profile
+from .snapshot import ProfileSnapshot
 
-__all__ = ["Profile"]
+__all__ = ["Profile", "ProfileSnapshot"]
