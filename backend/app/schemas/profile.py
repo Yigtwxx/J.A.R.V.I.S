@@ -17,6 +17,11 @@ class ProfileCreate(BaseModel):
     linkedin_url: Optional[str] = None
     spotify_url: Optional[str] = None
     tiktok_url: Optional[str] = None
+    snapchat_url: Optional[str] = None
+    tumblr_url: Optional[str] = None
+    tinder_mention: Optional[str] = None
+    bumble_mention: Optional[str] = None
+    phone_numbers: Optional[List[str]] = None
     description: Optional[str] = None
     additional_info: Optional[Dict[str, Any]] = None
     similar_profiles: Optional[List[str]] = None
@@ -33,6 +38,11 @@ class ProfileResponse(BaseModel):
     linkedin_url: Optional[str] = None
     spotify_url: Optional[str] = None
     tiktok_url: Optional[str] = None
+    snapchat_url: Optional[str] = None
+    tumblr_url: Optional[str] = None
+    tinder_mention: Optional[str] = None
+    bumble_mention: Optional[str] = None
+    phone_numbers: Optional[List[str]] = None
     description: Optional[str] = None
     additional_info: Optional[Dict[str, Any]] = None
     similar_profiles: Optional[List[str]] = None
@@ -53,6 +63,11 @@ class SearchResponse(BaseModel):
     linkedin_url: Optional[str] = None
     spotify_url: Optional[str] = None
     tiktok_url: Optional[str] = None
+    snapchat_url: Optional[str] = None
+    tumblr_url: Optional[str] = None
+    tinder_mention: Optional[str] = None
+    bumble_mention: Optional[str] = None
+    phone_numbers: Optional[List[str]] = None
     description: Optional[str] = None
     additional_info: Optional[Dict[str, Any]] = None
     similar_profiles: Optional[List[str]] = None
@@ -61,6 +76,10 @@ class SearchResponse(BaseModel):
     location_city: Optional[str] = None
     weather_info: Optional[Dict[str, Any]] = None
     social_media_score: Optional[int] = None
+    social_media_score_breakdown: Optional[Dict[str, Any]] = None
     last_activity_summary: Optional[str] = None
-    sources: Optional[List[Dict[str, str]]] = None  # Raw search results/sources
-    ai_response: str  # JARVIS's formatted response
+    platform_activity: Optional[Dict[str, Any]] = None
+    sources: Optional[List[Dict[str, str]]] = None
+    ai_response: str
+    version_history: Optional[Dict[str, Any]] = None
+    face_match_results: Optional[Dict[str, Any]] = None
