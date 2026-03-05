@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.history import SearchHistory
 from app.schemas import SearchQuery, SearchResponse
-from app.services import AIService, SearchService, GitHubService, ScraperService, WeatherService
+from app.services import AIService, SearchService, GitHubService, ScraperService, WeatherService, SocialScoreService
+from app.services import version_history_service
+from app.services.face_matching_service import FaceMatchingService
 import asyncio
 
 router = APIRouter(prefix="/api/search", tags=["search"])
@@ -14,65 +16,179 @@ search_service = SearchService()
 github_service = GitHubService()
 scraper_service = ScraperService()
 weather_service = WeatherService()
+social_score_service = SocialScoreService()
+face_matching_service = FaceMatchingService()
 
 
-def cross_validate(github_data: dict, social_profiles: dict, web_results: str, real_name: str) -> list[str]:
+import unicodedata
+
+
+def _normalize_text(text: str) -> str:
+    """Normalize Unicode text: remove diacritics (ğ→g, ü→u, ö→o) for fuzzy comparison."""
+    nfkd = unicodedata.normalize('NFKD', text.lower())
+    return ''.join(c for c in nfkd if not unicodedata.combining(c))
+
+
+def cross_validate(
+    github_data: dict,
+    social_profiles: dict,
+    web_results: str,
+    real_name: str,
+    username: str = ""
+) -> list[str]:
     """
     Algorithmically cross-validate data from different sources.
     Returns a list of detected inconsistency strings.
     """
     issues = []
 
-    # --- 1. GitHub Location vs Web Results Location ---
-    if github_data:
-        gh_location = (github_data.get('location') or '').strip().lower()
-        if gh_location and web_results:
-            # Check if GitHub's stated location appears anywhere in web results
-            web_lower = web_results.lower()
-            if gh_location and len(gh_location) > 2 and gh_location not in web_lower:
+    # --- 1. GitHub username vs searched username ---
+    if github_data and username:
+        gh_login = (github_data.get('login') or '').strip().lower()
+        searched_username = username.strip().lower()
+        if gh_login and searched_username and gh_login != searched_username:
+            # Only flag if the usernames are substantially different
+            if searched_username not in gh_login and gh_login not in searched_username:
                 issues.append(
-                    f"GitHub location is '{github_data.get('location')}' but web search results don't mention this location."
+                    f"GitHub login '@{github_data.get('login')}' doesn't match searched username '{username}'. Verify this is the correct account."
                 )
 
-    # --- 2. GitHub Display Name vs Searched Name ---
+    # --- 2. GitHub location vs web results (word-level matching) ---
     if github_data:
-        gh_name = (github_data.get('name') or '').strip().lower()
-        search_name_lower = real_name.strip().lower()
-        if gh_name and search_name_lower:
-            # Check if the names share any common word (at least one word overlap)
-            gh_words = set(gh_name.split())
-            search_words = set(search_name_lower.split())
-            if gh_words and search_words and not gh_words.intersection(search_words):
+        gh_location = (github_data.get('location') or '').strip()
+        if gh_location and web_results and len(gh_location) > 2:
+            location_words = set(_normalize_text(gh_location).split())
+            web_normalized = _normalize_text(web_results)
+            # Check if ANY significant location word appears in web results
+            significant_words = {w for w in location_words if len(w) > 2}
+            if significant_words and not any(w in web_normalized for w in significant_words):
                 issues.append(
-                    f"GitHub display name '{github_data.get('name')}' has no common words with searched name '{real_name}'. Possible identity mismatch."
+                    f"GitHub states location as '{gh_location}' but none of its keywords appear in web search results."
                 )
 
-    # --- 3. Social media platform count vs web presence ---
+    # --- 3. GitHub display name vs searched name (with Unicode normalization) ---
+    if github_data:
+        gh_name = (github_data.get('name') or '').strip()
+        if gh_name and real_name:
+            gh_words = set(_normalize_text(gh_name).split())
+            search_words = set(_normalize_text(real_name).split())
+            # Filter out short words (initials, prepositions)
+            gh_significant = {w for w in gh_words if len(w) > 1}
+            search_significant = {w for w in search_words if len(w) > 1}
+            if gh_significant and search_significant and not gh_significant.intersection(search_significant):
+                issues.append(
+                    f"GitHub profile name '{gh_name}' doesn't share any words with searched name '{real_name}'. Possible identity mismatch."
+                )
+
+    # --- 4. No social media profiles but significant web presence ---
     found_platforms = [k for k, v in social_profiles.items() if v]
     if not found_platforms and web_results and len(web_results) > 500:
         issues.append(
-            "No social media profiles were found, but significant web results exist. The person may use different usernames online."
+            "No social media profiles found despite significant web results. The person may use different usernames across platforms."
         )
 
-    # --- 4. GitHub bio vs social media bio mismatch ---
+    # --- 5. GitHub bio profession vs web results profession ---
     if github_data:
         gh_bio = (github_data.get('bio') or '').strip().lower()
-        if gh_bio and len(gh_bio) > 10:
-            # Check if LinkedIn profiles exist and if there's a role keyword mismatch
-            linkedin_profiles = social_profiles.get('linkedin', [])
-            if linkedin_profiles:
-                linkedin_url = linkedin_profiles[0].get('url', '').lower()
-                # Simple heuristic: if GitHub bio says "student" but LinkedIn suggests professional role
-                student_keywords = ['student', 'öğrenci', 'university', 'üniversite']
-                pro_keywords = ['ceo', 'founder', 'engineer', 'manager', 'director', 'lead']
-                is_student_gh = any(kw in gh_bio for kw in student_keywords)
-                is_pro_gh = any(kw in gh_bio for kw in pro_keywords)
-                if is_student_gh and is_pro_gh:
+        if gh_bio and len(gh_bio) > 10 and web_results:
+            web_lower = web_results.lower()
+            # Define mutually exclusive profession clusters
+            profession_clusters = [
+                ({'developer', 'programmer', 'engineer', 'software', 'coding', 'github'},
+                 {'doctor', 'physician', 'medical', 'hospital', 'clinical', 'surgeon'}),
+                ({'developer', 'programmer', 'engineer', 'software'},
+                 {'lawyer', 'attorney', 'legal', 'law firm', 'court'}),
+                ({'student', 'öğrenci', 'university', 'üniversite', 'college'},
+                 {'ceo', 'founder', 'director', 'chairman', 'president', 'managing'}),
+            ]
+            for cluster_a, cluster_b in profession_clusters:
+                bio_has_a = any(kw in gh_bio for kw in cluster_a)
+                web_has_b = any(kw in web_lower for kw in cluster_b)
+                bio_has_b = any(kw in gh_bio for kw in cluster_b)
+                web_has_a = any(kw in web_lower for kw in cluster_a)
+
+                if bio_has_a and web_has_b and not bio_has_b and not web_has_a:
+                    bio_match = next(kw for kw in cluster_a if kw in gh_bio)
+                    web_match = next(kw for kw in cluster_b if kw in web_lower)
                     issues.append(
-                        f"GitHub bio contains both student and professional keywords, which may indicate outdated profile information."
+                        f"GitHub bio mentions '{bio_match}' but web results reference '{web_match}'. Possible identity confusion with another person."
                     )
+                    break  # One conflict per search is enough
+
+    # --- 6. GitHub exists but all other sources are empty ---
+    if github_data and not found_platforms and (not web_results or len(web_results) < 100):
+        issues.append(
+            "Only GitHub data is available — no corroborating web or social media sources. Information reliability is limited."
+        )
 
     return issues
+
+
+import math as _math
+from datetime import datetime as _dt, timezone as _tz
+
+
+def _compute_platform_activity(github_data: dict | None, social_profiles: dict) -> dict:
+    """
+    Compute a 0-100 activity percentage for each detected platform.
+    Returns: { "github": 85, "instagram": 60, ... } (only found platforms)
+    """
+    activity: dict[str, int] = {}
+
+    # --- GitHub (richest data) ---
+    if github_data:
+        score = 30  # Base: profile exists
+        followers = github_data.get('followers', 0) or 0
+        if followers > 0:
+            score += min(20, int(_math.log10(followers + 1) * 7))
+        repos = github_data.get('public_repos', 0) or 0
+        if repos > 0:
+            score += min(20, int(_math.log10(repos + 1) * 12))
+        last_active = github_data.get('last_active')
+        if last_active:
+            try:
+                if isinstance(last_active, str):
+                    last_dt = _dt.fromisoformat(last_active.replace('Z', '+00:00'))
+                else:
+                    last_dt = last_active
+                days = (_dt.now(_tz.utc) - last_dt).days
+                if days <= 7:
+                    score += 30
+                elif days <= 30:
+                    score += 22
+                elif days <= 90:
+                    score += 15
+                elif days <= 365:
+                    score += 8
+                else:
+                    score += 2
+            except (ValueError, TypeError):
+                pass
+        activity['github'] = min(100, score)
+
+    # --- Standard social platforms ---
+    standard_platforms = ['instagram', 'twitter', 'linkedin', 'tiktok', 'snapchat', 'tumblr']
+    for platform in standard_platforms:
+        items = social_profiles.get(platform, [])
+        if items:
+            score = 60  # Profile found = solid base
+            # Bio presence adds confidence
+            for item in items:
+                if item.get('bio') and len(item['bio'].strip()) > 10:
+                    score += 40
+                    break
+            activity[platform] = min(100, score)
+
+    # --- Passive platforms (Spotify) ---
+    if social_profiles.get('spotify'):
+        activity['spotify'] = 70  # Spotify is mostly passive
+
+    # --- Mention-only platforms (Tinder, Bumble) ---
+    for platform in ['tinder', 'bumble']:
+        if social_profiles.get(platform):
+            activity[platform] = 30  # Indirect mention = low confidence
+
+    return activity
 
 
 @router.post("/", response_model=SearchResponse)
@@ -106,7 +222,7 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         # Initialize context
         context = {}
         
-        from app.jarvis_logger import logger
+        from app.utils.logger import logger
         logger.log_thought(f"Incoming connection detected on secure channel: {raw_query}")
         
         # === PARALLEL DATA FETCHING ===
@@ -159,7 +275,7 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         if github_data and github_data.get('avatar_url'):
             images.append(github_data['avatar_url'])
             
-        for platform in ['instagram', 'twitter', 'linkedin', 'spotify', 'tiktok']:
+        for platform in ['instagram', 'twitter', 'linkedin', 'spotify', 'tiktok', 'snapchat', 'tumblr']:
             items = social_profiles.get(platform, [])
             if items:
                 first_profile_url = items[0]['url'].split(",")[0].strip()
@@ -179,12 +295,39 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             
         logger.log_success("Analysis complete")
         
+        # 4.6. Face Matching: Collect labeled images for cross-platform identity verification
+        face_images = []
+        if wiki_image:
+            face_images.append(("Wikipedia", wiki_image))
+        if github_data and github_data.get('avatar_url'):
+            face_images.append(("GitHub", github_data['avatar_url']))
+        for platform in ['instagram', 'twitter', 'linkedin', 'spotify', 'tiktok', 'snapchat', 'tumblr']:
+            items = social_profiles.get(platform, [])
+            if items:
+                first_profile_url = items[0]['url'].split(',')[0].strip()
+                social_username = first_profile_url.rstrip('/').split('/')[-1]
+                face_images.append((platform.capitalize(), f"https://unavatar.io/{platform}/{social_username}?fallback=false"))
+        
+        face_match_report = None
+        if len(face_images) >= 2:
+            try:
+                logger.log_action(f"Initiating face matching across {len(face_images)} platforms...")
+                face_match_report = await loop.run_in_executor(
+                    None, face_matching_service.analyze_all_images, face_images
+                )
+            except Exception as e:
+                logger.log_warning(f"Face matching failed (non-critical): {e}")
+        
         # 5. Extract structured data
         structured_data = await ai_service.extract_profile_data(ai_response, real_name)
         
         # 5.1 Algorithmic Cross-Validation (merge with AI-detected issues)
-        algo_issues = cross_validate(github_data or {}, social_profiles, web_results or '', real_name)
+        algo_issues = cross_validate(github_data or {}, social_profiles, web_results or '', real_name, username)
         ai_issues = structured_data.get('cross_validation_issues', [])
+        # Type safety: AI might return non-list
+        if not isinstance(ai_issues, list):
+            ai_issues = [str(ai_issues)] if ai_issues else []
+        ai_issues = [str(issue) for issue in ai_issues if issue]  # Ensure all items are strings
         # Merge and deduplicate
         all_issues = list(dict.fromkeys(algo_issues + ai_issues))
         logger.log_action(f"Cross-validation complete: {len(all_issues)} issue(s) detected")
@@ -193,6 +336,21 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         weather_info = None
         if structured_data.get('capital_city'):
             weather_info = weather_service.get_weather(structured_data['capital_city'])
+
+        # 5.6 Compute Digital Impact Score (algorithmic — replaces AI-guessed score)
+        logger.log_action("Computing Digital Impact Score...")
+        score_result = social_score_service.calculate_score(
+            github_data=github_data,
+            social_profiles=social_profiles,
+            raw_sources=raw_sources,
+            web_results=web_results or '',
+        )
+
+        # 5.7 Extract phone numbers from deep context
+        phone_numbers = scraper_service.extract_phone_numbers(real_name, deep_context)
+
+        # 5.8 Compute per-platform activity percentage
+        platform_activity = _compute_platform_activity(github_data, social_profiles)
 
         # Build response
         response = SearchResponse(
@@ -203,11 +361,18 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             linkedin_url=", ".join([p['url'] for p in social_profiles.get('linkedin', [])]) or None,
             spotify_url=", ".join([p['url'] for p in social_profiles.get('spotify', [])]) or None,
             tiktok_url=", ".join([p['url'] for p in social_profiles.get('tiktok', [])]) or None,
+            snapchat_url=", ".join([p['url'] for p in social_profiles.get('snapchat', [])]) or None,
+            tumblr_url=", ".join([p['url'] for p in social_profiles.get('tumblr', [])]) or None,
+            tinder_mention=", ".join([p.get('bio', '') for p in social_profiles.get('tinder', [])]) or None,
+            bumble_mention=", ".join([p.get('bio', '') for p in social_profiles.get('bumble', [])]) or None,
+            phone_numbers=phone_numbers if phone_numbers else None,
             location_country=structured_data.get('estimated_location'),
             location_city=structured_data.get('capital_city'),
             weather_info=weather_info,
-            social_media_score=structured_data.get('social_media_score'),
+            social_media_score=score_result['total_score'],
+            social_media_score_breakdown=score_result['breakdown'],
             last_activity_summary=structured_data.get('last_activity_summary'),
+            platform_activity=platform_activity,
             description=structured_data.get('description'),
             similar_profiles=structured_data.get('similar_profiles', []),
             cross_validation_issues=all_issues,
@@ -215,20 +380,39 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             ai_response=ai_response
         )
         
-        # 6. Save to history
+        # 5.7. Attach face match results to response
+        if face_match_report:
+            response.face_match_results = face_match_report
+        
+        # 6. Version History: Save snapshot & generate change report
+        try:
+            version_history_service.save_snapshot(db, raw_query, response)
+            change_report = version_history_service.generate_change_report(db, raw_query)
+            if change_report and change_report.has_changes:
+                response.version_history = change_report.model_dump(mode='json')
+                logger.log_success(f"Version history: {len(change_report.changes)} change(s) detected")
+            elif change_report:
+                response.version_history = change_report.model_dump(mode='json')
+                logger.log_action("Version history: No changes detected since last scan")
+            else:
+                logger.log_action("Version history: First snapshot saved — no previous data to compare")
+        except Exception as e:
+            logger.log_warning(f"Version history snapshot failed (non-critical): {e}")
+        
+        # 7. Save to history
         try:
             history_entry = SearchHistory(query_name=raw_query)
             db.add(history_entry)
             db.commit()
         except Exception as e:
-            from app.jarvis_logger import logger
+            from app.utils.logger import logger
             logger.log_warning(f"Failed to record search history: {e}")
             
         logger.log_success(f"SEARCH COMPLETED FOR TARGET: {raw_query}")
         return response
     
     except Exception as e:
-        from app.jarvis_logger import logger
+        from app.utils.logger import logger
         logger.log_error(f"Error during search: {e}")
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
