@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import search_router, profiles_router, history_router
+from app.routes import search_router, profiles_router, history_router, version_history_router, face_match_router
 from app.database import init_db
 from app.config import get_settings
-from app.jarvis_logger import logger
+from app.utils.logger import logger
 import sys
 import time
 
@@ -46,6 +46,8 @@ async def log_requests(request: Request, call_next):
 app.include_router(search_router)
 app.include_router(profiles_router)
 app.include_router(history_router)
+app.include_router(version_history_router)
+app.include_router(face_match_router)
 
 
 @app.on_event("startup")
@@ -106,7 +108,15 @@ async def stream_status():
             # Guarantee cleanup on any exit path (disconnect, error, GeneratorExit)
             logger.subscribers.discard(queue)
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Prevents Nginx buffering
+        }
+    )
 
 
 @app.get("/health")
