@@ -19,7 +19,7 @@ echo "             Just A Rather Very Intelligent System - Starting..."
 echo "    ========================================================================"
 echo ""
 
-# Get script directory
+# Get project root directory (where this script lives)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -76,6 +76,12 @@ if [ ! -f ".env" ]; then
     echo -e "${YELLOW}[INFO]${NC} Creating .env from .env.example..."
     cp .env.example .env
     echo -e "${YELLOW}[INFO]${NC} Please check backend/.env file for correct database credentials"
+fi
+
+# Ensure data directory exists for SQLite
+if [ ! -d "data" ]; then
+    mkdir -p data
+    echo -e "${GREEN}[OK]${NC} Data directory created"
 fi
 
 cd ..
