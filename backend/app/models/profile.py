@@ -18,6 +18,11 @@ class Profile(Base):
     linkedin_url = Column(Text, nullable=True)
     spotify_url = Column(Text, nullable=True)
     tiktok_url = Column(Text, nullable=True)
+    snapchat_url = Column(Text, nullable=True)
+    tumblr_url = Column(Text, nullable=True)
+    tinder_mention = Column(Text, nullable=True)
+    bumble_mention = Column(Text, nullable=True)
+    phone_numbers = Column(JSON, nullable=True)
     
     # Information
     description = Column(Text, nullable=True)
