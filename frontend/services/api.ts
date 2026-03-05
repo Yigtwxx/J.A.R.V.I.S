@@ -48,4 +48,9 @@ export const deleteHistoryItem = async (id: number): Promise<void> => {
     await api.delete(`/api/history/${id}`);
 };
 
+export const getVersionHistory = async (queryName: string): Promise<import('@/types/profile').ChangeReport> => {
+    const response = await api.get(`/api/version-history/${encodeURIComponent(queryName)}/report`);
+    return response.data;
+};
+
 export default api;
