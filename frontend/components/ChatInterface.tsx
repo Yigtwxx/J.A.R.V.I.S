@@ -6,6 +6,8 @@ import { Send, Loader2, TerminalSquare, Save, CheckCircle, History, Trash2, Cloc
 import { searchPerson, saveProfile, getSearchHistory, deleteHistoryItem } from '@/services/api';
 import { Message, SearchResponse, SearchHistoryItem } from '@/types/profile';
 import ProfileCard from './ProfileCard';
+import VersionHistory from './VersionHistory';
+import FaceMatch from './FaceMatch';
 import SocialGauge from './SocialGauge';
 import LoadingAnimation from './LoadingAnimation';
 import ReactMarkdown from 'react-markdown';
@@ -98,22 +100,32 @@ export default function ChatInterface() {
 
     useEffect(() => {
         let eventSource: EventSource | null = null;
+        let intentionalClose = false;
 
         if (isLoading) {
             setLiveStatus(["Establishing secure link..."]);
             setStreamingContent('');
-            // Use window.location.hostname to be dynamic if needed, but localhost:8000 is default for backend
             eventSource = new EventSource('http://localhost:8000/api/status/stream');
 
             eventSource.onmessage = (event) => {
                 const data = event.data as string;
+
+                if (data === '[STREAM_START]') {
+                    // AI streaming is about to begin — clear any previous content
+                    setStreamingContent('');
+                    return;
+                }
+
+                if (data === '[STREAM_END]') {
+                    // AI streaming finished — no action needed, final response will replace
+                    return;
+                }
+
                 if (data.startsWith('[STREAM] ')) {
-                    const token = data.substring(9); // remove "[STREAM] "
-                    // Keep replacing \n with actual newlines if any are escaped
+                    const token = data.substring(9);
                     setStreamingContent(prev => prev + token.replace(/\\n/g, '\n'));
                 } else {
                     setLiveStatus(prev => {
-                        // Keep only last 12 entries for clean HUD
                         const newStatus = [...prev, data].slice(-12);
                         return newStatus;
                     });
@@ -121,13 +133,17 @@ export default function ChatInterface() {
             };
 
             eventSource.onerror = () => {
-                eventSource?.close();
+                // Only close if not intentionally closed (prevents infinite reconnect loop)
+                if (!intentionalClose && eventSource?.readyState !== EventSource.CLOSED) {
+                    eventSource?.close();
+                }
             };
         } else {
             setStreamingContent('');
         }
 
         return () => {
+            intentionalClose = true;
             if (eventSource) eventSource.close();
         };
     }, [isLoading]);
@@ -726,6 +742,12 @@ export default function ChatInterface() {
                                         {message.profileData && (
                                             <div className="mt-4">
                                                 <ProfileCard profile={message.profileData} />
+                                                {message.profileData.version_history && message.profileData.version_history.snapshot_count >= 2 && (
+                                                    <VersionHistory report={message.profileData.version_history} />
+                                                )}
+                                                {message.profileData.face_match_results && message.profileData.face_match_results.total_comparisons > 0 && (
+                                                    <FaceMatch report={message.profileData.face_match_results} />
+                                                )}
                                                 <div className="mt-3 flex flex-col md:flex-row items-end justify-between gap-3 text-right">
                                                     <span className="text-gray-400 italic text-xs max-w-sm">
                                                         Aradığınız sonuç doğruysa daha sonrası için veritabanına kaydetmeniz erişim açısından daha iyi olur.
