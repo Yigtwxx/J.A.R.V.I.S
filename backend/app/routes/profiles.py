@@ -34,13 +34,13 @@ async def create_profile(profile: ProfileCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(db_profile)
         
-        from app.jarvis_logger import logger
+        from app.utils.logger import logger
         logger.log_success(f"Profile saved to database matrix: {profile.name}")
         return db_profile
     
     except Exception as e:
         db.rollback()
-        from app.jarvis_logger import logger
+        from app.utils.logger import logger
         logger.log_error(f"Error saving profile parameters: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create profile: {str(e)}")
 
@@ -85,7 +85,7 @@ async def delete_profile(profile_id: int, db: Session = Depends(get_db)):
         db.delete(profile)
         db.commit()
         
-        from app.jarvis_logger import logger
+        from app.utils.logger import logger
         logger.log_success(f"Profile deleted from archives: {profile.name}")
         return {"message": f"Profile {profile_id} deleted successfully"}
     
