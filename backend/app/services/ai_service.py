@@ -1,7 +1,7 @@
 import ollama
 from typing import Dict, Any
 from app.config import get_settings
-from app.jarvis_logger import logger
+from app.utils.logger import logger
 import warnings
 import json
 
@@ -36,11 +36,17 @@ class AIService:
             )
             
             full_response = ""
-            async for chunk in stream:
-                token = chunk['response']
-                full_response += token
-                # Stream directly to the frontend HUD
-                logger.stream_token(token)
+            logger.stream_start()  # Signal frontend: AI tokens incoming
+            try:
+                async for chunk in stream:
+                    token = chunk.get('response', '')
+                    if token:
+                        full_response += token
+                        logger.stream_token(token)
+            except Exception as stream_err:
+                logger.log_error(f"Stream interrupted: {str(stream_err)}")
+            finally:
+                logger.stream_end()  # Signal frontend: AI stream finished
             
             logger.log_success("Model response synthesized.")
             return full_response
