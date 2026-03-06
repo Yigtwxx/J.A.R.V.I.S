@@ -1,3 +1,11 @@
+export interface ScoreBreakdown {
+  platform_presence: number;
+  follower_impact: number;
+  activity_intensity: number;
+  web_visibility: number;
+  digital_diversity: number;
+}
+
 export interface ProfileData {
   id?: number;
   name: string;
@@ -7,11 +15,18 @@ export interface ProfileData {
   linkedin_url?: string;
   spotify_url?: string;
   tiktok_url?: string;
+  snapchat_url?: string;
+  tumblr_url?: string;
+  tinder_mention?: string;
+  bumble_mention?: string;
+  phone_numbers?: string[];
   location_country?: string;
   location_city?: string;
   weather_info?: any;
   social_media_score?: number;
+  social_media_score_breakdown?: ScoreBreakdown;
   last_activity_summary?: string;
+  platform_activity?: Record<string, number>;
   description?: string;
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
@@ -28,11 +43,18 @@ export interface SearchResponse {
   linkedin_url?: string;
   spotify_url?: string;
   tiktok_url?: string;
+  snapchat_url?: string;
+  tumblr_url?: string;
+  tinder_mention?: string;
+  bumble_mention?: string;
+  phone_numbers?: string[];
   location_country?: string;
   location_city?: string;
   weather_info?: any;
   social_media_score?: number;
+  social_media_score_breakdown?: ScoreBreakdown;
   last_activity_summary?: string;
+  platform_activity?: Record<string, number>;
   description?: string;
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
