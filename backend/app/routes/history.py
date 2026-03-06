@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from app.database import get_db
 from app.models.history import SearchHistory
 from app.schemas.history import HistoryResponse
-from app.jarvis_logger import logger
+from app.utils.logger import logger
 
 router = APIRouter(prefix="/api/history", tags=["History"])
 
