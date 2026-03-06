@@ -5,7 +5,7 @@ import time
 import urllib.parse
 import difflib
 import unicodedata
-from app.jarvis_logger import logger
+from app.utils.logger import logger
 import warnings
 
 # Suppress InsecureRequestWarning
