@@ -22,10 +22,39 @@ const SpotifyIcon = ({ className }: { className?: string }) => (
 
 const TikTokIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" fill="none">
-        {/* TikTok secondary colors for depth */}
         <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.01.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.06-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.74.02 1.48-.04 2.96-.04 4.44-.57-.12-1.17-.14-1.74-.02-1.11.23-2.13.91-2.73 1.89-.54.82-.79 1.8-.7 2.78.1 1.08.64 2.15 1.54 2.77.83.6 1.86.85 2.87.7 1.16-.14 2.22-.84 2.79-1.85.36-.63.54-1.35.54-2.07 0-3.8 0-7.6 0-11.4-.01-.7.01-1.4 0-2.1z" fill="white" />
         <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.01.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79" stroke="#25F4EE" strokeWidth="0.5" strokeOpacity="0.8" />
         <path d="M9 13c0 3.8 0 7.6 0 11.4-.01.7.01 1.4 0 2.1" stroke="#FE2C55" strokeWidth="0.5" strokeOpacity="0.8" />
+    </svg>
+);
+
+const SnapchatIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3-.016.5-.12.6-.195.075-.06.195-.135.33-.135a.645.645 0 0 1 .449.18c.18.149.195.359.195.449 0 .3-.225.54-.449.721-.464.359-1.066.368-1.215.391-.09.016-.165.016-.21.016h-.06c-.03.135-.105.39-.225.615-.195.39-.494.705-.69.854-.06.046-.105.076-.12.091a7.8 7.8 0 0 1-.36.479c-.345.435-.765.96-1.125 1.095-.53.201-.944.284-1.375.284-.27 0-.54-.035-.781-.076-.18-.029-.344-.059-.495-.059-.135 0-.284.016-.48.074-.375.105-.765.209-1.23.209-.48 0-.93-.104-1.38-.254a2.49 2.49 0 0 1-.63-.315c-.24-.165-.555-.47-.825-.84a5.9 5.9 0 0 1-.345-.51c-.12-.21-.195-.405-.24-.585a2.27 2.27 0 0 0-.27-.015c-.135.015-.555-.014-1.02-.345-.3-.225-.465-.449-.465-.735 0-.09.015-.27.165-.405.135-.18.3-.225.404-.225a.66.66 0 0 1 .345.12c.12.06.27.15.555.15.195 0 .345-.06.42-.09-.015-.225-.03-.45-.044-.69a43.55 43.55 0 0 1-.016-.255c-.09-1.59-.225-3.555.225-4.71C4.745 1.162 8.057.793 9.137.793h.63c.54 0 1.5 0 2.439 0z" />
+    </svg>
+);
+
+const TumblrIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M14.563 24c-5.093 0-7.031-3.756-7.031-6.411V9.747H5.116V6.648c3.63-1.313 4.512-4.596 4.71-6.469C9.84.051 9.941 0 9.999 0h3.517v6.114h4.801v3.633h-4.82v7.47c.016 1.001.375 2.371 2.207 2.371h.09c.631-.02 1.486-.205 1.936-.419l1.156 3.425c-.436.636-2.4 1.374-4.156 1.404h-.168z" />
+    </svg>
+);
+
+const TinderIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M9.652 1.344c-.174-.24-.498-.018-.498.252 0 3.6-2.556 5.04-4.848 8.016C1.782 13.284.966 17.892 3.87 21.168 6.39 24.006 10.152 24 12 24s5.61.006 8.13-2.832c2.904-3.276 2.088-7.884-.444-11.556-2.292-2.976-4.848-4.416-4.848-8.016 0-.27-.324-.492-.498-.252C13.056 3.132 11.4 4.32 10.2 6.576 9.636 7.56 9.456 8.1 9.456 8.1s-.456-1.176.066-3.264C9.9 3.372 9.816 1.56 9.652 1.344z" />
+    </svg>
+);
+
+const BumbleIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm4.346 16.12c-.18.503-.498.9-.912 1.14-.408.24-.888.36-1.44.36H9.99c-.552 0-1.032-.12-1.44-.36-.414-.24-.732-.636-.912-1.14-.18-.504-.27-1.14-.27-1.908V9.788c0-.768.09-1.404.27-1.908.18-.504.498-.9.912-1.14.408-.24.888-.36 1.44-.36h4.004c.552 0 1.032.12 1.44.36.414.24.732.636.912 1.14.18.504.27 1.14.27 1.908v4.424c0 .768-.09 1.404-.27 1.908zM14.1 9.312c0-.384-.126-.576-.378-.576h-3.444c-.252 0-.378.192-.378.576v5.376c0 .384.126.576.378.576h3.444c.252 0 .378-.192.378-.576V9.312z" />
+    </svg>
+);
+
+const PhoneIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
     </svg>
 );
 
@@ -434,7 +463,21 @@ export default function ChatInterface() {
                     { icon: Linkedin, urls: lastProfile.linkedin_url, label: 'LinkedIn', brandStyles: 'border-blue-500/40 bg-blue-950/50 hover:bg-blue-900/60 hover:border-blue-400 text-blue-400 shadow-[0_4px_15px_rgba(59,130,246,0.15)]' },
                     { icon: SpotifyIcon, urls: lastProfile.spotify_url, label: 'Spotify', brandStyles: 'border-green-500/40 bg-emerald-950/40 hover:bg-emerald-900/60 hover:border-green-400 text-green-400 shadow-[0_4px_15px_rgba(34,197,94,0.15)]' },
                     { icon: TikTokIcon, urls: lastProfile.tiktok_url, label: 'TikTok', brandStyles: 'border-rose-500/40 bg-rose-950/40 hover:bg-rose-900/60 hover:border-rose-400 text-rose-400 shadow-[0_4px_15px_rgba(244,63,94,0.15)]' },
+                    { icon: SnapchatIcon, urls: lastProfile.snapchat_url, label: 'Snapchat', brandStyles: 'border-yellow-500/40 bg-yellow-950/40 hover:bg-yellow-900/60 hover:border-yellow-400 text-yellow-400 shadow-[0_4px_15px_rgba(250,204,21,0.15)]' },
+                    { icon: TumblrIcon, urls: lastProfile.tumblr_url, label: 'Tumblr', brandStyles: 'border-indigo-500/40 bg-indigo-950/40 hover:bg-indigo-900/60 hover:border-indigo-400 text-indigo-400 shadow-[0_4px_15px_rgba(99,102,241,0.15)]' },
+                    { icon: TinderIcon, urls: lastProfile.tinder_mention, label: 'Tinder', isMention: true, brandStyles: 'border-orange-500/40 bg-orange-950/40 hover:bg-orange-900/60 hover:border-orange-400 text-orange-400 shadow-[0_4px_15px_rgba(249,115,22,0.15)]' },
+                    { icon: BumbleIcon, urls: lastProfile.bumble_mention, label: 'Bumble', isMention: true, brandStyles: 'border-amber-500/40 bg-amber-950/40 hover:bg-amber-900/60 hover:border-amber-400 text-amber-400 shadow-[0_4px_15px_rgba(245,158,11,0.15)]' },
                 ].filter(e => e.urls);
+
+                // Add phone numbers if found
+                if (lastProfile.phone_numbers && lastProfile.phone_numbers.length > 0) {
+                    socialEntries.push({
+                        icon: PhoneIcon,
+                        urls: lastProfile.phone_numbers.join(', '),
+                        label: 'Phone',
+                        brandStyles: 'border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/60 hover:border-emerald-400 text-emerald-400 shadow-[0_4px_15px_rgba(52,211,153,0.15)]',
+                    });
+                }
 
                 if (socialEntries.length === 0) return null;
 
@@ -453,11 +496,33 @@ export default function ChatInterface() {
                         <div className="p-3 space-y-2 overflow-y-auto max-h-[70vh] custom-scrollbar">
                             <AnimatePresence>
                                 {/* Network Nodes Section */}
-                                {socialEntries.flatMap(({ icon: Icon, urls, label, brandStyles }) => {
+                                {socialEntries.flatMap(({ icon: Icon, urls, label, brandStyles, isMention }: any) => {
                                     if (!urls) return [];
-                                    const parsedUrls = urls.split(',').map(u => u.trim()).filter(Boolean);
-                                    return parsedUrls.map((singleUrl, idx) => {
-                                        // Extract username from URL path
+
+                                    // Phone numbers & mentions: single non-link entry
+                                    if (label === 'Phone' || isMention) {
+                                        return [(
+                                            <motion.div
+                                                key={label}
+                                                initial={{ opacity: 0, x: 20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all ${brandStyles}`}
+                                            >
+                                                <Icon className="w-4 h-4 shrink-0" />
+                                                <div className="flex flex-col overflow-hidden">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-xs text-white font-bold font-mono tracking-wider drop-shadow-sm">{label}</span>
+                                                        {isMention && <span className="text-[7px] font-mono bg-white/10 px-1 rounded">MENTION</span>}
+                                                    </div>
+                                                    <span className="text-[8px] opacity-60 font-mono truncate">{typeof urls === 'string' ? urls.substring(0, 40) : urls}</span>
+                                                </div>
+                                            </motion.div>
+                                        )];
+                                    }
+
+                                    // Standard clickable URL entries
+                                    const parsedUrls = urls.split(',').map((u: string) => u.trim()).filter(Boolean);
+                                    return parsedUrls.map((singleUrl: string, idx: number) => {
                                         const username = singleUrl.replace(/\/+$/, '').split('/').pop() || '';
                                         const displayLabel = parsedUrls.length > 1 ? `@${username}` : label;
                                         return (
@@ -625,6 +690,8 @@ export default function ChatInterface() {
                     <SocialGauge
                         score={lastProfile.social_media_score}
                         lastActive={lastProfile.last_activity_summary}
+                        breakdown={lastProfile.social_media_score_breakdown}
+                        platformActivity={lastProfile.platform_activity}
                     />
                 );
             })()}
