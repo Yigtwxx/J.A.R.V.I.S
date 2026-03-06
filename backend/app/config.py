@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     """Application settings"""
     
     # Database
-    database_url: str = "sqlite:///./jarvis.db"
+    database_url: str = "sqlite:///./data/jarvis.db"
     
     # Ollama
     ollama_url: str = "http://localhost:11434"
