@@ -3,13 +3,37 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Clock } from 'lucide-react';
+import type { ScoreBreakdown } from '@/types/profile';
 
 interface SocialGaugeProps {
     score?: number;
     lastActive?: string;
+    breakdown?: ScoreBreakdown;
+    platformActivity?: Record<string, number>;
 }
 
-function SocialGauge({ score, lastActive }: SocialGaugeProps) {
+const PLATFORM_COLORS: Record<string, { color: string; label: string }> = {
+    github: { color: 'bg-gray-400', label: 'GitHub' },
+    instagram: { color: 'bg-pink-500', label: 'Instagram' },
+    twitter: { color: 'bg-slate-400', label: 'Twitter' },
+    linkedin: { color: 'bg-blue-500', label: 'LinkedIn' },
+    spotify: { color: 'bg-green-500', label: 'Spotify' },
+    tiktok: { color: 'bg-rose-500', label: 'TikTok' },
+    snapchat: { color: 'bg-yellow-400', label: 'Snapchat' },
+    tumblr: { color: 'bg-indigo-500', label: 'Tumblr' },
+    tinder: { color: 'bg-orange-500', label: 'Tinder' },
+    bumble: { color: 'bg-amber-400', label: 'Bumble' },
+};
+
+const DIMENSION_META: { key: keyof ScoreBreakdown; label: string; color: string }[] = [
+    { key: 'platform_presence', label: 'Platform', color: 'bg-violet-500' },
+    { key: 'follower_impact', label: 'Followers', color: 'bg-cyan-400' },
+    { key: 'activity_intensity', label: 'Activity', color: 'bg-emerald-400' },
+    { key: 'web_visibility', label: 'Web', color: 'bg-amber-400' },
+    { key: 'digital_diversity', label: 'Diversity', color: 'bg-rose-400' },
+];
+
+function SocialGauge({ score, lastActive, breakdown, platformActivity }: SocialGaugeProps) {
     const [animatedScore, setAnimatedScore] = useState(0);
 
     // Provide default values if missing
@@ -71,7 +95,7 @@ function SocialGauge({ score, lastActive }: SocialGaugeProps) {
                 <div className={`absolute inset-0 bg-gradient-to-r ${colorClass} opacity-10`} />
                 <Activity className={`w-4 h-4 ${textColorClass} animate-pulse`} />
                 <span className={`text-[10px] font-bold font-mono tracking-widest ${textColorClass} uppercase`}>
-                    Activity Matrix
+                    Digital Impact
                 </span>
             </div>
 
@@ -119,6 +143,66 @@ function SocialGauge({ score, lastActive }: SocialGaugeProps) {
                     {/* Ping Animation Ring inside */}
                     <div className={`absolute inset-4 rounded-full border border-dashed ${ringColor} opacity-20 animate-[spin_10s_linear_infinite]`} />
                 </div>
+
+                {/* Breakdown Mini Bars */}
+                {breakdown && (
+                    <div className="w-full space-y-1.5 mb-3 z-10">
+                        {DIMENSION_META.map(({ key, label, color }) => {
+                            const value = breakdown[key] ?? 0;
+                            const pct = Math.round(value * 100);
+                            return (
+                                <div key={key} className="flex items-center gap-2">
+                                    <span className="text-[8px] text-gray-500 font-mono w-[52px] text-right truncate uppercase tracking-wider">
+                                        {label}
+                                    </span>
+                                    <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                        <motion.div
+                                            className={`h-full ${color} rounded-full`}
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${pct}%` }}
+                                            transition={{ duration: 1.2, ease: 'easeOut', delay: 0.3 }}
+                                        />
+                                    </div>
+                                    <span className="text-[8px] text-gray-400 font-mono w-[26px] text-right">
+                                        {pct}%
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Per-Platform Activity */}
+                {platformActivity && Object.keys(platformActivity).length > 0 && (
+                    <div className="w-full space-y-1.5 mb-3 z-10">
+                        <div className="flex items-center gap-1 mb-1">
+                            <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" />
+                            <span className="text-[7px] text-gray-500 font-mono uppercase tracking-widest">Platform Activity</span>
+                        </div>
+                        {Object.entries(platformActivity).map(([platform, pct]) => {
+                            const meta = PLATFORM_COLORS[platform] || { color: 'bg-gray-500', label: platform };
+                            return (
+                                <div key={platform} className="flex items-center gap-2">
+                                    <span className="text-[8px] text-gray-500 font-mono w-[52px] text-right truncate uppercase tracking-wider">
+                                        {meta.label}
+                                    </span>
+                                    <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                        <motion.div
+                                            className={`h-full ${meta.color} rounded-full`}
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${pct}%` }}
+                                            transition={{ duration: 1.2, ease: 'easeOut', delay: 0.5 }}
+                                        />
+                                    </div>
+                                    <span className="text-[8px] text-gray-400 font-mono w-[26px] text-right">
+                                        {pct}%
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
 
                 {/* Activity Insight */}
                 <div className="w-full space-y-2 mt-1 z-10">
