@@ -83,3 +83,4 @@ class SearchResponse(BaseModel):
     ai_response: str
     version_history: Optional[Dict[str, Any]] = None
     face_match_results: Optional[Dict[str, Any]] = None
+    sentiment_analysis: Optional[Dict[str, Any]] = None
