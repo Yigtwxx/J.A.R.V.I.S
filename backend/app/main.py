@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import search_router, profiles_router, history_router, version_history_router, face_match_router
+from app.routes import search_router, profiles_router, history_router, version_history_router, face_match_router, chat_router
 from app.database import init_db
 from app.config import get_settings
 from app.utils.logger import logger
@@ -48,6 +48,7 @@ app.include_router(profiles_router)
 app.include_router(history_router)
 app.include_router(version_history_router)
 app.include_router(face_match_router)
+app.include_router(chat_router)
 
 
 @app.on_event("startup")
