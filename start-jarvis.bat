@@ -121,6 +121,7 @@ echo [BACKEND] Starting FastAPI server...
 cd backend
 call venv\Scripts\activate
 set PYTHONPATH=%CD%
+set PYTHONIOENCODING=utf-8
 start /B cmd /c "python -m app.main > ..\logs\backend.log 2>&1"
 cd ..
 echo [OK] Backend started in background
