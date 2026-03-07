@@ -7,6 +7,9 @@ from app.services import AIService, SearchService, GitHubService, ScraperService
 from app.services import version_history_service
 from app.services.face_matching_service import FaceMatchingService
 import asyncio
+import json
+import os
+import re
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
@@ -260,6 +263,16 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         context['deep_context'] = deep_context
         logger.log_success("Web search aggregation and deep-packet inspection completed")
         
+        # Save context to disk for RAG Chatbot
+        try:
+            os.makedirs("data/contexts", exist_ok=True)
+            safe_filename = re.sub(r'[^a-zA-Z0-9_\-]', '_', raw_query.lower())
+            with open(f"data/contexts/{safe_filename}.json", "w", encoding="utf-8") as f:
+                json.dump(context, f, ensure_ascii=False, indent=2)
+            logger.log_action("Context synchronized to local RAG knowledge base", target=safe_filename)
+        except Exception as e:
+            logger.log_warning(f"Failed to synchronize RAG context: {e}")
+            
         # 4. Generate AI response (Use Full Context Name)
         logger.log_action("Running cognitive analysis...")
         ai_response = await ai_service.generate_response(
