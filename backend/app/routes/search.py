@@ -322,14 +322,30 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
                 face_images.append((platform.capitalize(), f"https://unavatar.io/{platform}/{social_username}?fallback=false"))
         
         face_match_report = None
-        if len(face_images) >= 2:
-            try:
-                logger.log_action(f"Initiating face matching across {len(face_images)} platforms...")
-                face_match_report = await loop.run_in_executor(
-                    None, face_matching_service.analyze_all_images, face_images
-                )
-            except Exception as e:
-                logger.log_warning(f"Face matching failed (non-critical): {e}")
+        sentiment_report = None
+        
+        # We will run Face Matching and Sentiment Analysis concurrently to save time
+        async def run_face_match():
+            if len(face_images) >= 2:
+                try:
+                    logger.log_action(f"Initiating biometric cross-reference across {len(face_images)} inputs...")
+                    return await loop.run_in_executor(
+                        None, face_matching_service.analyze_all_images, face_images
+                    )
+                except Exception as e:
+                    logger.log_warning(f"Face matching failed (non-critical): {e}")
+            return None
+            
+        async def run_sentiment():
+            if deep_context:
+                try:
+                    logger.log_action("Initiating socio-psychological sentiment analysis...")
+                    return await ai_service.analyze_sentiment(deep_context)
+                except Exception as e:
+                    logger.log_warning(f"Sentiment analysis failed (non-critical): {e}")
+            return None
+            
+        face_match_report, sentiment_report = await asyncio.gather(run_face_match(), run_sentiment())
         
         # 5. Extract structured data
         structured_data = await ai_service.extract_profile_data(ai_response, real_name)
@@ -393,9 +409,13 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             ai_response=ai_response
         )
         
-        # 5.7. Attach face match results to response
+        # 5.7. Attach face match and sentiment results to response
         if face_match_report:
             response.face_match_results = face_match_report
+            
+        if sentiment_report:
+            response.sentiment_analysis = sentiment_report
+            logger.log_success(f"Sentiment matrix locked: {sentiment_report.get('dominant_emotion', 'N/A')}")
         
         # 6. Version History: Save snapshot & generate change report
         try:
