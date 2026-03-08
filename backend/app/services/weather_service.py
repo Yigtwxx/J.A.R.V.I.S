@@ -1,6 +1,6 @@
 import requests
 from typing import Optional, Dict, Any
-from app.jarvis_logger import logger
+from app.utils.logger import logger
 
 class WeatherService:
     """Service for fetching weather data using Open-Meteo (Free, no API key needed)"""
