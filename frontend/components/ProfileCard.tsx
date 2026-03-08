@@ -4,6 +4,11 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { SearchResponse } from '@/types/profile';
 import { User, Users, ChevronRight, Activity, AlertTriangle } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+// ForceGraph MUST be loaded dynamically to avoid SSR 'window is not defined' error
+const NetworkGraph = dynamic(() => import('@/components/NetworkGraph'), { ssr: false });
+const SecurityScanWidget = dynamic(() => import('@/components/SecurityScanWidget'), { ssr: false });
 
 interface ProfileCardProps {
     profile: SearchResponse;
@@ -112,6 +117,19 @@ function ProfileCard({ profile }: ProfileCardProps) {
                             </div>
                         </div>
                     )}
+
+                    {/* Knowledge Graph / Network Connections */}
+                    {profile.network_connections && profile.network_connections.length > 0 && (
+                        <div className="mt-4">
+                            <NetworkGraph targetName={profile.name} connections={profile.network_connections} />
+                        </div>
+                    )}
+
+                    {/* Threat Intelligence / Dark Web Monitoring */}
+                    <SecurityScanWidget
+                        emails={profile.email_addresses}
+                        dataBreaches={profile.data_breaches}
+                    />
                 </div>
             </div>
         </motion.div>
