@@ -310,6 +310,38 @@ class SearchService:
         except Exception as e:
             logger.log_warning(f"Patent sweep failed: {e}")
             return ""
+            
+    def search_official_registries(self, query: str) -> str:
+        """
+        Query public corporate registry databases (OpenCorporates, Companies House, etc.)
+        for business links, directorships, or founder statuses, bypassing API key requirements.
+        """
+        try:
+            logger.log_action("Scanning global corporate registries", target=query)
+            
+            # Combine major open registries into one Dork search
+            registry_query = f"(site:opencorporates.com OR site:find-and-update.company-information.service.gov.uk) \"{query}\""
+            results = self.search_yahoo(registry_query, num_results=4)
+            
+            official_context = ""
+            if results:
+                official_context += "\n[Official Registries] Corporate Footprint & Directorships:\n"
+                for i, res in enumerate(results, 1):
+                    # Clean up the output titles for neat presentation
+                    title = res['title'].replace(' - OpenCorporates', '')
+                    title = title.replace(' - Find and update company information - GOV.UK', '')
+                    
+                    official_context += f"  {i}. {title}\n"
+                    if res.get('snippet'):
+                        official_context += f"     Info: {res['snippet']}\n"
+                    official_context += f"     URL: {res['url']}\n\n"
+                    
+                logger.log_success("Corporate intelligence retrieved.")
+            return official_context
+            
+        except Exception as e:
+            logger.log_warning(f"Corporate registry sweep failed: {e}")
+            return ""
     
     def search_person(self, name: str) -> tuple[str, str, str, List[Dict[str, str]]]:
         """
@@ -366,13 +398,25 @@ class SearchService:
         # 4. Integrate Academic and Technical (Patent) Sweeps
         academic_data = self.search_academic_publications(name)
         patent_data = self.search_patents(name)
+        official_data = self.search_official_registries(name)
         
-        if academic_data or patent_data:
-            deep_context += "\n\n=== ACADEMIC & SECTORAL INTELLIGENCE ===\n"
-            if academic_data:
-                deep_context += academic_data + "\n"
-            if patent_data:
-                deep_context += patent_data + "\n"
+        deep_context += "\n\n=== VERIFIED INSTITUTIONAL INTELLIGENCE ===\n"
+        has_institutional_data = False
+        
+        if academic_data:
+            deep_context += academic_data + "\n"
+            has_institutional_data = True
+            
+        if patent_data:
+            deep_context += patent_data + "\n"
+            has_institutional_data = True
+            
+        if official_data:
+            deep_context += official_data + "\n"
+            has_institutional_data = True
+            
+        if not has_institutional_data:
+             deep_context += "No significant academic, corporate, or patent registrations publicly detected.\n"
         
         formatted_text = self.format_search_results(all_results)
             
