@@ -31,6 +31,9 @@ export interface ProfileData {
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
   cross_validation_issues?: string[];
+  network_connections?: { name: string, role: string, relation: string }[];
+  email_addresses?: string[];
+  data_breaches?: any[];
   created_at?: string;
   updated_at?: string;
 }
@@ -59,10 +62,20 @@ export interface SearchResponse {
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
   cross_validation_issues?: string[];
+  network_connections?: { name: string, role: string, relation: string }[];
+  email_addresses?: string[];
+  data_breaches?: any[];
   sources?: { title: string; url: string; snippet: string }[];
   ai_response: string;
   version_history?: ChangeReport;
   face_match_results?: FaceMatchReport;
+  sentiment_analysis?: {
+    positive: number;
+    neutral: number;
+    negative: number;
+    dominant_emotion: string;
+    summary: string;
+  };
 }
 
 export interface FieldChange {
