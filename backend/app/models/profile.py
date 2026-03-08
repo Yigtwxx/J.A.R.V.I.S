@@ -30,6 +30,8 @@ class Profile(Base):
     similar_profiles = Column(JSON, nullable=True)  # List of similar people
     cross_validation_issues = Column(JSON, nullable=True)  # List of data inconsistencies
     network_connections = Column(JSON, nullable=True)  # Array of related entities
+    email_addresses = Column(JSON, nullable=True)  # List of found emails
+    data_breaches = Column(JSON, nullable=True)  # Dark web intelligence details
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
