@@ -1,7 +1,7 @@
 import requests
 from typing import Dict, Optional
 from app.config import get_settings
-from app.jarvis_logger import logger
+from app.utils.logger import logger
 import warnings
 
 # Suppress warnings
