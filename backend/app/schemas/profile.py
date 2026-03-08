@@ -26,6 +26,7 @@ class ProfileCreate(BaseModel):
     additional_info: Optional[Dict[str, Any]] = None
     similar_profiles: Optional[List[str]] = None
     cross_validation_issues: Optional[List[str]] = None
+    network_connections: Optional[List[Dict[str, str]]] = None
 
 
 class ProfileResponse(BaseModel):
@@ -47,6 +48,7 @@ class ProfileResponse(BaseModel):
     additional_info: Optional[Dict[str, Any]] = None
     similar_profiles: Optional[List[str]] = None
     cross_validation_issues: Optional[List[str]] = None
+    network_connections: Optional[List[Dict[str, str]]] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     
@@ -72,6 +74,7 @@ class SearchResponse(BaseModel):
     additional_info: Optional[Dict[str, Any]] = None
     similar_profiles: Optional[List[str]] = None
     cross_validation_issues: Optional[List[str]] = None
+    network_connections: Optional[List[Dict[str, str]]] = None
     location_country: Optional[str] = None
     location_city: Optional[str] = None
     weather_info: Optional[Dict[str, Any]] = None
