@@ -1,6 +1,7 @@
-'use client';
-import Background from '../components/Background';
-import ChatInterface from '../components/ChatInterface';
+import dynamic from 'next/dynamic';
+
+const Background = dynamic(() => import('../components/Background'));
+const ChatInterface = dynamic(() => import('../components/ChatInterface'));
 
 export default function Home() {
   return (
