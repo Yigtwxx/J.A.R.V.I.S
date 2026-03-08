@@ -85,7 +85,8 @@ Suggested Sections (Use only if relevant verifiable data exists):
 2. **PSYCHOLOGICAL & BEHAVIORAL PROFILE**: Communication patterns, professional motivations, and deduced traits based on their digital footprint.
 3. **TECHNICAL & PROFESSIONAL CAPABILITIES**: Verified skills, industry impact, and significant achievements.
 4. **INTELLECTUAL PROPERTY & ACADEMIC OUTPUT**: Patents, peer-reviewed publications, and technical research vectors.
-5. **DIGITAL FOOTPRINT & VERIFIED NODES**: Connected platforms formatted as clickable markdown: `[Platform Name](URL)`.
+5. **CORPORATE & OFFICIAL REGISTRIES**: Registered directorships, corporate ties, and formal business entities.
+6. **DIGITAL FOOTPRINT & VERIFIED NODES**: Connected platforms formatted as clickable markdown: `[Platform Name](URL)`.
 
 Final reminder: QUALITY OVER QUANTITY. If information is scarce, write a single, perfectly crafted concise summary aggressively analyzing what little is known, and then STRICTLY STOP GENERATING. Your output must be a masterclass in intelligence reporting."""
         
