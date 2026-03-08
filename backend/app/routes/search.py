@@ -6,6 +6,7 @@ from app.schemas import SearchQuery, SearchResponse
 from app.services import AIService, SearchService, GitHubService, ScraperService, WeatherService, SocialScoreService
 from app.services import version_history_service
 from app.services.face_matching_service import FaceMatchingService
+from app.services.breach_service import breach_service
 import asyncio
 import json
 import os
@@ -350,6 +351,18 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         # 5. Extract structured data
         structured_data = await ai_service.extract_profile_data(ai_response, real_name)
         
+        # 5.0.1 Data Breach Intel
+        async def run_breach_check():
+            emails = structured_data.get('email_addresses', [])
+            if emails:
+                try:
+                    return await breach_service.check_breaches(emails)
+                except Exception as e:
+                    logger.log_warning(f"Breach check failed (non-critical): {e}")
+            return []
+            
+        data_breaches = await run_breach_check()
+        
         # 5.1 Algorithmic Cross-Validation (merge with AI-detected issues)
         algo_issues = cross_validate(github_data or {}, social_profiles, web_results or '', real_name, username)
         ai_issues = structured_data.get('cross_validation_issues', [])
@@ -405,6 +418,8 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             description=structured_data.get('description'),
             similar_profiles=structured_data.get('similar_profiles', []),
             cross_validation_issues=all_issues,
+            email_addresses=structured_data.get('email_addresses', []),
+            data_breaches=data_breaches,
             sources=raw_sources,
             ai_response=ai_response
         )
