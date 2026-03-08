@@ -9,6 +9,7 @@ from app.utils.logger import logger
 import warnings
 
 # Suppress InsecureRequestWarning
+warnings.filterwarnings('ignore', message='UnsecureRequestWarning')
 warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 
 class SearchService:
@@ -226,6 +227,89 @@ class SearchService:
         except Exception as e:
             logger.log_warning(f"Data packet extraction failed for {url}: {str(e)}")
             return ""
+            
+    def search_academic_publications(self, query: str) -> str:
+        """
+        Query Crossref and ORCID to find academic publications for a person.
+        """
+        academic_context = ""
+        try:
+            logger.log_action("Scanning academic networks (Crossref/ORCID)", target=query)
+            
+            # 1. ORCID Check (just to see if they are a registered researcher)
+            orcid_url = f"https://pub.orcid.org/v3.0/search/?q={urllib.parse.quote(query)}"
+            try:
+                orcid_res = requests.get(orcid_url, headers={'Accept': 'application/json'}, timeout=5)
+                if orcid_res.status_code == 200:
+                    orcid_data = orcid_res.json()
+                    results = orcid_data.get('result', [])
+                    if results:
+                        academic_context += f"[ORCID] Verified researcher profile exists. Found {len(results)} potential ORCID matches.\n"
+            except Exception as e:
+                logger.log_warning(f"Failed to query ORCID: {e}")
+
+            # 2. Crossref API for Publications
+            crossref_url = f"https://api.crossref.org/works?query.author={urllib.parse.quote(query)}&select=title,author,URL,published-print,publisher&rows=5"
+            try:
+                crossref_res = requests.get(crossref_url, timeout=5)
+                if crossref_res.status_code == 200:
+                    cross_data = crossref_res.json()
+                    items = cross_data.get('message', {}).get('items', [])
+                    
+                    if items:
+                        academic_context += "\n[Crossref] Top Academic Publications:\n"
+                        for i, item in enumerate(items, 1):
+                            title = item.get('title', ['Unknown Title'])[0]
+                            publisher = item.get('publisher', 'Unknown Publisher')
+                            url = item.get('URL', '')
+                            
+                            # Try to extract year
+                            year = "Unknown Date"
+                            published_print = item.get('published-print', {})
+                            if 'date-parts' in published_print and published_print['date-parts']:
+                                year = str(published_print['date-parts'][0][0])
+                                
+                            academic_context += f"  {i}. \"{title}\" ({year}) - {publisher}. URL: {url}\n"
+                    else:
+                        academic_context += "\n[Crossref] No major publications found under this exact name.\n"
+            except Exception as e:
+                logger.log_warning(f"Failed to query Crossref: {e}")
+                
+            if academic_context:
+                logger.log_success("Academic intelligence retrieved.")
+            return academic_context
+
+        except Exception as e:
+            logger.log_warning(f"Academic sweep failed: {e}")
+            return ""
+
+    def search_patents(self, query: str) -> str:
+        """
+        Query patent databases to find technical patents for a person.
+        We'll use a basic Google Patents search via Yahoo for simplicity and reliability, 
+        as PatentsView is highly specific to US patents and often requires strict formatting.
+        """
+        try:
+            logger.log_action("Scanning patent registries", target=query)
+            # Use yahoo to search specifically inside patents.google.com
+            patent_query = f"site:patents.google.com inventor \"{query}\""
+            results = self.search_yahoo(patent_query, num_results=3)
+            
+            patent_context = ""
+            if results:
+                patent_context += "\n[Patent Registries] Registered Patents / Inventions:\n"
+                for i, res in enumerate(results, 1):
+                    # Clean up title (Google Patents usually returns 'US1234567B2 - Title...')
+                    title = res['title'].replace(' - Google Patents', '')
+                    patent_context += f"  {i}. {title}\n"
+                    patent_context += f"     URL: {res['url']}\n"
+                    
+                logger.log_success("Patent intelligence retrieved.")
+            return patent_context
+            
+        except Exception as e:
+            logger.log_warning(f"Patent sweep failed: {e}")
+            return ""
     
     def search_person(self, name: str) -> tuple[str, str, str, List[Dict[str, str]]]:
         """
@@ -278,6 +362,17 @@ class SearchService:
                 logger.log_success(f"Packet integrity verified for {res['url']}")
         
         logger.log_success("Data aggregation and content synthesis complete.")
+        
+        # 4. Integrate Academic and Technical (Patent) Sweeps
+        academic_data = self.search_academic_publications(name)
+        patent_data = self.search_patents(name)
+        
+        if academic_data or patent_data:
+            deep_context += "\n\n=== ACADEMIC & SECTORAL INTELLIGENCE ===\n"
+            if academic_data:
+                deep_context += academic_data + "\n"
+            if patent_data:
+                deep_context += patent_data + "\n"
         
         formatted_text = self.format_search_results(all_results)
             
