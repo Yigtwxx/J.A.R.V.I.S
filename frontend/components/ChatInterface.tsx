@@ -1,16 +1,21 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Loader2, TerminalSquare, Save, CheckCircle, History, Trash2, Clock, Github, Instagram, Twitter, Linkedin, Globe, Mic, MicOff, Volume2, VolumeX, MapPin, Thermometer, Cloud, Sun, Wind } from 'lucide-react';
 import { searchPerson, saveProfile, getSearchHistory, deleteHistoryItem } from '@/services/api';
-import { Message, SearchResponse, SearchHistoryItem } from '@/types/profile';
-import ProfileCard from './ProfileCard';
-import VersionHistory from './VersionHistory';
-import FaceMatch from './FaceMatch';
-import SocialGauge from './SocialGauge';
-import LoadingAnimation from './LoadingAnimation';
+import { Message, SearchResponse } from '@/types/profile';
 import ReactMarkdown from 'react-markdown';
+import dynamic from 'next/dynamic';
+import { useChatStore } from '@/store/chatStore';
+
+// Lazy-loaded Heavy Components
+const ProfileCard = dynamic(() => import('./ProfileCard'), { ssr: false });
+const VersionHistory = dynamic(() => import('./VersionHistory'), { ssr: false });
+const FaceMatch = dynamic(() => import('./FaceMatch'), { ssr: false });
+const SocialGauge = dynamic(() => import('./SocialGauge'), { ssr: false });
+const SentimentGauge = dynamic(() => import('./SentimentGauge'), { ssr: false });
+const LoadingAnimation = dynamic(() => import('./LoadingAnimation'), { ssr: false });
 
 // Custom Brand Icons
 const SpotifyIcon = ({ className }: { className?: string }) => (
@@ -58,27 +63,133 @@ const PhoneIcon = ({ className }: { className?: string }) => (
     </svg>
 );
 
-export default function ChatInterface() {
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [input, setInput] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [history, setHistory] = useState<SearchHistoryItem[]>([]);
-    const [isListening, setIsListening] = useState(false);
-    const [voiceEnabled, setVoiceEnabled] = useState(false);
-    const [isSpeaking, setIsSpeaking] = useState(false);
-    const [liveStatus, setLiveStatus] = useState<string[]>([]);
-    const [streamingContent, setStreamingContent] = useState('');
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const recognitionRef = useRef<any>(null);
+const LiveStatusMonitor = () => {
+    const liveStatus = useChatStore(state => state.liveStatus);
+    const isLoading = useChatStore(state => state.isLoading);
 
-    const loadHistory = async () => {
+    if (!isLoading) return null;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="fixed z-40 right-6 top-6 w-64 glass-strong rounded-[1.5rem] border border-cyan-500/40 bg-cyan-950/30 backdrop-blur-xl shadow-[0_0_30px_rgba(0,255,255,0.1)] flex flex-col overflow-hidden"
+        >
+            <div className="p-4 border-b border-cyan-500/30 bg-cyan-900/50 flex items-center gap-3 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+                <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_cyan]" />
+                <span className="text-[11px] font-black font-orbitron tracking-[0.2em] text-cyan-300 uppercase glow-cyan">Live Monitoring</span>
+            </div>
+            <div className="p-4 space-y-3 font-mono">
+                <AnimatePresence>
+                    {liveStatus.map((status, idx) => (
+                        <motion.div
+                            key={`${status}-${idx}`}
+                            initial={{ opacity: 0, x: 10, filter: 'blur(4px)' }}
+                            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, x: -10, filter: 'blur(4px)' }}
+                            transition={{ duration: 0.3 }}
+                            className="text-[10px] leading-relaxed flex gap-2 items-start"
+                        >
+                            <span className="text-cyan-500 shrink-0 select-none opacity-50">[{new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span>
+                            <span className={`${status.includes('[OK]') ? 'text-green-400' : status.includes('[ERR]') ? 'text-red-400' : 'text-cyan-100/80'} break-words`}>
+                                {status.replace(/\[(SYS|OK|ERR|PROCESS|WARN)\]\s*/, '')}
+                            </span>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
+                <motion.div
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ repeat: Infinity, duration: 1 }}
+                    className="w-full h-px bg-cyan-500/30 mt-4"
+                />
+            </div>
+        </motion.div>
+    );
+};
+
+const StreamingMessageBubble = () => {
+    const streamingContent = useChatStore(state => state.streamingContent);
+    const isLoading = useChatStore(state => state.isLoading);
+
+    useEffect(() => {
+        document.getElementById('messages-end')?.scrollIntoView({ behavior: 'smooth' });
+    }, [streamingContent]);
+
+    if (!isLoading || !streamingContent) return null;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex justify-start"
+        >
+            <div className="w-full max-w-3xl space-y-6">
+                <div className="message-bubble message-ai text-white font-mono text-[15px] leading-normal tracking-wide shadow-lg border-l-4 border-cyan-400 relative">
+                    <div className="flex items-center gap-2 mb-3 text-cyan-400 font-bold pb-2 border-b border-cyan-500/30">
+                        <TerminalSquare className="w-5 h-5 glow-cyan animate-pulse" />
+                        <span className="text-sm uppercase tracking-[0.2em] glow-cyan">Receiving Transmission...</span>
+                    </div>
+                    <ReactMarkdown
+                        components={{
+                            p: ({ children, ...props }) => <p className="leading-normal text-gray-200 mb-2 last:mb-0" {...props}>{children}</p>,
+                        }}
+                    >
+                        {streamingContent}
+                    </ReactMarkdown>
+                    <span className="inline-block w-2.5 h-4 ml-1 bg-cyan-400 animate-pulse align-middle shadow-[0_0_8px_cyan]" />
+                </div>
+            </div>
+        </motion.div>
+    );
+};
+
+const RagStreamingBubble = () => {
+    const streamingRagContent = useChatStore(state => state.streamingRagContent);
+    const isRagLoading = useChatStore(state => state.isRagLoading);
+
+    useEffect(() => {
+        document.getElementById('messages-end')?.scrollIntoView({ behavior: 'smooth' });
+    }, [streamingRagContent]);
+
+    if (!isRagLoading) return null;
+
+    return (
+        <div className="flex justify-start">
+            <div className="p-3.5 rounded-xl max-w-[90%] md:max-w-[80%] font-mono text-sm bg-teal-950/30 text-teal-50 border-l-4 border-teal-500 shadow-[0_4px_15px_rgba(45,212,191,0.1)]">
+                {streamingRagContent ? (
+                    <ReactMarkdown components={{ p: ({ children, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props}>{children}</p> }}>
+                        {streamingRagContent}
+                    </ReactMarkdown>
+                ) : (
+                    <div className="flex items-center gap-2 text-teal-400/80">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="uppercase tracking-widest text-xs">Querying deep context nodes...</span>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const HistorySidebar = () => {
+    const history = useChatStore(state => state.history);
+    const setHistory = useChatStore(state => state.setHistory);
+    const setInput = useChatStore(state => state.setInput);
+    const messages = useChatStore(state => state.messages);
+
+    const loadHistory = React.useCallback(async () => {
         try {
             const data = await getSearchHistory();
             setHistory(data);
         } catch (error) {
             console.error('Failed to load history', error);
         }
-    };
+    }, [setHistory]);
+
+    useEffect(() => {
+        loadHistory();
+    }, [loadHistory]);
 
     const handleDeleteHistory = async (id: number) => {
         try {
@@ -89,29 +200,201 @@ export default function ChatInterface() {
         }
     };
 
-    const handleHistoryClick = (query: string) => {
-        setInput(query);
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
+            className={`fixed z-40 left-6 top-32 bottom-32 w-64 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden transition-all duration-700 ${messages.length === 0 ? 'translate-y-[15vh]' : 'translate-y-0'}`}
+        >
+            <div className="p-4 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full animate-[shimmer_5s_infinite]"></div>
+                <History className="w-5 h-5 text-cyan-400" />
+                <span className="text-xs font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan">Secure Logs</span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+                {history.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-cyan-500/40 opacity-70">
+                        <Clock className="w-8 h-8 mb-2" />
+                        <p className="text-[10px] font-mono tracking-widest uppercase">No Records</p>
+                    </div>
+                ) : (
+                    <AnimatePresence>
+                        {history.map((item) => (
+                            <motion.div
+                                key={item.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9 }}
+                                className="group/hist flex items-center justify-between p-2.5 rounded-lg hover:bg-cyan-900/40 border border-transparent hover:border-cyan-500/30 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_10px_rgba(0,255,255,0.1)]"
+                                onClick={() => setInput(item.query_name)}
+                            >
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-500/50 group-hover/hist:bg-cyan-400 group-hover/hist:shadow-[0_0_5px_rgba(0,255,255,0.8)] transition-all shrink-0"></div>
+                                    <span className="text-[13px] text-gray-300 font-medium truncate group-hover/hist:text-white transition-colors">{item.query_name}</span>
+                                </div>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteHistory(item.id); }}
+                                    className="opacity-0 group-hover/hist:opacity-100 p-1.5 text-cyan-700 hover:text-red-400 hover:bg-red-950/30 rounded-md transition-all shrink-0"
+                                    title="Delete Log"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
+                )}
+            </div>
+            <div className="px-4 py-2 border-t border-cyan-500/20 text-center bg-black/20">
+                <span className="text-[9px] text-cyan-500/60 font-mono tracking-widest uppercase flex items-center justify-center gap-1.5"><Clock className="w-3 h-3" /> Logs expire in 7 days</span>
+            </div>
+        </motion.div>
+    );
+};
+
+const RagInteractionPanel = ({ profileName }: { profileName: string }) => {
+    const ragInput = useChatStore(state => state.ragInput);
+    const setRagInput = useChatStore(state => state.setRagInput);
+    const ragMessages = useChatStore(state => state.ragMessages);
+    const setRagMessages = useChatStore(state => state.setRagMessages);
+    const isRagLoading = useChatStore(state => state.isRagLoading);
+    const setIsRagLoading = useChatStore(state => state.setIsRagLoading);
+    const setStreamingRagContent = useChatStore(state => state.setStreamingRagContent);
+
+    const handleRagSubmit = async () => {
+        if (!ragInput.trim() || isRagLoading) return;
+
+        const userMessage = { role: 'user' as const, content: ragInput.trim() };
+        setRagMessages(prev => [...prev, userMessage]);
+        setRagInput('');
+        setIsRagLoading(true);
+        setStreamingRagContent('');
+
+        try {
+            const response = await fetch('http://localhost:8000/api/chat/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query_name: profileName,
+                    messages: ragMessages.concat(userMessage)
+                })
+            });
+
+            if (!response.ok) throw new Error('RAG Chat failed');
+
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+            let aiContent = '';
+
+            if (reader) {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    aiContent += chunk;
+                    setStreamingRagContent(aiContent);
+                }
+            }
+
+            setRagMessages(prev => [...prev, { role: 'assistant', content: aiContent }]);
+            setStreamingRagContent('');
+
+        } catch (error) {
+            console.error(error);
+            setRagMessages(prev => [...prev, { role: 'assistant', content: '[SYSTEM ERROR: Neural reasoning engine failure. Check API logs.]' }]);
+            setStreamingRagContent('');
+        } finally {
+            setIsRagLoading(false);
+        }
     };
 
-    // Initialize Speech Recognition
+    return (
+        <div className="mt-8 border-t-2 border-cyan-500/20 pt-5">
+            <div className="flex items-center gap-2 mb-4">
+                <TerminalSquare className="w-5 h-5 text-teal-400 drop-shadow-[0_0_8px_rgba(45,212,191,0.8)]" />
+                <span className="text-sm font-bold font-mono text-teal-300 uppercase tracking-widest drop-shadow-[0_0_5px_rgba(45,212,191,0.5)]">
+                    Interactive Analysis Protocol
+                </span>
+            </div>
+
+            <div className="space-y-4 mb-4">
+                {ragMessages.map((ragMsg, rIndex) => (
+                    <div key={rIndex} className={`flex ${ragMsg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`p-3.5 rounded-xl max-w-[90%] md:max-w-[80%] font-mono text-sm shadow-md ${ragMsg.role === 'user' ? 'bg-cyan-950/40 text-cyan-50 border border-cyan-500/30' : 'bg-teal-950/30 text-teal-50 border-l-4 border-teal-500 shadow-[0_4px_15px_rgba(45,212,191,0.1)]'}`}>
+                            {ragMsg.role === 'assistant' ? (
+                                <ReactMarkdown components={{ p: ({ children, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props}>{children}</p> }}>
+                                    {ragMsg.content}
+                                </ReactMarkdown>
+                            ) : ragMsg.content}
+                        </div>
+                    </div>
+                ))}
+
+                <RagStreamingBubble />
+            </div>
+
+            <div className="flex gap-2">
+                <input
+                    type="text"
+                    value={ragInput}
+                    onChange={(e) => setRagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRagSubmit();
+                    }}
+                    disabled={isRagLoading}
+                    placeholder={`Ask J.A.R.V.I.S about ${profileName}...`}
+                    className="flex-1 bg-black/40 border border-cyan-500/30 rounded-xl px-4 py-3 text-cyan-100 font-mono text-sm focus:border-teal-400 focus:outline-none placeholder:text-cyan-500/40 transition-colors shadow-inner"
+                />
+                <button
+                    onClick={handleRagSubmit}
+                    disabled={isRagLoading || !ragInput.trim()}
+                    className="bg-cyan-950/50 border border-cyan-500/50 hover:border-teal-400 hover:text-teal-300 text-cyan-400 px-5 py-3 rounded-xl font-mono tracking-widest uppercase transition-all flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed group/ragbtn"
+                >
+                    {isRagLoading ? <Loader2 className="w-5 h-5 animate-spin text-teal-400" /> : <Send className="w-5 h-5 group-hover/ragbtn:scale-110 transition-transform" />}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const ChatInputBar = () => {
+    const input = useChatStore(state => state.input);
+    const setInput = useChatStore(state => state.setInput);
+    const isLoading = useChatStore(state => state.isLoading);
+    const setIsLoading = useChatStore(state => state.setIsLoading);
+    const isListening = useChatStore(state => state.isListening);
+    const setIsListening = useChatStore(state => state.setIsListening);
+    const voiceEnabled = useChatStore(state => state.voiceEnabled);
+    const setVoiceEnabled = useChatStore(state => state.setVoiceEnabled);
+    const setMessages = useChatStore(state => state.setMessages);
+    const setRagMessages = useChatStore(state => state.setRagMessages);
+    const setRagInput = useChatStore(state => state.setRagInput);
+    const setStreamingContent = useChatStore(state => state.setStreamingContent);
+    const setHistory = useChatStore(state => state.setHistory);
+
+    const recognitionRef = useRef<any>(null);
+
     useEffect(() => {
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (SpeechRecognition) {
             recognitionRef.current = new SpeechRecognition();
             recognitionRef.current.continuous = false;
             recognitionRef.current.interimResults = false;
-            recognitionRef.current.lang = 'tr-TR'; // Default to Turkish or 'en-US' based on context
+            recognitionRef.current.lang = 'tr-TR';
 
             recognitionRef.current.onresult = (event: any) => {
                 const transcript = event.results[0][0].transcript;
-                setInput(prev => prev + (prev ? ' ' : '') + transcript);
+                const currentInput = useChatStore.getState().input;
+                setInput(currentInput + (currentInput ? ' ' : '') + transcript);
                 setIsListening(false);
             };
 
             recognitionRef.current.onerror = () => setIsListening(false);
             recognitionRef.current.onend = () => setIsListening(false);
         }
-    }, []);
+    }, [setInput, setIsListening]);
 
     const toggleListening = () => {
         if (isListening) {
@@ -123,63 +406,139 @@ export default function ChatInterface() {
         }
     };
 
-    useEffect(() => {
-        loadHistory();
-    }, []);
+    const handleSearch = async () => {
+        if (!input.trim() || isLoading) return;
 
-    useEffect(() => {
-        let eventSource: EventSource | null = null;
-        let intentionalClose = false;
-
-        if (isLoading) {
-            setLiveStatus(["Establishing secure link..."]);
-            setStreamingContent('');
-            eventSource = new EventSource('http://localhost:8000/api/status/stream');
-
-            eventSource.onmessage = (event) => {
-                const data = event.data as string;
-
-                if (data === '[STREAM_START]') {
-                    // AI streaming is about to begin — clear any previous content
-                    setStreamingContent('');
-                    return;
-                }
-
-                if (data === '[STREAM_END]') {
-                    // AI streaming finished — no action needed, final response will replace
-                    return;
-                }
-
-                if (data.startsWith('[STREAM] ')) {
-                    const token = data.substring(9);
-                    setStreamingContent(prev => prev + token.replace(/\\n/g, '\n'));
-                } else {
-                    setLiveStatus(prev => {
-                        const newStatus = [...prev, data].slice(-12);
-                        return newStatus;
-                    });
-                }
-            };
-
-            eventSource.onerror = () => {
-                // Only close if not intentionally closed (prevents infinite reconnect loop)
-                if (!intentionalClose && eventSource?.readyState !== EventSource.CLOSED) {
-                    eventSource?.close();
-                }
-            };
-        } else {
-            setStreamingContent('');
-        }
-
-        return () => {
-            intentionalClose = true;
-            if (eventSource) eventSource.close();
+        const userMessage: Message = {
+            role: 'user',
+            content: input.trim()
         };
-    }, [isLoading]);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        setMessages(prev => [...prev, userMessage]);
+        setInput('');
+        setIsLoading(true);
+        setRagMessages([]);
+        setRagInput('');
+
+        try {
+            const response = await searchPerson(input.trim());
+
+            const assistantMessage: Message = {
+                role: 'assistant',
+                content: response.ai_response,
+                profileData: response
+            };
+
+            setMessages(prev => [...prev, assistantMessage]);
+            setStreamingContent('');
+
+            // Background update history
+            getSearchHistory().then(setHistory).catch(console.error);
+
+        } catch (error: any) {
+            setStreamingContent('');
+            const errorMessage: Message = {
+                role: 'assistant',
+                content: `[ERROR] Analysis failed: ${error.response?.data?.detail || error.message || 'Unknown error'}. Please verify connection.`
+            };
+            setMessages(prev => [...prev, errorMessage]);
+        } finally {
+            setIsLoading(false);
+        }
     };
+
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSearch();
+        }
+    };
+
+    return (
+        <motion.div
+            initial={{ y: 100 }}
+            animate={{ y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+            className="fixed bottom-10 left-0 w-full pl-[300px] pr-[280px] flex justify-center z-50 pointer-events-none"
+        >
+            <div className="pointer-events-auto w-full max-w-4xl glass-strong p-4 rounded-3xl flex gap-4 items-center border-2 border-cyan-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-hidden group hover:border-cyan-400/60 transition-all duration-500">
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+
+                <button
+                    onClick={() => {
+                        if (voiceEnabled) window.speechSynthesis.cancel();
+                        setVoiceEnabled(!voiceEnabled);
+                    }}
+                    className={`p-3 rounded-xl border transition-all ${voiceEnabled ? 'border-cyan-400 bg-cyan-900/40 text-cyan-400 glow-cyan' : 'border-slate-700 bg-slate-900/40 text-slate-500'}`}
+                    title={voiceEnabled ? "Mute JARVIS" : "Enable JARVIS Voice"}
+                >
+                    {voiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+                </button>
+
+                <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder="Enter name or username (use '/' to separate)..."
+                    disabled={isLoading}
+                    className="flex-1 input-jarvis h-14 rounded-2xl border-none shadow-none bg-black/20 focus:bg-black/40 placeholder:tracking-widest text-xl font-bold px-8 transition-all"
+                />
+
+                <button
+                    onClick={toggleListening}
+                    className={`relative w-14 h-14 rounded-xl flex items-center justify-center transition-all border-2 ${isListening ? 'border-red-500 bg-red-950/40 text-red-500' : 'border-cyan-500/50 bg-cyan-950/40 text-cyan-400 hover:border-cyan-300'}`}
+                >
+                    {isListening && (
+                        <motion.div
+                            animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                            transition={{ repeat: Infinity, duration: 1.5 }}
+                            className="absolute inset-0 bg-red-500/30 rounded-full"
+                        />
+                    )}
+                    {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                </button>
+
+                <button
+                    onClick={handleSearch}
+                    disabled={isLoading || !input.trim()}
+                    className="btn-jarvis rounded-xl w-14 h-14 p-0 flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed group/btn hover:border-cyan-300 bg-cyan-950/40 border-2 border-cyan-500/50"
+                >
+                    {isLoading ? (
+                        <Loader2 className="w-6 h-6 animate-spin text-cyan-300" />
+                    ) : (
+                        <Send className="w-6 h-6 text-cyan-400 group-hover/btn:text-white group-hover/btn:scale-110 transition-all drop-shadow-[0_0_8px_rgba(0,255,255,0.8)]" />
+                    )}
+                </button>
+            </div>
+        </motion.div>
+    );
+};
+
+const LoadingIndicator = () => {
+    const isLoading = useChatStore(state => state.isLoading);
+    const streamingContent = useChatStore(state => state.streamingContent);
+
+    if (!isLoading || !!streamingContent) return null;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex justify-start w-full max-w-3xl"
+        >
+            <div className="glass-strong rounded-2xl p-8 w-full flex justify-center border-t-2 border-t-cyan-400 shadow-[0_0_30px_rgba(0,255,255,0.1)]">
+                <LoadingAnimation />
+            </div>
+        </motion.div>
+    );
+};
+
+const VoiceSynthesizer = () => {
+    const messages = useChatStore(state => state.messages);
+    const voiceEnabled = useChatStore(state => state.voiceEnabled);
+    const isSpeaking = useChatStore(state => state.isSpeaking);
+    const setIsSpeaking = useChatStore(state => state.setIsSpeaking);
 
     const speakResponse = React.useCallback((text: string) => {
         if (!text || !voiceEnabled) return;
@@ -203,56 +562,85 @@ export default function ChatInterface() {
         utterance.onerror = () => setIsSpeaking(false);
 
         window.speechSynthesis.speak(utterance);
-    }, [voiceEnabled]);
+    }, [voiceEnabled, setIsSpeaking]);
 
     useEffect(() => {
-        scrollToBottom();
-
         // Handle auto-speech for new assistant messages
         const lastMessage = messages[messages.length - 1];
         if (voiceEnabled && lastMessage?.role === 'assistant' && !isSpeaking) {
             speakResponse(lastMessage.content);
         }
-    }, [messages, streamingContent, voiceEnabled, isSpeaking, speakResponse]);
+    }, [messages, voiceEnabled, isSpeaking, speakResponse]);
 
-    const handleSearch = async () => {
-        if (!input.trim() || isLoading) return;
+    return null;
+};
 
-        const userMessage: Message = {
-            role: 'user',
-            content: input.trim()
-        };
+export default function ChatInterface() {
+    const messages = useChatStore(state => state.messages);
+    const setMessages = useChatStore(state => state.setMessages);
+    const isLoading = useChatStore(state => state.isLoading);
 
-        setMessages(prev => [...prev, userMessage]);
-        setInput('');
-        setIsLoading(true);
+    const addLiveStatus = useChatStore(state => state.addLiveStatus);
+    const setStreamingContent = useChatStore(state => state.setStreamingContent);
+    const addStreamingToken = useChatStore(state => state.addStreamingToken);
+    const resetSearchState = useChatStore(state => state.resetSearchState);
 
-        try {
-            const response = await searchPerson(input.trim());
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
-            // The full response replaces the streaming content
-            const assistantMessage: Message = {
-                role: 'assistant',
-                content: response.ai_response,
-                profileData: response
+    useEffect(() => {
+        let eventSource: EventSource | null = null;
+        let intentionalClose = false;
+
+        if (isLoading) {
+            resetSearchState(); // Reset RAG and Live status
+            eventSource = new EventSource('http://localhost:8000/api/status/stream');
+
+            eventSource.onmessage = (event) => {
+                const data = event.data as string;
+
+                if (data === '[STREAM_START]') {
+                    // AI streaming is about to begin — clear any previous content
+                    setStreamingContent('');
+                    return;
+                }
+
+                if (data === '[STREAM_END]') {
+                    // AI streaming finished — no action needed, final response will replace
+                    return;
+                }
+
+                if (data.startsWith('[STREAM] ')) {
+                    const token = data.substring(9);
+                    addStreamingToken(token);
+                } else {
+                    addLiveStatus(data);
+                }
             };
 
-            setMessages(prev => [...prev, assistantMessage]);
-            setStreamingContent('');
-            loadHistory(); // Refresh history after new search
-
-        } catch (error: unknown) {
-            setStreamingContent('');
-            const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
-            const errorMessage: Message = {
-                role: 'assistant',
-                content: `[ERROR] Analysis failed: ${axiosError.response?.data?.detail || axiosError.message || 'Unknown error'}. Please verify connection.`
+            eventSource.onerror = () => {
+                // Only close if not intentionally closed (prevents infinite reconnect loop)
+                if (!intentionalClose && eventSource?.readyState !== EventSource.CLOSED) {
+                    eventSource?.close();
+                }
             };
-            setMessages(prev => [...prev, errorMessage]);
-        } finally {
-            setIsLoading(false);
+        } else {
+            setStreamingContent('');
         }
+
+        return () => {
+            intentionalClose = true;
+            if (eventSource) eventSource.close();
+        };
+    }, [isLoading, resetSearchState, addStreamingToken, addLiveStatus, setStreamingContent]);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
 
     const handleApprove = async (messageIndex: number, profileToSave: SearchResponse) => {
         try {
@@ -281,20 +669,12 @@ export default function ChatInterface() {
                 return newMessages;
             });
 
-        } catch (error: unknown) {
-            const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
+        } catch (error: any) {
             const errorMessage: Message = {
                 role: 'assistant',
-                content: `[ERROR] Archive failure: ${axiosError.response?.data?.detail || axiosError.message}`
+                content: `[ERROR] Archive failure: ${error.response?.data?.detail || error.message}`
             };
             setMessages(prev => [...prev, errorMessage]);
-        }
-    };
-
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSearch();
         }
     };
 
@@ -359,97 +739,15 @@ export default function ChatInterface() {
             </motion.header>
 
             {/* History Sidebar */}
-            <motion.div
-                initial={{ opacity: 0, x: -50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
-                className={`fixed z-40 left-6 top-32 bottom-32 w-64 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden transition-all duration-700 ${messages.length === 0 ? 'translate-y-[15vh]' : 'translate-y-0'}`}
-            >
-                <div className="p-4 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full animate-[shimmer_5s_infinite]"></div>
-                    <History className="w-5 h-5 text-cyan-400" />
-                    <span className="text-xs font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan">Secure Logs</span>
-                </div>
+            <HistorySidebar />
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
-                    {history.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-cyan-500/40 opacity-70">
-                            <Clock className="w-8 h-8 mb-2" />
-                            <p className="text-[10px] font-mono tracking-widest uppercase">No Records</p>
-                        </div>
-                    ) : (
-                        <AnimatePresence>
-                            {history.map((item) => (
-                                <motion.div
-                                    key={item.id}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.9 }}
-                                    className="group/hist flex items-center justify-between p-2.5 rounded-lg hover:bg-cyan-900/40 border border-transparent hover:border-cyan-500/30 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_10px_rgba(0,255,255,0.1)]"
-                                    onClick={() => handleHistoryClick(item.query_name)}
-                                >
-                                    <div className="flex items-center gap-2 overflow-hidden">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500/50 group-hover/hist:bg-cyan-400 group-hover/hist:shadow-[0_0_5px_rgba(0,255,255,0.8)] transition-all shrink-0"></div>
-                                        <span className="text-[13px] text-gray-300 font-medium truncate group-hover/hist:text-white transition-colors">{item.query_name}</span>
-                                    </div>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleDeleteHistory(item.id); }}
-                                        className="opacity-0 group-hover/hist:opacity-100 p-1.5 text-cyan-700 hover:text-red-400 hover:bg-red-950/30 rounded-md transition-all shrink-0"
-                                        title="Delete Log"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                </motion.div>
-                            ))}
-                        </AnimatePresence>
-                    )}
-                </div>
-                <div className="px-4 py-2 border-t border-cyan-500/20 text-center bg-black/20">
-                    <span className="text-[9px] text-cyan-500/60 font-mono tracking-widest uppercase flex items-center justify-center gap-1.5"><Clock className="w-3 h-3" /> Logs expire in 7 days</span>
-                </div>
-            </motion.div>
+            <VoiceSynthesizer />
 
             {/* Right Sidebar: Network Nodes or Live Status */}
             {(() => {
                 // If loading, show live status stream
                 if (isLoading) {
-                    return (
-                        <motion.div
-                            initial={{ opacity: 0, x: 50 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="fixed z-40 right-6 top-6 w-64 glass-strong rounded-[1.5rem] border border-cyan-500/40 bg-cyan-950/30 backdrop-blur-xl shadow-[0_0_30px_rgba(0,255,255,0.1)] flex flex-col overflow-hidden"
-                        >
-                            <div className="p-4 border-b border-cyan-500/30 bg-cyan-900/50 flex items-center gap-3 relative overflow-hidden">
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
-                                <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_cyan]" />
-                                <span className="text-[11px] font-black font-orbitron tracking-[0.2em] text-cyan-300 uppercase glow-cyan">Live Monitoring</span>
-                            </div>
-                            <div className="p-4 space-y-3 font-mono">
-                                <AnimatePresence>
-                                    {liveStatus.map((status, idx) => (
-                                        <motion.div
-                                            key={`${status}-${idx}`}
-                                            initial={{ opacity: 0, x: 10, filter: 'blur(4px)' }}
-                                            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                                            exit={{ opacity: 0, x: -10, filter: 'blur(4px)' }}
-                                            transition={{ duration: 0.3 }}
-                                            className="text-[10px] leading-relaxed flex gap-2 items-start"
-                                        >
-                                            <span className="text-cyan-500 shrink-0 select-none opacity-50">[{new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span>
-                                            <span className={`${status.includes('[OK]') ? 'text-green-400' : status.includes('[ERR]') ? 'text-red-400' : 'text-cyan-100/80'} break-words`}>
-                                                {status.replace(/\[(SYS|OK|ERR|PROCESS|WARN)\]\s*/, '')}
-                                            </span>
-                                        </motion.div>
-                                    ))}
-                                </AnimatePresence>
-                                <motion.div
-                                    animate={{ opacity: [0.3, 1, 0.3] }}
-                                    transition={{ repeat: Infinity, duration: 1 }}
-                                    className="w-full h-px bg-cyan-500/30 mt-4"
-                                />
-                            </div>
-                        </motion.div>
-                    );
+                    return <LiveStatusMonitor />;
                 }
 
                 // Find the latest assistant message with profileData
@@ -696,6 +994,24 @@ export default function ChatInterface() {
                 );
             })()}
 
+            {/* Sentiment Psychological Profiler Widget (Under Social Gauge) */}
+            {(() => {
+                const lastProfile = [...messages].reverse().find(m => m.role === 'assistant' && m.profileData)?.profileData;
+                if (!lastProfile || !lastProfile.sentiment_analysis) return null;
+
+                // Adjust positioning dynamically (assuming SocialGauge takes up some space, we place this right below it)
+                return (
+                    <motion.div
+                        initial={{ opacity: 0, x: -50 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.8, delay: 0.6, ease: 'easeOut' }}
+                        className="fixed z-40 left-6 bottom-16 w-64 pointer-events-auto"
+                    >
+                        <SentimentGauge data={lastProfile.sentiment_analysis as any} />
+                    </motion.div>
+                );
+            })()}
+
             {/* Messages Area */}
             <motion.div
                 initial={{ paddingTop: "52vh", paddingBottom: "8rem" }}
@@ -775,6 +1091,7 @@ export default function ChatInterface() {
                                                         if (isWikiLogo) return null; // Filter out rogue wikipedia textual logos
                                                         return (
                                                             <span className="inline-block shrink-0 rounded-2xl overflow-hidden border-2 border-cyan-500/50 w-32 h-32 sm:w-40 sm:h-40 shadow-[0_0_20px_rgba(0,255,255,0.25)] ring-1 ring-cyan-300/20 transition-transform hover:scale-105">
+                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                                                 <img
                                                                     className="w-full h-full object-cover object-top"
                                                                     {...props}
@@ -834,6 +1151,11 @@ export default function ChatInterface() {
                                                         </div>
                                                     )}
                                                 </div>
+
+                                                {/* RAG Interactive Chat Mode (Only for the latest profile) */}
+                                                {index === messages.length - 1 && (
+                                                    <RagInteractionPanel profileName={message.profileData.name} />
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -842,108 +1164,17 @@ export default function ChatInterface() {
                         ))}
 
                         {/* Live Streaming Message Bubble */}
-                        {isLoading && streamingContent && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="flex justify-start"
-                            >
-                                <div className="w-full max-w-3xl space-y-6">
-                                    <div className="message-bubble message-ai text-white font-mono text-[15px] leading-normal tracking-wide shadow-lg border-l-4 border-cyan-400 relative">
-                                        <div className="flex items-center gap-2 mb-3 text-cyan-400 font-bold pb-2 border-b border-cyan-500/30">
-                                            <TerminalSquare className="w-5 h-5 glow-cyan animate-pulse" />
-                                            <span className="text-sm uppercase tracking-[0.2em] glow-cyan">Receiving Transmission...</span>
-                                        </div>
-                                        <ReactMarkdown
-                                            components={{
-                                                p: ({ children, ...props }) => <p className="leading-normal text-gray-200 mb-2 last:mb-0" {...props}>{children}</p>,
-                                            }}
-                                        >
-                                            {streamingContent}
-                                        </ReactMarkdown>
-                                        <span className="inline-block w-2.5 h-4 ml-1 bg-cyan-400 animate-pulse align-middle shadow-[0_0_8px_cyan]" />
-                                    </div>
-                                </div>
-                            </motion.div>
-                        )}
+                        <StreamingMessageBubble />
                     </AnimatePresence>
 
-                    {isLoading && !streamingContent && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="flex justify-start w-full max-w-3xl"
-                        >
-                            <div className="glass-strong rounded-2xl p-8 w-full flex justify-center border-t-2 border-t-cyan-400 shadow-[0_0_30px_rgba(0,255,255,0.1)]">
-                                <LoadingAnimation />
-                            </div>
-                        </motion.div>
-                    )}
+                    <LoadingIndicator />
 
-                    <div ref={messagesEndRef} className="h-4" />
+                    <div id="messages-end" ref={messagesEndRef} className="h-4" />
                 </div>
             </motion.div>
 
             {/* Futuristic Floating Input Bar */}
-            <motion.div
-                initial={{ y: 100 }}
-                animate={{ y: 0 }}
-                transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-                className="fixed bottom-10 left-0 w-full pl-[300px] pr-[280px] flex justify-center z-50 pointer-events-none"
-            >
-                <div className="pointer-events-auto w-full max-w-4xl glass-strong p-4 rounded-3xl flex gap-4 items-center border-2 border-cyan-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-hidden group hover:border-cyan-400/60 transition-all duration-500">
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-
-                    {/* Voice Toggle */}
-                    <button
-                        onClick={() => {
-                            if (voiceEnabled) window.speechSynthesis.cancel();
-                            setVoiceEnabled(!voiceEnabled);
-                        }}
-                        className={`p-3 rounded-xl border transition-all ${voiceEnabled ? 'border-cyan-400 bg-cyan-900/40 text-cyan-400 glow-cyan' : 'border-slate-700 bg-slate-900/40 text-slate-500'}`}
-                        title={voiceEnabled ? "Mute JARVIS" : "Enable JARVIS Voice"}
-                    >
-                        {voiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-                    </button>
-
-                    <input
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={handleKeyPress}
-                        placeholder="Enter name or username (use '/' to separate)..."
-                        disabled={isLoading}
-                        className="flex-1 input-jarvis h-14 rounded-2xl border-none shadow-none bg-black/20 focus:bg-black/40 placeholder:tracking-widest text-xl font-bold px-8 transition-all"
-                    />
-
-                    {/* Mic Button */}
-                    <button
-                        onClick={toggleListening}
-                        className={`relative w-14 h-14 rounded-xl flex items-center justify-center transition-all border-2 ${isListening ? 'border-red-500 bg-red-950/40 text-red-500' : 'border-cyan-500/50 bg-cyan-950/40 text-cyan-400 hover:border-cyan-300'}`}
-                    >
-                        {isListening && (
-                            <motion.div
-                                animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-                                transition={{ repeat: Infinity, duration: 1.5 }}
-                                className="absolute inset-0 bg-red-500/30 rounded-full"
-                            />
-                        )}
-                        {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-                    </button>
-
-                    <button
-                        onClick={handleSearch}
-                        disabled={isLoading || !input.trim()}
-                        className="btn-jarvis rounded-xl w-14 h-14 p-0 flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed group/btn hover:border-cyan-300 bg-cyan-950/40 border-2 border-cyan-500/50"
-                    >
-                        {isLoading ? (
-                            <Loader2 className="w-6 h-6 animate-spin text-cyan-300" />
-                        ) : (
-                            <Send className="w-6 h-6 text-cyan-400 group-hover/btn:text-white group-hover/btn:scale-110 transition-all drop-shadow-[0_0_8px_rgba(0,255,255,0.8)]" />
-                        )}
-                    </button>
-                </div>
-            </motion.div>
+            <ChatInputBar />
         </div>
     );
 }

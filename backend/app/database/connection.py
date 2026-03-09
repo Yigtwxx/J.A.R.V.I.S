@@ -1,8 +1,10 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
+import time
 from app.config import get_settings
+from app.utils.logger import logger
 
 settings = get_settings()
 
@@ -17,6 +19,22 @@ engine = create_engine(
     pool_pre_ping=True,
     echo=False
 )
+
+@event.listens_for(engine, "before_cursor_execute")
+def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+    # Simplify the SQL statement to look like a clean cyber-query
+    clean_stmt = statement.replace('\n', ' ').strip()
+    action = "READ" if "SELECT" in clean_stmt[:10].upper() else "WRITE" if any(x in clean_stmt[:10].upper() for x in ["INSERT", "UPDATE", "DELETE"]) else "AFFECT"
+    
+    # Try to extract table name for a cooler log
+    table = "UNKNOWN_NODE"
+    words = clean_stmt.split()
+    for i, word in enumerate(words):
+        if word.upper() in ["FROM", "INTO", "UPDATE"] and i + 1 < len(words):
+            table = words[i+1].strip('"\'`[]')
+            break
+            
+    logger.log_db_query(f"{action}_MATRIX", table, clean_stmt[:60] + "..." if len(clean_stmt) > 60 else clean_stmt)
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

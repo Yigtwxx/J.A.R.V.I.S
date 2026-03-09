@@ -27,18 +27,33 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    """Log incoming requests as JARVIS thoughts"""
+    """Log incoming requests as JARVIS network traffic"""
+    # Skip SSE streams from spamming the logs continuously
+    if request.url.path == "/api/status/stream":
+        return await call_next(request)
+
     start_time = time.time()
+    client_ip = request.client.host if request.client else "Unknown"
     
-    # If it's a search request, let JARVIS think
-    if "/api/search" in request.url.path and request.method == "POST":
-         logger.log_thought(f"Incoming connection detected on secure channel {request.url.path}")
+    # Log incoming request
+    logger.log_network_traffic(
+        method=request.method,
+        path=request.url.path,
+        client_ip=client_ip
+    )
 
     response = await call_next(request)
-    process_time = time.time() - start_time
     
-    if "/api/search" in request.url.path and response.status_code == 200:
-        logger.log_action("Analysis complete.", target=f"{process_time:.2f}s elapsed")
+    process_time = (time.time() - start_time) * 1000  # ms
+    
+    # Log outgoing response
+    logger.log_network_traffic(
+        method=request.method,
+        path=request.url.path,
+        client_ip=client_ip,
+        status_code=response.status_code,
+        process_time=process_time
+    )
         
     return response
 

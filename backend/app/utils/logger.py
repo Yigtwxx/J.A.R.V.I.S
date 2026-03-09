@@ -14,6 +14,9 @@ jarvis_theme = Theme({
     "success": "bold green",
     "system": "bold blue",
     "highlight": "bold cyan",
+    "network": "bright_magenta",
+    "database": "green3",
+    "time": "dark_gray"
 })
 
 console = Console(theme=jarvis_theme)
@@ -98,6 +101,20 @@ class JarvisLogger:
         """Log a warning message"""
         console.print(f"[warning][WARN][/warning] {message}")
         self.broadcast(f"[WARN] {message}")
+
+    def log_network_traffic(self, method: str, path: str, client_ip: str, status_code: int = None, process_time: float = None):
+        """Log dynamic network requests like a cyber-security terminal"""
+        if status_code is None:
+            # Incoming Request
+            console.print(f"[network][NET-IN][/network] [bold white]{method}[/bold white] [highlight]{path}[/highlight] <- from IP {client_ip}")
+        else:
+            # Outgoing Response
+            color = "success" if status_code < 400 else "error"
+            console.print(f"[network][NET-OUT][/network] [bold white]{method}[/bold white] [highlight]{path}[/highlight] -> [{color}]Status: {status_code}[/{color}] [time]({process_time:.2f}ms)[/time]")
+
+    def log_db_query(self, query_type: str, table: str = "", details: str = ""):
+        """Log background database activity mimicking deep data retrieval"""
+        console.print(f"[database][DB-LINK][/database] [bold {jarvis_theme.styles['database'].color}]{query_type}[/bold {jarvis_theme.styles['database'].color}] {table} {f' -> {details}' if details else ''}")
 
     def display_panel(self, title: str, content: str, style: str = "cyan"):
         """Display important data in a styled panel"""

@@ -15,7 +15,9 @@
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-markdown": "^10.1.0"
+    "react-force-graph-2d": "^1.29.1",
+    "react-markdown": "^10.1.0",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
