@@ -23,7 +23,8 @@ engine = create_engine(
 @event.listens_for(engine, "before_cursor_execute")
 def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
     # Simplify the SQL statement to look like a clean cyber-query
-    clean_stmt = statement.replace('\n', ' ').strip()
+    stmt_str = str(statement)
+    clean_stmt = stmt_str.replace('\n', ' ').strip()
     action = "READ" if "SELECT" in clean_stmt[:10].upper() else "WRITE" if any(x in clean_stmt[:10].upper() for x in ["INSERT", "UPDATE", "DELETE"]) else "AFFECT"
     
     # Try to extract table name for a cooler log
