@@ -85,9 +85,7 @@ async def startup_event():
         logger.log_thought("Check active database connections.")
     
     logger.log_success("All systems online. Awaiting coordinates.")
-    sys.stdout.flush()
-
-
+    
 @app.get("/")
 async def root():
     """Root endpoint"""
