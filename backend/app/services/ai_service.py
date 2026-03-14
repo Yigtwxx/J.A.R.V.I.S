@@ -1,9 +1,13 @@
+import json
+import os
+import re
+import warnings
+
 import ollama
-from typing import Dict, Any
+
 from app.config import get_settings
 from app.utils.logger import logger
-import warnings
-import json
+from typing import Dict, Any
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -145,9 +149,7 @@ Return ONLY valid JSON, no other text."""
                     "top_p": 0.1
                 }
             )
-            
-            # Try to parse JSON from response
-            import json
+
             response_text = response['response'].strip()
             
             # Find JSON in response
@@ -187,10 +189,6 @@ Return ONLY valid JSON, no other text."""
         RAG Chat generator using stored JSON context.
         Yields tokens for StreamingResponse.
         """
-        import os
-        import json
-        import re
-        
         # 1. Load context
         safe_filename = re.sub(r'[^a-zA-Z0-9_\-]', '_', query_name.lower())
         context_path = f"data/contexts/{safe_filename}.json"
@@ -319,7 +317,6 @@ TEXT TO ANALYZE:
             end_idx = response_text.rfind('}') + 1
             
             if start_idx != -1 and end_idx > start_idx:
-                import json
                 json_str = response_text[start_idx:end_idx]
                 parsed_data = json.loads(json_str)
                 
