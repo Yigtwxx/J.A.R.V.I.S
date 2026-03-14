@@ -63,34 +63,56 @@ class ScraperService:
             response = self.session.get(search_url, timeout=10)
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Find result items
+            # Attempt 1: Primary selector
             items = soup.find_all('div', class_='algo')
-            
-            for item in items:
-                link_elem = item.find('a', href=True)
-                snippet_elem = item.find('div', class_='compTitle')
-                
-                if not link_elem:
-                    continue
-                    
-                href = link_elem.get('href', '')
-                try:
+
+            # Attempt 2: Class contains 'algo'
+            if not items:
+                items = soup.find_all('div', class_=lambda c: c and 'algo' in c)
+
+            # Attempt 3: Any result-like container with data-bk attribute
+            if not items:
+                items = soup.find_all(['li', 'div'], attrs={'data-bk': True})
+
+            if items:
+                for item in items:
+                    link_elem = item.find('a', href=True)
+                    snippet_elem = item.find('div', class_='compTitle')
+
+                    if not link_elem:
+                        continue
+
+                    href = link_elem.get('href', '')
+                    try:
+                        if 'RU=' in href:
+                            actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
+                            if re.search(domain_pattern, actual_url, re.IGNORECASE):
+                                if not any(r['url'] == actual_url for r in results):
+                                    snippet = ""
+                                    sibling = snippet_elem.find_next_sibling('div') if snippet_elem else None
+                                    if sibling:
+                                        snippet = sibling.text.strip()
+                                    results.append({"url": actual_url, "bio": snippet})
+                                if len(results) >= max_results:
+                                    break
+                    except IndexError:
+                        pass
+            else:
+                # Fallback: Extract ALL <a> tags and filter by domain pattern
+                all_links = soup.find_all('a', href=True)
+                for link in all_links:
+                    href = link.get('href', '')
                     if 'RU=' in href:
-                        actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
-                        if re.search(domain_pattern, actual_url, re.IGNORECASE):
-                            if not any(r['url'] == actual_url for r in results):
-                                # Extract snippet as bio
-                                snippet = ""
-                                sibling = snippet_elem.find_next_sibling('div') if snippet_elem else None
-                                if sibling:
-                                    snippet = sibling.text.strip()
-                                
-                                results.append({"url": actual_url, "bio": snippet})
-                            if len(results) >= max_results:
-                                break
-                except IndexError:
-                    pass
-            
+                        try:
+                            actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
+                            if re.search(domain_pattern, actual_url, re.IGNORECASE):
+                                if not any(r['url'] == actual_url for r in results):
+                                    results.append({"url": actual_url, "bio": ""})
+                                if len(results) >= max_results:
+                                    break
+                        except IndexError:
+                            pass
+
             return results
             
         except Exception as e:
@@ -107,10 +129,10 @@ class ScraperService:
             match = re.search(r'instagram\.com/([a-zA-Z0-9._]+)', url)
             if match and match.group(1) not in ['p', 'reel', 'explore', 'tags']:
                 u = f"https://www.instagram.com/{match.group(1)}/"
-                if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u): 
+                if not any(p['url'] == u for p in valid_profiles):
                     valid_profiles.append({"url": u, "bio": item['bio']})
         return valid_profiles
-    
+
     def find_twitter_profile(self, name: str) -> list:
         """Try to find X (Twitter) profile URLs and bios"""
         query = f"{name} twitter"
@@ -121,10 +143,10 @@ class ScraperService:
              match = re.search(r'(twitter|x)\.com/([a-zA-Z0-9_]+)', url)
              if match:
                  u = f"https://x.com/{match.group(2)}"
-                 if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u): 
+                 if not any(p['url'] == u for p in valid_profiles):
                      valid_profiles.append({"url": u, "bio": item['bio']})
         return valid_profiles
-    
+
     def find_linkedin_profile(self, name: str) -> list:
         """Try to find LinkedIn profile URLs and bios"""
         query = f"{name} linkedin"
@@ -135,7 +157,7 @@ class ScraperService:
             match = re.search(r'linkedin\.com/in/([a-zA-Z0-9-]+)', url)
             if match:
                 u = f"https://www.linkedin.com/in/{match.group(1)}/"
-                if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u): 
+                if not any(p['url'] == u for p in valid_profiles):
                     valid_profiles.append({"url": u, "bio": item['bio']})
         return valid_profiles
 
@@ -149,7 +171,7 @@ class ScraperService:
             match = re.search(r'open\.spotify\.com/(user|artist)/([a-zA-Z0-9._-]+)', url)
             if match:
                 u = f"https://open.spotify.com/{match.group(1)}/{match.group(2)}"
-                if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u): 
+                if not any(p['url'] == u for p in valid_profiles):
                     valid_profiles.append({"url": u, "bio": item['bio']})
         return valid_profiles
 
@@ -163,7 +185,7 @@ class ScraperService:
             match = re.search(r'tiktok\.com/@([a-zA-Z0-9._-]+)', url)
             if match:
                 u = f"https://www.tiktok.com/@{match.group(1)}"
-                if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u): 
+                if not any(p['url'] == u for p in valid_profiles):
                     valid_profiles.append({"url": u, "bio": item['bio']})
         return valid_profiles
 
@@ -177,7 +199,7 @@ class ScraperService:
             match = re.search(r'snapchat\.com/add/([a-zA-Z0-9._-]+)', url)
             if match:
                 u = f"https://www.snapchat.com/add/{match.group(1)}"
-                if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u):
+                if not any(p['url'] == u for p in valid_profiles):
                     valid_profiles.append({"url": u, "bio": item['bio']})
         return valid_profiles
 
@@ -194,7 +216,7 @@ class ScraperService:
                 if subdomain.lower() in ['www', 'assets', 'media', 'support', 'staff', 'engineering']:
                     continue
                 u = f"https://{subdomain}.tumblr.com"
-                if not any(p['url'] == u for p in valid_profiles) and self._is_url_active(u):
+                if not any(p['url'] == u for p in valid_profiles):
                     valid_profiles.append({"url": u, "bio": item['bio']})
         return valid_profiles
 
