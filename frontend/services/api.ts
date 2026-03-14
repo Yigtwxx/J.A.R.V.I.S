@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { SearchResponse, ProfileData } from '@/types/profile';
+import { SearchResponse, ProfileData, SearchHistoryItem, ChangeReport } from '@/types/profile';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -39,8 +39,8 @@ export const searchProfiles = async (name: string): Promise<ProfileData[]> => {
     return response.data;
 };
 
-export const getSearchHistory = async (): Promise<import('@/types/profile').SearchHistoryItem[]> => {
-    const response = await api.get<import('@/types/profile').SearchHistoryItem[]>('/api/history/');
+export const getSearchHistory = async (): Promise<SearchHistoryItem[]> => {
+    const response = await api.get<SearchHistoryItem[]>('/api/history/');
     return response.data;
 };
 
@@ -48,7 +48,7 @@ export const deleteHistoryItem = async (id: number): Promise<void> => {
     await api.delete(`/api/history/${id}`);
 };
 
-export const getVersionHistory = async (queryName: string): Promise<import('@/types/profile').ChangeReport> => {
+export const getVersionHistory = async (queryName: string): Promise<ChangeReport> => {
     const response = await api.get(`/api/version-history/${encodeURIComponent(queryName)}/report`);
     return response.data;
 };
