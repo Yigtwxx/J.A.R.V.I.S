@@ -8,6 +8,8 @@ import { Message, SearchResponse } from '@/types/profile';
 import ReactMarkdown from 'react-markdown';
 import dynamic from 'next/dynamic';
 import { useChatStore } from '@/store/chatStore';
+import ScrambleText from '@/components/ui/ScrambleText';
+import GlitchText from '@/components/ui/GlitchText';
 
 // Lazy-loaded Heavy Components
 const ProfileCard = dynamic(() => import('./ProfileCard'), { ssr: false });
@@ -210,7 +212,7 @@ const HistorySidebar = () => {
             <div className="p-4 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full animate-[shimmer_5s_infinite]"></div>
                 <History className="w-5 h-5 text-cyan-400" />
-                <span className="text-xs font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan">Secure Logs</span>
+                <ScrambleText text="Secure Logs" className="text-xs font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan" />
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
@@ -722,8 +724,12 @@ export default function ChatInterface() {
                     </div>
 
                     <div className="flex flex-col justify-center">
-                        <h1 className="text-4xl font-orbitron font-black tracking-[0.25em] leading-none mb-1 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-cyan-400 drop-shadow-[0_2px_10px_rgba(0,255,255,0.3)]">
-                            J.A.R.V.I.S
+                        <h1 className="text-4xl font-orbitron font-black tracking-[0.25em] leading-none mb-1 drop-shadow-[0_2px_10px_rgba(0,255,255,0.3)]">
+                            <GlitchText
+                                text="J.A.R.V.I.S"
+                                interval={5000}
+                                className="text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-cyan-400"
+                            />
                         </h1>
                         <div className="flex items-center gap-2.5 mt-1">
                             <span className="relative flex h-2 w-2">
@@ -777,8 +783,6 @@ export default function ChatInterface() {
                     });
                 }
 
-                if (socialEntries.length === 0) return null;
-
                 return (
                     <motion.div
                         initial={{ opacity: 0, x: 50 }}
@@ -789,10 +793,22 @@ export default function ChatInterface() {
                         <div className="p-3 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full animate-[shimmer_5s_infinite]" />
                             <Globe className="w-4 h-4 text-cyan-400" />
-                            <span className="text-[10px] font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan">Network Nodes</span>
+                            <ScrambleText text="Network Nodes" className="text-[10px] font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan" />
                         </div>
                         <div className="p-3 space-y-2 overflow-y-auto max-h-[70vh] custom-scrollbar">
                             <AnimatePresence>
+                                {/* Empty state when no social profiles found */}
+                                {socialEntries.length === 0 && (
+                                    <motion.div
+                                        key="no-profiles"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="flex flex-col items-center gap-2 py-4 opacity-50"
+                                    >
+                                        <Globe className="w-5 h-5 text-cyan-500" />
+                                        <span className="text-[9px] font-mono text-cyan-500/60 text-center">No social profiles detected</span>
+                                    </motion.div>
+                                )}
                                 {/* Network Nodes Section */}
                                 {socialEntries.flatMap(({ icon: Icon, urls, label, brandStyles, isMention }: any) => {
                                     if (!urls) return [];
@@ -855,7 +871,7 @@ export default function ChatInterface() {
                                         <div className="pt-2 pb-1 border-t border-cyan-500/20 mt-2">
                                             <div className="flex items-center gap-2 px-1">
                                                 <TerminalSquare className="w-3.5 h-3.5 text-cyan-400" />
-                                                <span className="text-[9px] font-bold font-mono tracking-widest text-cyan-500/80 uppercase">Intelligence Sources</span>
+                                                <ScrambleText text="Intelligence Sources" className="text-[9px] font-bold font-mono tracking-widest text-cyan-500/80 uppercase" />
                                             </div>
                                         </div>
                                         {lastProfile.sources.slice(0, 4).map((source, idx) => (
@@ -875,7 +891,7 @@ export default function ChatInterface() {
                                                     <Globe className="w-3 h-3 text-cyan-500/60 group-hover/source:text-cyan-400" />
                                                     <span className="text-[10px] text-cyan-100/90 font-bold font-mono truncate">{source.title}</span>
                                                 </div>
-                                                <span className="text-[8px] text-cyan-500/50 truncate pl-4 font-mono">{new URL(source.url).hostname}</span>
+                                                <span className="text-[8px] text-cyan-500/50 truncate pl-4 font-mono">{(() => { try { return new URL(source.url).hostname; } catch { return source.url.substring(0, 30); } })()}</span>
                                             </motion.a>
                                         ))}
                                     </motion.div>
