@@ -7,6 +7,7 @@ from app.services import AIService, SearchService, GitHubService, ScraperService
 from app.services import version_history_service
 from app.services.face_matching_service import FaceMatchingService
 from app.services.breach_service import breach_service
+from app.services.company_service import company_service
 from app.utils.logger import logger
 import asyncio
 import json
@@ -231,12 +232,13 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         
         logger.log_action("Launching parallel intelligence gathering...")
         
-        github_future = loop.run_in_executor(None, github_service.search_user, username)
-        social_future = loop.run_in_executor(None, scraper_service.find_all_profiles, username)
-        search_future = loop.run_in_executor(None, search_service.search_person, real_name)
-        
-        github_data, social_profiles, search_results = await asyncio.gather(
-            github_future, social_future, search_future
+        github_future  = loop.run_in_executor(None, github_service.search_user, username)
+        social_future  = loop.run_in_executor(None, scraper_service.find_all_profiles, username)
+        search_future  = loop.run_in_executor(None, search_service.search_person, real_name)
+        company_future = loop.run_in_executor(None, company_service.search_companies, real_name)
+
+        github_data, social_profiles, search_results, company_records = await asyncio.gather(
+            github_future, social_future, search_future, company_future
         )
         
         wiki_image, web_results, deep_context, raw_sources = search_results
@@ -259,6 +261,12 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         context['web_search'] = web_results
         context['deep_context'] = deep_context
         logger.log_success("Web search aggregation and deep-packet inspection completed")
+
+        # Log company scan results
+        if company_records:
+            logger.log_success(f"Company registry scan: {len(company_records)} affiliation(s) detected")
+        else:
+            logger.log_action("Company registry scan: no corporate affiliations found")
         
         # Save context to disk for RAG Chatbot
         try:
@@ -417,7 +425,8 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             email_addresses=structured_data.get('email_addresses', []),
             data_breaches=data_breaches,
             sources=raw_sources,
-            ai_response=ai_response
+            ai_response=ai_response,
+            company_records=company_records if company_records else None,
         )
         
         # 5.7. Attach face match and sentiment results to response
