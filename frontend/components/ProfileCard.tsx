@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { SearchResponse } from '@/types/profile';
 import { User, Users, ChevronRight, Activity, AlertTriangle } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import GlitchText from '@/components/ui/GlitchText';
 
 // ForceGraph MUST be loaded dynamically to avoid SSR 'window is not defined' error
 const NetworkGraph = dynamic(() => import('@/components/NetworkGraph'), { ssr: false });
@@ -15,11 +16,11 @@ interface ProfileCardProps {
 }
 
 function ProfileCard({ profile }: ProfileCardProps) {
-
     return (
         <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            whileHover={{ y: -5 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
             className="w-full relative mt-4 group"
         >
@@ -27,7 +28,7 @@ function ProfileCard({ profile }: ProfileCardProps) {
             <div className="absolute top-0 left-0 w-10 h-10 border-t-2 border-l-2 border-cyan-400 rounded-tl-xl opacity-80 shadow-[0_0_15px_rgba(0,255,255,0.4)]" />
             <div className="absolute bottom-0 right-0 w-10 h-10 border-b-2 border-r-2 border-blue-500 rounded-br-xl opacity-80 shadow-[0_0_15px_rgba(10,102,255,0.4)]" />
 
-            <div className="glass-strong rounded-xl p-8 glow-border overflow-hidden relative border-cyan-400/50">
+            <div className="glass-3d rounded-xl p-8 glow-border overflow-hidden relative border-cyan-400/50 animate-depth-breathe">
                 {/* Subtle Background Elements */}
                 <div className="absolute -top-32 -right-32 w-64 h-64 bg-cyan-400/15 rounded-full blur-[80px] pointer-events-none" />
 
@@ -44,7 +45,7 @@ function ProfileCard({ profile }: ProfileCardProps) {
                         <div className="flex items-center gap-3 mb-1">
                             <Activity className="w-5 h-5 text-cyan-400 animate-pulse glow-cyan" />
                             <h3 className="text-3xl font-orbitron font-black text-white tracking-widest uppercase drop-shadow-lg">
-                                {profile.name}
+                                <GlitchText text={profile.name} interval={4000} />
                             </h3>
                         </div>
                         <div className="flex items-center gap-2 text-cyan-300 text-[11px] font-bold font-mono tracking-widest uppercase glow-cyan mt-1">
