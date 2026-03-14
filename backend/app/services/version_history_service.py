@@ -46,41 +46,17 @@ def save_snapshot(db: Session, query_name: str, search_response) -> ProfileSnaps
     """
     normalized = _normalize_query(query_name)
 
-    # Build snapshot_data with dynamic fields
-    snapshot_data = {}
-    if hasattr(search_response, "location_country"):
-        snapshot_data["location_country"] = search_response.location_country
-    elif isinstance(search_response, dict):
-        snapshot_data["location_country"] = search_response.get("location_country")
-
-    if hasattr(search_response, "location_city"):
-        snapshot_data["location_city"] = search_response.location_city
-    elif isinstance(search_response, dict):
-        snapshot_data["location_city"] = search_response.get("location_city")
-
-    if hasattr(search_response, "social_media_score"):
-        snapshot_data["social_media_score"] = search_response.social_media_score
-    elif isinstance(search_response, dict):
-        snapshot_data["social_media_score"] = search_response.get("social_media_score")
-
-    if hasattr(search_response, "last_activity_summary"):
-        snapshot_data["last_activity_summary"] = search_response.last_activity_summary
-    elif isinstance(search_response, dict):
-        snapshot_data["last_activity_summary"] = search_response.get("last_activity_summary")
-
-    # Extract additional_info
-    additional_info = None
-    if hasattr(search_response, "additional_info"):
-        additional_info = search_response.additional_info
-    elif isinstance(search_response, dict):
-        additional_info = search_response.get("additional_info")
-
     def _get(field):
         if hasattr(search_response, field):
             return getattr(search_response, field)
         elif isinstance(search_response, dict):
             return search_response.get(field)
         return None
+
+    # Build snapshot_data with dynamic fields
+    snapshot_data = {key: _get(key) for key in TRACKED_SNAPSHOT_KEYS}
+
+    additional_info = _get("additional_info")
 
     snapshot = ProfileSnapshot(
         query_name=normalized,
