@@ -39,7 +39,7 @@ export default function SentimentGauge({ data }: SentimentGaugeProps) {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
-            className="w-full glass-strong rounded-[1.2rem] border border-cyan-500/30 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_15px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden relative group/sentiment"
+            className="w-full glass-3d rounded-[1.2rem] border border-cyan-500/30 bg-cyan-950/20 backdrop-blur-md animate-depth-breathe flex flex-col overflow-hidden relative group/sentiment"
         >
             {/* Header */}
             <div className="p-3 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center justify-between relative overflow-hidden">
