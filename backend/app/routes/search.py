@@ -8,6 +8,7 @@ from app.services import version_history_service
 from app.services.face_matching_service import FaceMatchingService
 from app.services.breach_service import breach_service
 from app.services.company_service import company_service
+from app.services.vector_store_service import vector_store_service
 from app.utils.logger import logger
 import asyncio
 import json
@@ -240,6 +241,15 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         github_data, social_profiles, search_results, company_records = await asyncio.gather(
             github_future, social_future, search_future, company_future
         )
+
+        # If real_name differs from username, also search by real_name and merge results
+        if real_name.lower() != username.lower():
+            social_by_name = await loop.run_in_executor(None, scraper_service.find_all_profiles, real_name)
+            for platform, items in social_by_name.items():
+                existing_urls = {p['url'] for p in social_profiles[platform]}
+                for item in items:
+                    if item['url'] not in existing_urls:
+                        social_profiles[platform].append(item)
         
         wiki_image, web_results, deep_context, raw_sources = search_results
         
@@ -268,7 +278,7 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         else:
             logger.log_action("Company registry scan: no corporate affiliations found")
         
-        # Save context to disk for RAG Chatbot
+        # Save context to disk (JSON — backward compat & profile generation)
         try:
             os.makedirs("data/contexts", exist_ok=True)
             safe_filename = re.sub(r'[^a-zA-Z0-9_\-]', '_', raw_query.lower())
@@ -277,6 +287,18 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             logger.log_action("Context synchronized to local RAG knowledge base", target=safe_filename)
         except Exception as e:
             logger.log_warning(f"Failed to synchronize RAG context: {e}")
+
+        # Index context into ChromaDB vector store (background — non-blocking)
+        try:
+            loop.run_in_executor(
+                None,
+                vector_store_service.index_context,
+                raw_query,
+                dict(context),
+            )
+            logger.log_action("ChromaDB vector indexing initiated (background)", target=raw_query)
+        except Exception as e:
+            logger.log_warning(f"Vector store indexing başlatılamadı: {e}")
             
         # 4. Generate AI response (Use Full Context Name)
         logger.log_action("Running cognitive analysis...")
