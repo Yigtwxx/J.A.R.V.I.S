@@ -186,38 +186,86 @@ Return ONLY valid JSON, no other text."""
 
     async def chat_with_context(self, query_name: str, messages: list):
         """
-        RAG Chat generator using stored JSON context.
+        RAG Chat generator — ChromaDB semantik arama öncelikli, JSON fallback destekli.
         Yields tokens for StreamingResponse.
         """
-        # 1. Load context
-        safe_filename = re.sub(r'[^a-zA-Z0-9_\-]', '_', query_name.lower())
-        context_path = f"data/contexts/{safe_filename}.json"
-        
-        context_text = ""
-        if os.path.exists(context_path):
-            try:
-                with open(context_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    
-                if data.get('github'):
-                    context_text += "GITHUB PROFILE DATA:\n" + data['github'] + "\n\n"
-                if data.get('social_media'):
-                    context_text += data['social_media'] + "\n\n"
-                
-                deep_ctx = data.get('deep_context', '')
-                if len(deep_ctx) > 12000:
-                    deep_ctx = deep_ctx[:12000] + "... [TRUNCATED DUE TO CONTEXT LIMIT]"
-                context_text += "WEB SEARCH DEEP CONTEXT:\n" + deep_ctx
-                
-            except Exception as e:
-                logger.log_warning(f"Failed to load RAG context: {e}")
-                context_text = "ERROR: Could not read context file."
-        else:
-            context_text = "ERROR: No background context found. A deep connection scan might not have been performed yet."
+        import asyncio
+        from app.services.vector_store_service import vector_store_service
 
-        # 2. Build precision prompt
+        # Kullanıcının son mesajını embedding sorgusu olarak kullan
+        last_user_message = ""
+        for msg in reversed(messages):
+            role = msg.role if hasattr(msg, "role") else msg.get("role", "")
+            if role == "user":
+                last_user_message = msg.content if hasattr(msg, "content") else msg.get("content", "")
+                break
+
+        search_query = last_user_message or query_name
+
+        # 1a. ChromaDB semantik arama (arka plan thread'inde çalıştır)
+        context_text = ""
+        context_source = "none"
+        loop = asyncio.get_event_loop()
+
+        try:
+            retrieved = await loop.run_in_executor(
+                None, vector_store_service.search, query_name, search_query, 8
+            )
+            if retrieved:
+                context_text = retrieved
+                context_source = "vector"
+                chunk_count = await loop.run_in_executor(
+                    None, vector_store_service.get_chunk_count, query_name
+                )
+                logger.log_action(
+                    f"Semantik RAG aktif — {chunk_count} chunk'tan en alakalı 8 parça seçildi",
+                    target=query_name,
+                )
+        except Exception as e:
+            logger.log_warning(f"Vector store arama hatası, JSON fallback'e geçiliyor: {e}")
+
+        # 1b. JSON fallback (vector store boş veya hatalıysa)
+        if not context_text:
+            safe_filename = re.sub(r"[^a-zA-Z0-9_\-]", "_", query_name.lower())
+            context_path = f"data/contexts/{safe_filename}.json"
+
+            if os.path.exists(context_path):
+                try:
+                    with open(context_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+
+                    if data.get("github"):
+                        context_text += "GITHUB PROFILE DATA:\n" + data["github"] + "\n\n"
+                    if data.get("social_media"):
+                        context_text += data["social_media"] + "\n\n"
+
+                    deep_ctx = data.get("deep_context", "")
+                    if len(deep_ctx) > 12000:
+                        deep_ctx = deep_ctx[:12000] + "... [TRUNCATED DUE TO CONTEXT LIMIT]"
+                    context_text += "WEB SEARCH DEEP CONTEXT:\n" + deep_ctx
+                    context_source = "json"
+                    logger.log_warning(
+                        f"JSON tabanlı RAG kullanılıyor (vector store mevcut değil): {query_name}"
+                    )
+                except Exception as e:
+                    logger.log_warning(f"JSON context yüklenemedi: {e}")
+                    context_text = "ERROR: Context dosyası okunamadı."
+            else:
+                context_text = (
+                    "ERROR: Bu sorgu için herhangi bir intelligence verisi bulunamadı. "
+                    "Lütfen önce bir arama yapınız."
+                )
+
+        source_label = (
+            "SEMANTIC VECTOR RETRIEVAL (ChromaDB)"
+            if context_source == "vector"
+            else "JSON CONTEXT (fallback)"
+        )
+
+        # 2. Sistem prompt
         system_prompt = f"""You are J.A.R.V.I.S., an advanced AI interacting with the user about a target entity named '{query_name}'.
 You must answer the user's questions based EXCLUSIVELY on the gathered intelligence context below.
+Context was retrieved via: {source_label}
 CRITICAL RULES:
 1. DO NOT HALLUCINATE OR GUESS. If the context does not contain the answer, say "I do not have sufficient data in the current intelligence context to answer this."
 2. DO NOT USE EXTERNAL KNOWLEDGE. Only use the text provided.
