@@ -40,8 +40,8 @@ class GitHubService:
             logger.log_warning("Direct match failed. Initiating fuzzy search protocol...")
             search_url = f"{self.base_url}/search/users"
             params = {'q': username, 'per_page': 1}
-            
-            response = requests.get(search_url, headers=self.session.headers, params=params, timeout=10)
+
+            response = self.session.get(search_url, params=params, timeout=10)
             response.raise_for_status()
             
             data = response.json()
