@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { Message, SearchHistoryItem } from '@/types/profile';
 
+interface RagMessage {
+    role: 'user' | 'assistant';
+    content: string;
+}
+
 interface ChatState {
     // Core Data
     messages: Message[];
@@ -18,7 +23,7 @@ interface ChatState {
     streamingContent: string;
 
     // RAG Chat State
-    ragMessages: { role: 'user' | 'assistant', content: string }[];
+    ragMessages: RagMessage[];
     ragInput: string;
     isRagLoading: boolean;
     streamingRagContent: string;
@@ -38,7 +43,7 @@ interface ChatState {
     addLiveStatus: (status: string) => void;
     addStreamingToken: (token: string) => void;
 
-    setRagMessages: (updater: any[] | ((prev: any[]) => any[])) => void;
+    setRagMessages: (updater: RagMessage[] | ((prev: RagMessage[]) => RagMessage[])) => void;
     setRagInput: (input: string) => void;
     setIsRagLoading: (isLoading: boolean) => void;
     setStreamingRagContent: (content: string) => void;
@@ -89,7 +94,7 @@ export const useChatStore = create<ChatState>((set) => ({
         streamingContent: state.streamingContent + token.replace(/\\n/g, '\n')
     })),
 
-    setRagMessages: (updater) => set((state) => ({ ragMessages: typeof updater === 'function' ? updater(state.ragMessages) : updater })),
+    setRagMessages: (updater: RagMessage[] | ((prev: RagMessage[]) => RagMessage[])) => set((state) => ({ ragMessages: typeof updater === 'function' ? updater(state.ragMessages) : updater })),
     setRagInput: (ragInput) => set({ ragInput }),
     setIsRagLoading: (isRagLoading) => set({ isRagLoading }),
     setStreamingRagContent: (streamingRagContent) => set({ streamingRagContent }),
