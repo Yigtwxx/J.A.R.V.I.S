@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Clock } from 'lucide-react';
 import type { ScoreBreakdown } from '@/types/profile';
+import CountUp from '@/components/ui/CountUp';
 
 interface SocialGaugeProps {
     score?: number;
@@ -41,23 +42,7 @@ function SocialGauge({ score, lastActive, breakdown, platformActivity }: SocialG
     const finalLastActive = lastActive || 'No data';
 
     useEffect(() => {
-        // Animate score from 0 to final score
-        const duration = 1500; // 1.5 seconds
-        const steps = 60;
-        const stepTime = Math.abs(Math.floor(duration / steps));
-
-        let current = 0;
-        const timer = setInterval(() => {
-            current += finalScore / steps;
-            if (current >= finalScore) {
-                setAnimatedScore(finalScore);
-                clearInterval(timer);
-            } else {
-                setAnimatedScore(current);
-            }
-        }, stepTime);
-
-        return () => clearInterval(timer);
+        setAnimatedScore(finalScore);
     }, [finalScore]);
 
     // Determine color based on score
@@ -88,7 +73,7 @@ function SocialGauge({ score, lastActive, breakdown, platformActivity }: SocialG
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
-            className={`fixed z-40 right-[17rem] bottom-6 w-56 glass-strong rounded-[1.5rem] border border-white/5 bg-black/40 backdrop-blur-xl flex flex-col overflow-hidden pointer-events-auto group/gauge ${glowClass} transition-shadow duration-1000`}
+            className={`fixed z-40 right-[17rem] bottom-6 w-56 glass-3d rounded-[1.5rem] border border-white/5 bg-black/40 backdrop-blur-xl flex flex-col overflow-hidden pointer-events-auto group/gauge animate-depth-breathe transition-shadow duration-1000`}
         >
             {/* Header */}
             <div className="p-3 border-b border-white/10 bg-black/40 flex items-center gap-2 relative overflow-hidden">
@@ -132,9 +117,11 @@ function SocialGauge({ score, lastActive, breakdown, platformActivity }: SocialG
 
                     {/* Center Content */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className={`text-2xl font-black font-orbitron ${textColorClass} drop-shadow-md`}>
-                            {Math.round(animatedScore)}
-                        </span>
+                        <CountUp
+                            to={finalScore}
+                            duration={1500}
+                            className={`text-2xl font-black font-orbitron ${textColorClass} drop-shadow-md`}
+                        />
                         <span className="text-[8px] text-gray-500 font-mono uppercase tracking-widest mt-0.5">
                             Score
                         </span>
