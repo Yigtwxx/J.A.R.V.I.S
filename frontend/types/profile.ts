@@ -1,3 +1,23 @@
+export type CompanyRoleCategory = 'founder' | 'executive' | 'board_member' | 'shareholder' | 'unknown';
+export type CompanyStatus = 'active' | 'passive' | 'liquidated' | 'unknown';
+
+export interface CompanyRecord {
+  company_name: string;
+  company_type: string;
+  role: string;
+  role_category: CompanyRoleCategory;
+  status: CompanyStatus;
+  source_url: string;
+  source_name: string;
+  country?: string;
+  confidence: number;           // 0.0–1.0
+  registry_id?: string;         // MERSİS, CIK, Company No, HRB, vb.
+  city?: string;
+  sector?: string;
+  risk_flags: string[];         // 'offshore' | 'shell_company' | 'liquidated' | 'pep_related' | 'sanction' | 'high_risk_sector' | 'rapid_change'
+  snippet: string;
+}
+
 export interface ScoreBreakdown {
   platform_presence: number;
   follower_impact: number;
@@ -34,6 +54,7 @@ export interface ProfileData {
   network_connections?: { name: string, role: string, relation: string }[];
   email_addresses?: string[];
   data_breaches?: any[];
+  company_records?: CompanyRecord[];
   created_at?: string;
   updated_at?: string;
 }
@@ -65,6 +86,7 @@ export interface SearchResponse {
   network_connections?: { name: string, role: string, relation: string }[];
   email_addresses?: string[];
   data_breaches?: any[];
+  company_records?: CompanyRecord[];
   sources?: { title: string; url: string; snippet: string }[];
   ai_response: string;
   version_history?: ChangeReport;
