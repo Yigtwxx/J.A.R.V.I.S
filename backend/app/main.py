@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from app.routes import search_router, profiles_router, history_router, version_history_router, face_match_router, chat_router
 from app.database import init_db
 from app.config import get_settings
 from app.utils.logger import logger
+import asyncio
 import sys
 import time
 
@@ -101,9 +103,6 @@ async def root():
     }
 
 
-from fastapi.responses import StreamingResponse
-import asyncio
-
 @app.get("/api/status/stream")
 async def stream_status():
     """Stream live JARVIS activity logs via SSE"""
@@ -145,9 +144,8 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    import sys
     import os
-    
+
     # Ensure the parent directory is in the path
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     
