@@ -7,10 +7,14 @@ from app.services import AIService, SearchService, GitHubService, ScraperService
 from app.services import version_history_service
 from app.services.face_matching_service import FaceMatchingService
 from app.services.breach_service import breach_service
+from app.utils.logger import logger
 import asyncio
 import json
+import math
 import os
 import re
+import unicodedata
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
@@ -22,9 +26,6 @@ scraper_service = ScraperService()
 weather_service = WeatherService()
 social_score_service = SocialScoreService()
 face_matching_service = FaceMatchingService()
-
-
-import unicodedata
 
 
 def _normalize_text(text: str) -> str:
@@ -128,10 +129,6 @@ def cross_validate(
     return issues
 
 
-import math as _math
-from datetime import datetime as _dt, timezone as _tz
-
-
 def _compute_platform_activity(github_data: dict | None, social_profiles: dict) -> dict:
     """
     Compute a 0-100 activity percentage for each detected platform.
@@ -144,18 +141,18 @@ def _compute_platform_activity(github_data: dict | None, social_profiles: dict) 
         score = 30  # Base: profile exists
         followers = github_data.get('followers', 0) or 0
         if followers > 0:
-            score += min(20, int(_math.log10(followers + 1) * 7))
+            score += min(20, int(math.log10(followers + 1) * 7))
         repos = github_data.get('public_repos', 0) or 0
         if repos > 0:
-            score += min(20, int(_math.log10(repos + 1) * 12))
+            score += min(20, int(math.log10(repos + 1) * 12))
         last_active = github_data.get('last_active')
         if last_active:
             try:
                 if isinstance(last_active, str):
-                    last_dt = _dt.fromisoformat(last_active.replace('Z', '+00:00'))
+                    last_dt = datetime.fromisoformat(last_active.replace('Z', '+00:00'))
                 else:
                     last_dt = last_active
-                days = (_dt.now(_tz.utc) - last_dt).days
+                days = (datetime.now(timezone.utc) - last_dt).days
                 if days <= 7:
                     score += 30
                 elif days <= 30:
@@ -226,7 +223,6 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         # Initialize context
         context = {}
         
-        from app.utils.logger import logger
         logger.log_thought(f"Incoming connection detected on secure channel: {raw_query}")
         
         # === PARALLEL DATA FETCHING ===
@@ -453,14 +449,12 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             db.add(history_entry)
             db.commit()
         except Exception as e:
-            from app.utils.logger import logger
             logger.log_warning(f"Failed to record search history: {e}")
             
         logger.log_success(f"SEARCH COMPLETED FOR TARGET: {raw_query}")
         return response
     
     except Exception as e:
-        from app.utils.logger import logger
         logger.log_error(f"Error during search: {e}")
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
