@@ -2,10 +2,14 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import Aurora from '@/components/ui/Aurora';
 
 export default function Background() {
     return (
         <>
+            {/* Aurora ambient glow layer */}
+            <Aurora />
+
             {/* Scan Line */}
             <div className="scan-line" />
 
