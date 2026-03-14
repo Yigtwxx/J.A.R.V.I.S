@@ -1,8 +1,6 @@
 from sqlalchemy import create_engine, event
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from typing import Generator
-import time
 from app.config import get_settings
 from app.utils.logger import logger
 
