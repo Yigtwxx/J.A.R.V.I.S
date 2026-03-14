@@ -1,106 +1,172 @@
-from typing import List, Dict, Any
+"""
+Breach Intelligence Service
+============================
+Uses the XposedOrNot API (https://xposedornot.com) to check whether
+discovered email addresses appear in known public data breaches.
+
+XposedOrNot is completely FREE — no API key required.
+
+API limits (per IP):
+  - 2 requests / second
+  - 100 requests / day
+
+Endpoints used:
+  GET https://api.xposedornot.com/v1/breach-analytics?email={email}
+    200 → breach details JSON
+    404 → clean (no breaches found for this email)
+"""
+
+from __future__ import annotations
+
 import asyncio
-import hashlib
+from typing import Any, Dict, List
+
+import httpx
+
 from app.utils.logger import logger
-import random
+
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+_XON_BASE   = "https://api.xposedornot.com/v1"
+_TIMEOUT    = 12.0
+_USER_AGENT = "J.A.R.V.I.S-OSINT/2.0"
+_REQ_DELAY  = 1.5   # stay comfortably under 2 req/s
+
+
+# ---------------------------------------------------------------------------
+# Normalizer
+# ---------------------------------------------------------------------------
+
+def _normalize_breach(raw: Dict[str, Any], email: str) -> Dict[str, Any]:
+    """
+    Map a raw XposedOrNot breach object to the SecurityScanWidget shape.
+
+    XON field reference:
+      breachID      → breach name
+      domain        → e.g. "linkedin.com"
+      xposed        → pwned record count
+      xposedData    → semicolon-separated data types: "Email;Password"
+      verified      → bool
+      sensitive     → bool
+      year          → int (breach year)
+      logo          → logo URL
+      passwordRisk  → "Plaintext" | "easytocrack" | "unknown" ...
+    """
+    xposed_data: str = raw.get("xposedData") or raw.get("exposedData") or ""
+    data_classes = [d.strip() for d in xposed_data.split(";") if d.strip()]
+
+    year = raw.get("year")
+    breach_date = f"{year}-01-01" if year else ""
+
+    name = raw.get("breachID") or raw.get("breach") or ""
+
+    return {
+        "Name":        name,
+        "Title":       name,
+        "Domain":      raw.get("domain", "unknown"),
+        "BreachDate":  breach_date,
+        "PwnCount":    raw.get("xposed") or raw.get("xposedRecords") or 0,
+        "DataClasses": data_classes,
+        "IsVerified":  bool(raw.get("verified", False)),
+        "IsSensitive": bool(raw.get("sensitive", False)),
+        "IsSpamList":  False,
+        "IsFabricated": False,
+        "Description": "",
+        "LogoPath":    raw.get("logo", ""),
+        "TargetEmail": email,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Public service
+# ---------------------------------------------------------------------------
 
 class BreachService:
     """
-    Service for querying HaveIBeenPwned or OSINT data breach sources.
-    Implemented as a robust Simulation/Mock to prevent rate-limiting and API Key requirements
-    in the J.A.R.V.I.S ecosystem while still providing realistic Threat Intelligence UI.
+    Scans email addresses against the XposedOrNot breach database.
+    Completely free — no API key, no mock data.
     """
-
-    # Realistic mock databases to simulate dark web findings
-    MOCK_DATABASES = [
-        {"Name": "LinkedIn", "Title": "LinkedIn (2012 Breach)", "Domain": "linkedin.com", "BreachDate": "2012-05-05", "DataClasses": ["Email addresses", "Passwords"], "IsVerified": True},
-        {"Name": "Adobe", "Title": "Adobe Systems", "Domain": "adobe.com", "BreachDate": "2013-10-04", "DataClasses": ["Email addresses", "Password hints", "Passwords", "Usernames"], "IsVerified": True},
-        {"Name": "Canva", "Title": "Canva", "Domain": "canva.com", "BreachDate": "2019-05-24", "DataClasses": ["Email addresses", "Geographic locations", "Names", "Passwords", "Usernames"], "IsVerified": True},
-        {"Name": "Dubsmash", "Title": "Dubsmash", "Domain": "dubsmash.com", "BreachDate": "2018-12-01", "DataClasses": ["Email addresses", "Geographic locations", "Names", "Passwords", "Phone numbers", "Spoken languages"], "IsVerified": True},
-        {"Name": "MyFitnessPal", "Title": "MyFitnessPal", "Domain": "myfitnesspal.com", "BreachDate": "2018-02-01", "DataClasses": ["Email addresses", "IP addresses", "Passwords", "Usernames"], "IsVerified": True},
-        {"Name": "Tumblr", "Title": "Tumblr", "Domain": "tumblr.com", "BreachDate": "2013-01-01", "DataClasses": ["Email addresses", "Passwords"], "IsVerified": True},
-        {"Name": "Twitter", "Title": "Twitter (200M Leaks)", "Domain": "twitter.com", "BreachDate": "2023-01-04", "DataClasses": ["Email addresses", "Names", "Screen names", "Follower counts", "Account creation dates"], "IsVerified": True},
-        {"Name": "Collection1", "Title": "Collection #1", "Domain": "unknown", "BreachDate": "2019-01-07", "DataClasses": ["Email addresses", "Passwords"], "IsVerified": False, "IsSpamList": True},
-        {"Name": "Apollo", "Title": "Apollo", "Domain": "apollo.io", "BreachDate": "2018-07-23", "DataClasses": ["Email addresses", "Employers", "Geographic locations", "Job titles", "Names", "Phone numbers", "Social media profiles"], "IsVerified": True}
-    ]
-
-    @staticmethod
-    def _generate_deterministic_breaches(email: str) -> List[Dict[str, Any]]:
-        """
-        Uses a hash of the email to deterministically assign 0 to 4 breaches from the mock DB.
-        This ensures the same email always returns the exact same 'breaches', feeling like a real API.
-        """
-        email_lower = email.strip().lower()
-        hash_val = int(hashlib.md5(email_lower.encode('utf-8')).hexdigest(), 16)
-        
-        # Decide how many breaches this email was involved in (0 to 4)
-        # We bias towards 0 or 1 for realism, but some might be unlucky
-        breach_count = hash_val % 10
-        if breach_count < 4:
-            num_breaches = 0
-        elif breach_count < 7:
-            num_breaches = 1
-        elif breach_count < 9:
-            num_breaches = 2
-        else:
-            num_breaches = hash_val % 4 + 1 # 1 to 4
-
-        if num_breaches == 0:
-            return []
-
-        # Deterministically select elements
-        selected_breaches = []
-        available_dbs = list(BreachService.MOCK_DATABASES)
-        
-        # Random seed based on email hash so random.choice is consistent per email
-        rnd = random.Random(hash_val)
-        
-        for _ in range(num_breaches):
-            if not available_dbs:
-                break
-            chosen = rnd.choice(available_dbs)
-            selected_breaches.append(chosen)
-            available_dbs.remove(chosen)
-            
-        return selected_breaches
 
     async def check_breaches(self, emails: List[str]) -> List[Dict[str, Any]]:
         """
-        Scans a list of discovered emails against Dark Web / Leak databases.
+        Main entry point called by the search route.
+
+        Returns a flat list of breach dicts sorted newest -> oldest.
+        Returns [] when no breaches are found (not an error).
         """
         if not emails:
             return []
 
-        logger.log_thought(f"Initiating Deep Web intelligence scan for {len(emails)} target identifiers.")
-        await asyncio.sleep(1.5)  # Simulate API network latency
-        
-        all_breaches = []
-        seen_breach_names = set()
-        
-        for email in emails:
-            # In a real-world scenario, you would call requests.get(f"https://haveibeenpwned.com/api/v3/breachedaccount/{email}", headers={"hibp-api-key": "..."})
-            logger.log_action(f"Tracking signals across Dark Nodes", target=email)
-            await asyncio.sleep(0.5)
-            
-            breaches = self._generate_deterministic_breaches(email)
-            for breach in breaches:
-                # Add email target to the breach object so UI knows WHICH email leaked where
-                breach_copy = dict(breach)
-                breach_copy["TargetEmail"] = email
-                
-                # Prevent duplicate identical breaches showing up if multiple emails were in the same breach
-                signature = f"{email}_{breach['Name']}"
-                if signature not in seen_breach_names:
-                    seen_breach_names.add(signature)
-                    all_breaches.append(breach_copy)
+        all_breaches: List[Dict] = []
+        seen: set = set()
+
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            for email in emails:
+                email = email.strip().lower()
+                if not email:
+                    continue
+
+                logger.log_action("XposedOrNot: scanning breach databases", target=email)
+
+                try:
+                    resp = await client.get(
+                        f"{_XON_BASE}/breach-analytics",
+                        params={"email": email},
+                        headers={"user-agent": _USER_AGENT},
+                        timeout=_TIMEOUT,
+                    )
+
+                    if resp.status_code == 404:
+                        logger.log_success(f"XON: No breaches found for {email}")
+
+                    elif resp.status_code == 200:
+                        data = resp.json()
+
+                        # The API may return results under either key
+                        breach_list = (
+                            data.get("BreachMetrics", {}).get("breaches_details")
+                            or data.get("ExposedBreaches", {}).get("breaches_details")
+                            or []
+                        )
+
+                        for raw in breach_list:
+                            name = raw.get("breachID") or raw.get("breach") or ""
+                            sig  = f"{email}_{name}"
+                            if sig not in seen:
+                                seen.add(sig)
+                                all_breaches.append(_normalize_breach(raw, email))
+
+                    elif resp.status_code == 429:
+                        logger.log_warning("XON: Rate-limited (429). Waiting 5s...")
+                        await asyncio.sleep(5)
+
+                    else:
+                        logger.log_warning(
+                            f"XON: Unexpected HTTP {resp.status_code} for {email}"
+                        )
+
+                except httpx.RequestError as exc:
+                    logger.log_warning(f"XON network error for {email}: {exc}")
+
+                # Respect rate limit: 2 req/s max
+                await asyncio.sleep(_REQ_DELAY)
 
         if all_breaches:
-            logger.log_warning(f"CRITICAL: {len(all_breaches)} security breaches detected in the wild.")
+            logger.log_warning(
+                f"THREAT INTEL [XposedOrNot]: "
+                f"{len(all_breaches)} breach(es) found for {len(emails)} identifier(s)."
+            )
         else:
-            logger.log_success("Target identifiers appear secure. No public data leaks found.")
+            logger.log_success(
+                f"CLEAR [XposedOrNot]: No public leaks found for {len(emails)} identifier(s)."
+            )
 
-        # Sort by date descending (newest breaches first)
-        all_breaches.sort(key=lambda x: x.get("BreachDate", "1970-01-01"), reverse=True)
+        all_breaches.sort(key=lambda x: x.get("BreachDate", ""), reverse=True)
         return all_breaches
 
+
+# Module-level singleton
 breach_service = BreachService()
