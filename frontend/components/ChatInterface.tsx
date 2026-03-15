@@ -274,7 +274,7 @@ const RagInteractionPanel = ({ profileName }: { profileName: string }) => {
         setStreamingRagContent('');
 
         try {
-            const response = await fetch('http://localhost:8000/api/chat/', {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/chat/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -595,7 +595,7 @@ export default function ChatInterface() {
 
         if (isLoading) {
             resetSearchState(); // Reset RAG and Live status
-            eventSource = new EventSource('http://localhost:8000/api/status/stream');
+            eventSource = new EventSource(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/status/stream`);
 
             eventSource.onmessage = (event) => {
                 const data = event.data as string;
