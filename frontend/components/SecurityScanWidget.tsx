@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Shield, ShieldAlert, AlertTriangle, Key, Mail, MapPin, Phone, User, Calendar, FileText } from 'lucide-react';
 
 // ── Breach (HaveIBeenPwned "breachedaccount" response) ──────────────────────
@@ -68,7 +69,7 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
     if (isPending) return null;
 
     return (
-        <div className={`mt-6 border rounded-lg transition-all duration-500 overflow-hidden ${
+        <div className={`mt-6 border rounded-lg transition-all duration-500 overflow-hidden glass-3d animate-depth-breathe ${
             isSecure ? 'border-cyan-500/30 bg-black/40' : 'border-red-900/50 bg-red-950/20'
         }`}>
 
@@ -137,8 +138,10 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
                                 Data Breaches — {breaches.length} found
                             </div>
                             {breaches.map((breach, idx) => (
-                                <div
+                                <motion.div
                                     key={idx}
+                                    whileHover={{ y: -3, scale: 1.01, boxShadow: "0 12px 28px rgba(239,68,68,0.18), 0 4px 8px rgba(0,0,0,0.5)" }}
+                                    transition={{ type: "spring", stiffness: 300, damping: 22 }}
                                     className="relative p-3 rounded bg-black/60 border border-red-900/40 hover:border-red-700/60 transition-colors"
                                 >
                                     {/* Accent bar */}
@@ -195,7 +198,7 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
                                             ))}
                                         </div>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                     )}
@@ -207,8 +210,10 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
                                 Paste-Site Exposures — {pastes.length} found
                             </div>
                             {pastes.map((paste, idx) => (
-                                <div
+                                <motion.div
                                     key={idx}
+                                    whileHover={{ y: -3, scale: 1.01, boxShadow: "0 12px 28px rgba(251,146,60,0.15), 0 4px 8px rgba(0,0,0,0.5)" }}
+                                    transition={{ type: "spring", stiffness: 300, damping: 22 }}
                                     className="relative p-3 rounded bg-black/60 border border-orange-900/40 hover:border-orange-700/60 transition-colors"
                                 >
                                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-orange-600 to-yellow-600 rounded-l" />
@@ -238,7 +243,7 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                     )}
