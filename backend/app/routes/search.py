@@ -16,7 +16,7 @@ import math
 import os
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
@@ -184,14 +184,110 @@ def _compute_platform_activity(github_data: dict | None, social_profiles: dict) 
 
     # --- Passive platforms (Spotify) ---
     if social_profiles.get('spotify'):
-        activity['spotify'] = 70  # Spotify is mostly passive
+        activity['spotify'] = 60  # profile confirmed, no activity signal
 
     # --- Mention-only platforms (Tinder, Bumble) ---
     for platform in ['tinder', 'bumble']:
         if social_profiles.get(platform):
-            activity[platform] = 30  # Indirect mention = low confidence
+            activity[platform] = 40  # indirect mention — lower confidence than direct profile
 
     return activity
+
+
+def _parse_snippet_date(snippet: str) -> datetime | None:
+    """Extract a datetime from a Yahoo search result snippet (best-effort)."""
+    if not snippet:
+        return None
+    now = datetime.now(timezone.utc)
+    s = snippet.lower()
+
+    # Relative: "X hours/days/weeks/months/years ago"
+    for pattern, unit in [
+        (r'(\d+)\s+hour[s]?\s+ago',  'hours'),
+        (r'(\d+)\s+day[s]?\s+ago',   'days'),
+        (r'(\d+)\s+week[s]?\s+ago',  'weeks'),
+        (r'(\d+)\s+month[s]?\s+ago', 'months'),
+        (r'(\d+)\s+year[s]?\s+ago',  'years'),
+    ]:
+        m = re.search(pattern, s)
+        if m:
+            n = int(m.group(1))
+            delta = {
+                'hours': timedelta(hours=n), 'days': timedelta(days=n),
+                'weeks': timedelta(weeks=n),  'months': timedelta(days=n*30),
+                'years': timedelta(days=n*365),
+            }[unit]
+            return now - delta
+
+    if 'yesterday' in s:
+        return now - timedelta(days=1)
+
+    # Absolute: "Jan 15, 2025"
+    month_map = {'jan':1,'feb':2,'mar':3,'apr':4,'may':5,'jun':6,
+                 'jul':7,'aug':8,'sep':9,'oct':10,'nov':11,'dec':12}
+    m = re.search(r'(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})', s)
+    if m:
+        try:
+            return datetime(int(m.group(3)), month_map[m.group(1)[:3]], int(m.group(2)), tzinfo=timezone.utc)
+        except ValueError:
+            pass
+
+    # ISO: "2025-01-15"
+    m = re.search(r'(\d{4})-(\d{2})-(\d{2})', snippet)
+    if m:
+        try:
+            return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)), tzinfo=timezone.utc)
+        except ValueError:
+            pass
+
+    return None
+
+
+def _format_last_activity(
+    github_data: dict | None,
+    social_profiles: dict | None = None,
+) -> str | None:
+    """
+    Return 'Last Detected Node' label based on the most recent activity signal
+    across GitHub and all detected social media platforms.
+    """
+    candidates: list[datetime] = []
+
+    # GitHub last_active (real API datetime — highest confidence)
+    if github_data:
+        last_active = github_data.get('last_active')
+        if last_active:
+            try:
+                if isinstance(last_active, str):
+                    dt = datetime.fromisoformat(last_active.replace('Z', '+00:00'))
+                else:
+                    dt = last_active
+                candidates.append(dt)
+            except (ValueError, TypeError):
+                pass
+
+    # Social media snippets (Yahoo search text — lower confidence, but real signals)
+    if social_profiles:
+        for items in social_profiles.values():
+            for item in items:
+                dt = _parse_snippet_date(item.get('bio', ''))
+                if dt:
+                    candidates.append(dt)
+
+    if not candidates:
+        return None
+
+    days = (datetime.now(timezone.utc) - max(candidates)).days
+    if days == 0:
+        return "Active today"
+    elif days <= 7:
+        return f"Active {days}d ago"
+    elif days <= 30:
+        return f"Active {days // 7}w ago"
+    elif days <= 365:
+        return f"Active {days // 30}mo ago"
+    else:
+        return f"Active {days // 365}yr ago"
 
 
 @router.post("/", response_model=SearchResponse)
@@ -457,9 +553,11 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             weather_info=weather_info,
             social_media_score=score_result['total_score'],
             social_media_score_breakdown=score_result['breakdown'],
-            last_activity_summary=structured_data.get('last_activity_summary'),
+            last_activity_summary=_format_last_activity(github_data, social_profiles),
             platform_activity=platform_activity,
             description=structured_data.get('description'),
+            additional_info=structured_data.get('additional_info'),
+            network_connections=structured_data.get('network_connections', []),
             similar_profiles=structured_data.get('similar_profiles', []),
             cross_validation_issues=all_issues,
             email_addresses=structured_data.get('email_addresses', []),
