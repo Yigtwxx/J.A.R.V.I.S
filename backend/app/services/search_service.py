@@ -119,7 +119,7 @@ class SearchService:
                         if 'RU=' in href:
                             try:
                                 real_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
-                            except:
+                            except Exception:
                                 pass
                                 
                         snippet = snippet_elem.find_next_sibling('div').text.strip() if snippet_elem and snippet_elem.find_next_sibling('div') else ''
