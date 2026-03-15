@@ -251,6 +251,24 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
                     if item['url'] not in existing_urls:
                         social_profiles[platform].append(item)
         
+        # Username correlation: try GitHub username directly on other platforms
+        if github_data and github_data.get('username'):
+            gh_username = github_data['username']
+
+            # 1. GitHub API already gives us Twitter handle — use it directly
+            if github_data.get('twitter') and not social_profiles.get('twitter'):
+                tw_url = f"https://x.com/{github_data['twitter']}"
+                social_profiles['twitter'] = [{"url": tw_url, "bio": ""}]
+                logger.log_success(f"Twitter correlated via GitHub API: {tw_url}")
+
+            # 2. Try same username on Instagram, TikTok, Snapchat, Tumblr
+            username_hits = await loop.run_in_executor(
+                None, scraper_service.find_profiles_by_username, gh_username
+            )
+            for platform, items in username_hits.items():
+                if items and not social_profiles.get(platform):
+                    social_profiles[platform] = items
+
         wiki_image, web_results, deep_context, raw_sources = search_results
         
         # Process GitHub results
