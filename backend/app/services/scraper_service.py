@@ -314,7 +314,39 @@ class ScraperService:
                     logger.log_warning(f"{platform.capitalize()} scan failed: {e}")
         
         return profiles
-    
+
+    def find_profiles_by_username(self, username: str) -> Dict[str, list]:
+        """
+        Directly verify a username on Instagram, TikTok, Snapchat, Tumblr
+        by constructing the profile URL and checking if it is active.
+        Returns dict matching find_all_profiles format.
+        """
+        candidates = {
+            'instagram': f"https://www.instagram.com/{username}/",
+            'tiktok':    f"https://www.tiktok.com/@{username}",
+            'snapchat':  f"https://www.snapchat.com/add/{username}",
+            'tumblr':    f"https://{username}.tumblr.com",
+        }
+        results: Dict[str, list] = {k: [] for k in candidates}
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {
+                executor.submit(self._is_url_active, url): platform
+                for platform, url in candidates.items()
+            }
+            for future in as_completed(futures):
+                platform = futures[future]
+                try:
+                    if future.result():
+                        results[platform] = [{"url": candidates[platform], "bio": ""}]
+                        logger.log_success(
+                            f"{platform.capitalize()} username hit confirmed: @{username}"
+                        )
+                except Exception as e:
+                    logger.log_warning(f"{platform.capitalize()} username check failed: {e}")
+
+        return results
+
     def format_social_profiles(self, profiles: Dict[str, list]) -> str:
         """Format social media profiles and their bios for AI context"""
         formatted = "Social Media Profiles and Bios:\n"
