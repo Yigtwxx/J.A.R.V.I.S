@@ -1,3 +1,22 @@
+export interface WeatherInfo {
+  temperature: number;
+  description: string;
+  humidity?: number;
+  wind_speed?: number;
+  city?: string;
+  country?: string;
+  icon?: string;
+}
+
+export interface DataBreach {
+  name: string;
+  breach_date?: string;
+  description?: string;
+  data_classes?: string[];
+  is_verified?: boolean;
+  pwn_count?: number;
+}
+
 export type CompanyRoleCategory = 'founder' | 'executive' | 'board_member' | 'shareholder' | 'unknown';
 export type CompanyStatus = 'active' | 'passive' | 'liquidated' | 'unknown';
 
@@ -42,7 +61,7 @@ export interface ProfileData {
   phone_numbers?: string[];
   location_country?: string;
   location_city?: string;
-  weather_info?: any;
+  weather_info?: WeatherInfo;
   social_media_score?: number;
   social_media_score_breakdown?: ScoreBreakdown;
   last_activity_summary?: string;
@@ -53,7 +72,7 @@ export interface ProfileData {
   cross_validation_issues?: string[];
   network_connections?: { name: string, role: string, relation: string }[];
   email_addresses?: string[];
-  data_breaches?: any[];
+  data_breaches?: DataBreach[];
   company_records?: CompanyRecord[];
   created_at?: string;
   updated_at?: string;
@@ -74,7 +93,7 @@ export interface SearchResponse {
   phone_numbers?: string[];
   location_country?: string;
   location_city?: string;
-  weather_info?: any;
+  weather_info?: WeatherInfo;
   social_media_score?: number;
   social_media_score_breakdown?: ScoreBreakdown;
   last_activity_summary?: string;
@@ -85,7 +104,7 @@ export interface SearchResponse {
   cross_validation_issues?: string[];
   network_connections?: { name: string, role: string, relation: string }[];
   email_addresses?: string[];
-  data_breaches?: any[];
+  data_breaches?: DataBreach[];
   company_records?: CompanyRecord[];
   sources?: { title: string; url: string; snippet: string }[];
   ai_response: string;
