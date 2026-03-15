@@ -10,6 +10,18 @@ interface NetworkConnection {
     relation: string;
 }
 
+interface GraphNode {
+    id: string;
+    name?: string;
+    type?: string;
+    color?: string;
+    val?: number;
+    group?: number;
+    relation?: string;
+    x?: number;
+    y?: number;
+}
+
 interface NetworkGraphProps {
     targetName: string;
     connections: NetworkConnection[];
@@ -94,11 +106,11 @@ export default function NetworkGraph({ targetName, connections }: NetworkGraphPr
                         width={dimensions.width}
                         height={dimensions.height}
                         graphData={graphData}
-                        nodeLabel={(node: any) => {
-                            if (node.id === 'target') return node.name;
+                        nodeLabel={(node: GraphNode) => {
+                            if (node.id === 'target') return node.name ?? '';
                             return `${node.name}<br/><i>${node.relation}</i>`;
                         }}
-                        nodeColor={(node: any) => node.group === 1 ? '#00f3ff' : '#00ffd0'}
+                        nodeColor={(node: GraphNode) => node.group === 1 ? '#00f3ff' : '#00ffd0'}
                         nodeRelSize={4}
                         linkColor={() => 'rgba(0, 243, 255, 0.3)'}
                         linkWidth={1}
