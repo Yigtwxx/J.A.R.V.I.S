@@ -21,7 +21,7 @@ class SocialScoreService:
     """Algorithmic engine for computing the Digital Impact Score."""
 
     # Maximum possible platforms we track
-    TRACKED_PLATFORMS = ["github", "instagram", "twitter", "linkedin", "spotify", "tiktok", "snapchat", "tumblr", "tinder", "bumble"]
+    TRACKED_PLATFORMS = ["github", "instagram", "twitter", "linkedin", "spotify", "tiktok", "snapchat", "tumblr", "youtube", "reddit", "facebook", "tinder", "bumble"]
 
     # Dimension weights (must sum to 100)
     W_PLATFORM_PRESENCE = 20
@@ -237,8 +237,8 @@ class SocialScoreService:
         # Personal:     Instagram, Twitter, TikTok
         # Creative:     Spotify
         has_professional = bool(github_data) or bool(social_profiles.get("linkedin"))
-        has_personal = any(social_profiles.get(p) for p in ["instagram", "twitter", "tiktok", "snapchat", "tinder", "bumble"])
-        has_creative = bool(social_profiles.get("spotify")) or bool(social_profiles.get("tumblr"))
+        has_personal = any(social_profiles.get(p) for p in ["instagram", "twitter", "tiktok", "snapchat", "facebook", "tinder", "bumble"])
+        has_creative = bool(social_profiles.get("spotify")) or bool(social_profiles.get("tumblr")) or bool(social_profiles.get("youtube"))
 
         diversity_types = sum([has_professional, has_personal, has_creative])
         # 1 type = 0.10, 2 types = 0.20, 3 types = 0.30
@@ -285,7 +285,7 @@ class SocialScoreService:
         found_platforms = []
         if github_data:
             found_platforms.append("GitHub")
-        for p in ["instagram", "twitter", "linkedin", "spotify", "tiktok", "snapchat", "tumblr", "tinder", "bumble"]:
+        for p in ["instagram", "twitter", "linkedin", "spotify", "tiktok", "snapchat", "tumblr", "youtube", "reddit", "facebook", "tinder", "bumble"]:
             if social_profiles.get(p):
                 found_platforms.append(p.capitalize())
 
