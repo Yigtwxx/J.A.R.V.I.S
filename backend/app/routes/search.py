@@ -170,7 +170,7 @@ def _compute_platform_activity(github_data: dict | None, social_profiles: dict) 
         activity['github'] = min(100, score)
 
     # --- Standard social platforms ---
-    standard_platforms = ['instagram', 'twitter', 'linkedin', 'tiktok', 'snapchat', 'tumblr']
+    standard_platforms = ['instagram', 'twitter', 'linkedin', 'tiktok', 'snapchat', 'tumblr', 'youtube', 'reddit', 'facebook']
     for platform in standard_platforms:
         items = social_profiles.get(platform, [])
         if items:
@@ -425,26 +425,42 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         images = []
         if wiki_image:
             images.append(wiki_image)
-            
+
         if github_data and github_data.get('avatar_url'):
             images.append(github_data['avatar_url'])
-            
-        for platform in ['instagram', 'twitter', 'linkedin', 'spotify', 'tiktok', 'snapchat', 'tumblr']:
+
+        # Instagram: try direct og:image scrape, fall back to unavatar.io
+        instagram_items = social_profiles.get('instagram', [])
+        if instagram_items:
+            ig_url = instagram_items[0]['url'].split(',')[0].strip()
+            ig_username = ig_url.rstrip('/').split('/')[-1]
+            direct_ig = scraper_service.fetch_avatar_from_url(ig_url)
+            images.append(direct_ig if direct_ig else f"https://unavatar.io/instagram/{ig_username}?fallback=false")
+
+        # Twitter/X: use 'x' slug (not 'twitter') for unavatar.io
+        twitter_items = social_profiles.get('twitter', [])
+        if twitter_items:
+            tw_url = twitter_items[0]['url'].split(',')[0].strip()
+            tw_username = tw_url.rstrip('/').split('/')[-1]
+            images.append(f"https://unavatar.io/x/{tw_username}?fallback=false")
+
+        # Other platforms via unavatar.io
+        for platform in ['linkedin', 'spotify', 'tiktok', 'snapchat', 'tumblr']:
             items = social_profiles.get(platform, [])
             if items:
-                first_profile_url = items[0]['url'].split(",")[0].strip()
-                social_username = first_profile_url.rstrip('/').split('/')[-1]
-                images.append(f"https://unavatar.io/{platform}/{social_username}?fallback=false")
-                
+                profile_url = items[0]['url'].split(',')[0].strip()
+                username = profile_url.rstrip('/').split('/')[-1]
+                images.append(f"https://unavatar.io/{platform}/{username}?fallback=false")
+
         # Deduplicate while preserving order
         unique_images = []
         for img in images:
             if img not in unique_images:
                 unique_images.append(img)
-                
+
         if unique_images:
-            logger.log_success(f"Injecting {len(unique_images[:4])} visual identities.")
-            images_md = " ".join([f"![{real_name}]({img})" for img in unique_images[:4]])
+            logger.log_success(f"Injecting {len(unique_images[:6])} visual identities.")
+            images_md = " ".join([f"![{real_name}]({img})" for img in unique_images[:6]])
             ai_response = f"{images_md}\n\n" + ai_response
             
         logger.log_success("Analysis complete")
@@ -455,7 +471,18 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             face_images.append(("Wikipedia", wiki_image))
         if github_data and github_data.get('avatar_url'):
             face_images.append(("GitHub", github_data['avatar_url']))
-        for platform in ['instagram', 'twitter', 'linkedin', 'spotify', 'tiktok', 'snapchat', 'tumblr']:
+        # Instagram: reuse direct scrape result if available
+        if instagram_items:
+            ig_url = instagram_items[0]['url'].split(',')[0].strip()
+            ig_username = ig_url.rstrip('/').split('/')[-1]
+            direct_ig = scraper_service.fetch_avatar_from_url(ig_url)
+            face_images.append(("Instagram", direct_ig if direct_ig else f"https://unavatar.io/instagram/{ig_username}?fallback=false"))
+        # Twitter/X: use 'x' slug
+        if twitter_items:
+            tw_url = twitter_items[0]['url'].split(',')[0].strip()
+            tw_username = tw_url.rstrip('/').split('/')[-1]
+            face_images.append(("Twitter", f"https://unavatar.io/x/{tw_username}?fallback=false"))
+        for platform in ['linkedin', 'spotify', 'tiktok', 'snapchat', 'tumblr']:
             items = social_profiles.get(platform, [])
             if items:
                 first_profile_url = items[0]['url'].split(',')[0].strip()
@@ -545,6 +572,9 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
             tiktok_url=", ".join([p['url'] for p in social_profiles.get('tiktok', [])]) or None,
             snapchat_url=", ".join([p['url'] for p in social_profiles.get('snapchat', [])]) or None,
             tumblr_url=", ".join([p['url'] for p in social_profiles.get('tumblr', [])]) or None,
+            youtube_url=", ".join([p['url'] for p in social_profiles.get('youtube', [])]) or None,
+            reddit_url=", ".join([p['url'] for p in social_profiles.get('reddit', [])]) or None,
+            facebook_url=", ".join([p['url'] for p in social_profiles.get('facebook', [])]) or None,
             tinder_mention=", ".join([p.get('bio', '') for p in social_profiles.get('tinder', [])]) or None,
             bumble_mention=", ".join([p.get('bio', '') for p in social_profiles.get('bumble', [])]) or None,
             phone_numbers=phone_numbers if phone_numbers else None,
