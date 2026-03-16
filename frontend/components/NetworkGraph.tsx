@@ -10,6 +10,12 @@ interface NetworkConnection {
     relation: string;
 }
 
+interface PlatformNode {
+    name: string;
+    url: string;
+    activity?: number;
+}
+
 interface GraphNode {
     id: string;
     name?: string;
@@ -18,6 +24,7 @@ interface GraphNode {
     val?: number;
     group?: number;
     relation?: string;
+    url?: string;
     x?: number;
     y?: number;
 }
@@ -25,29 +32,35 @@ interface GraphNode {
 interface NetworkGraphProps {
     targetName: string;
     connections: NetworkConnection[];
+    platforms?: PlatformNode[];
 }
 
-export default function NetworkGraph({ targetName, connections }: NetworkGraphProps) {
+export default function NetworkGraph({ targetName, connections, platforms }: NetworkGraphProps) {
     const fgRef = useRef<any>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Parse nodes and links
     const graphData = useMemo(() => {
-        const nodes = [
+        const validConnections = connections.filter(
+            conn => conn.name && conn.name.trim() !== ''
+        );
+
+        const nodes: GraphNode[] = [
             { id: 'target', name: targetName, group: 1, val: 20 }
         ];
 
         // Explicit typing for links array
         const links: Array<{ source: string, target: string, name: string }> = [];
 
-        connections.forEach((conn, index) => {
+        validConnections.forEach((conn, index) => {
             const nodeId = `node_${index}`;
             nodes.push({
                 id: nodeId,
                 name: conn.name,
                 group: 2,
-                val: 10
+                val: 10,
+                relation: conn.relation
             });
 
             links.push({
@@ -57,8 +70,21 @@ export default function NetworkGraph({ targetName, connections }: NetworkGraphPr
             });
         });
 
-        return { nodes, links };
-    }, [targetName, connections]);
+        platforms?.forEach((platform, index) => {
+            const nodeId = `platform_${index}`;
+            const firstUrl = platform.url ? platform.url.split(',')[0].trim() : undefined;
+            nodes.push({
+                id: nodeId,
+                name: platform.name,
+                group: 3,
+                val: platform.activity ? 6 + (platform.activity / 100) * 8 : 8,
+                url: firstUrl,
+            });
+            links.push({ source: 'target', target: nodeId, name: platform.name });
+        });
+
+        return { nodes, links, validCount: validConnections.length };
+    }, [targetName, connections, platforms]);
 
     useEffect(() => {
         const updateDimensions = () => {
@@ -84,7 +110,7 @@ export default function NetworkGraph({ targetName, connections }: NetworkGraphPr
         }
     }, [graphData]);
 
-    if (!connections || connections.length === 0) {
+    if ((!connections || graphData.validCount === 0) && (!platforms || platforms.length === 0)) {
         return null;
     }
 
@@ -108,9 +134,14 @@ export default function NetworkGraph({ targetName, connections }: NetworkGraphPr
                         graphData={graphData}
                         nodeLabel={(node: GraphNode) => {
                             if (node.id === 'target') return node.name ?? '';
-                            return `${node.name}<br/><i>${node.relation}</i>`;
+                            const rel = node.relation ? `<br/><i>${node.relation}</i>` : '';
+                            return `${node.name ?? ''}${rel}`;
                         }}
-                        nodeColor={(node: GraphNode) => node.group === 1 ? '#00f3ff' : '#00ffd0'}
+                        nodeColor={(node: GraphNode) =>
+                            node.group === 1 ? '#00f3ff' :
+                            node.group === 3 ? '#bf00ff' :
+                            '#00ffd0'
+                        }
                         nodeRelSize={4}
                         linkColor={() => 'rgba(0, 243, 255, 0.3)'}
                         linkWidth={1}
@@ -118,10 +149,13 @@ export default function NetworkGraph({ targetName, connections }: NetworkGraphPr
                         linkDirectionalParticleSpeed={0.005}
                         linkDirectionalParticleWidth={2}
                         backgroundColor="#00050a"
-                        onNodeClick={(node) => {
-                            // Center node on click
-                            fgRef.current?.centerAt(node.x, node.y, 1000);
-                            fgRef.current?.zoom(1.5, 2000);
+                        onNodeClick={(node: GraphNode) => {
+                            if (node.group === 3 && node.url) {
+                                window.open(node.url, '_blank', 'noopener,noreferrer');
+                            } else {
+                                fgRef.current?.centerAt(node.x, node.y, 1000);
+                                fgRef.current?.zoom(1.5, 2000);
+                            }
                         }}
                     />
                 )}
@@ -135,6 +169,10 @@ export default function NetworkGraph({ targetName, connections }: NetworkGraphPr
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-[#00ffd0] shadow-[0_0_5px_#00ffd0]"></div>
                         <span>Network Node</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-[#bf00ff] shadow-[0_0_5px_#bf00ff]"></div>
+                        <span>Platform Node</span>
                     </div>
                 </div>
             </div>
