@@ -22,6 +22,13 @@ TRACKED_SNAPSHOT_KEYS = {
     "location_city": "Tahmini Şehir",
     "social_media_score": "Sosyal Medya Skoru",
     "last_activity_summary": "Son Aktivite Özeti",
+    "snapchat_url": "Snapchat URL",
+    "tumblr_url": "Tumblr URL",
+    "youtube_url": "YouTube URL",
+    "reddit_url": "Reddit URL",
+    "facebook_url": "Facebook URL",
+    "tinder_mention": "Tinder Mention",
+    "bumble_mention": "Bumble Mention",
 }
 
 
