@@ -71,6 +71,9 @@ class SearchResponse(BaseModel):
     tiktok_url: Optional[str] = None
     snapchat_url: Optional[str] = None
     tumblr_url: Optional[str] = None
+    youtube_url: Optional[str] = None
+    reddit_url: Optional[str] = None
+    facebook_url: Optional[str] = None
     tinder_mention: Optional[str] = None
     bumble_mention: Optional[str] = None
     phone_numbers: Optional[List[str]] = None
