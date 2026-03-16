@@ -56,6 +56,9 @@ export interface ProfileData {
   tiktok_url?: string;
   snapchat_url?: string;
   tumblr_url?: string;
+  youtube_url?: string;
+  reddit_url?: string;
+  facebook_url?: string;
   tinder_mention?: string;
   bumble_mention?: string;
   phone_numbers?: string[];
@@ -88,6 +91,9 @@ export interface SearchResponse {
   tiktok_url?: string;
   snapchat_url?: string;
   tumblr_url?: string;
+  youtube_url?: string;
+  reddit_url?: string;
+  facebook_url?: string;
   tinder_mention?: string;
   bumble_mention?: string;
   phone_numbers?: string[];
