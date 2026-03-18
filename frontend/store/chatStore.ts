@@ -1,10 +1,5 @@
 import { create } from 'zustand';
-import { Message, SearchHistoryItem } from '@/types/profile';
-
-interface RagMessage {
-    role: 'user' | 'assistant';
-    content: string;
-}
+import { Message, SearchHistoryItem, RagMessage } from '@/types/profile';
 
 interface ChatState {
     // Core Data
