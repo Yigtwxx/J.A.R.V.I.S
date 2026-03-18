@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2, TerminalSquare, Save, CheckCircle, History, Trash2, Clock, Github, Instagram, Twitter, Linkedin, Globe, Mic, MicOff, Volume2, VolumeX, MapPin, Thermometer, Cloud, Sun, Wind } from 'lucide-react';
+import { Send, Loader2, TerminalSquare, Save, CheckCircle, History, Trash2, Clock, Github, Instagram, Twitter, Linkedin, Globe, Mic, MicOff, Volume2, VolumeX, MapPin, Thermometer, Cloud, Sun, Wind, Search } from 'lucide-react';
 import { searchPerson, saveProfile, getSearchHistory, deleteHistoryItem } from '@/services/api';
 import { Message, SearchResponse } from '@/types/profile';
 import ReactMarkdown from 'react-markdown';
@@ -20,68 +20,9 @@ const SentimentGauge = dynamic(() => import('./SentimentGauge'), { ssr: false })
 const LoadingAnimation = dynamic(() => import('./LoadingAnimation'), { ssr: false });
 
 // Custom Brand Icons
-const SpotifyIcon = ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="12" fill="#1DB954" />
-        <path d="M17.503 17.306c-.218.358-.684.474-1.042.256-2.868-1.754-6.478-2.15-10.732-1.176-.411.094-.821-.161-.914-.572-.094-.411.161-.821.572-.914 4.655-1.064 8.653-.615 11.86 1.344.358.218.474.684.256 1.042zm1.47-3.253c-.276.449-.861.593-1.311.317-3.284-2.018-8.29-2.604-12.176-1.425-.506.154-1.043-.131-1.197-.637-.154-.506.131-1.043.637-1.197 4.444-1.349 9.948-.696 13.73 1.625.449.277.593.861.317 1.317zm.126-3.393C15.222 8.24 8.847 8.028 5.12 9.16c-.579.176-1.192-.154-1.368-.733-.176-.579.154-1.192.733-1.368 4.288-1.302 11.332-1.056 15.795 1.593.523.311.693.985.382 1.508-.311.523-.985.693-1.508.382z" fill="white" />
-    </svg>
-);
-
-const TikTokIcon = ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none">
-        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.01.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.06-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.74.02 1.48-.04 2.96-.04 4.44-.57-.12-1.17-.14-1.74-.02-1.11.23-2.13.91-2.73 1.89-.54.82-.79 1.8-.7 2.78.1 1.08.64 2.15 1.54 2.77.83.6 1.86.85 2.87.7 1.16-.14 2.22-.84 2.79-1.85.36-.63.54-1.35.54-2.07 0-3.8 0-7.6 0-11.4-.01-.7.01-1.4 0-2.1z" fill="white" />
-        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.01.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79" stroke="#25F4EE" strokeWidth="0.5" strokeOpacity="0.8" />
-        <path d="M9 13c0 3.8 0 7.6 0 11.4-.01.7.01 1.4 0 2.1" stroke="#FE2C55" strokeWidth="0.5" strokeOpacity="0.8" />
-    </svg>
-);
-
-const SnapchatIcon = ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3-.016.5-.12.6-.195.075-.06.195-.135.33-.135a.645.645 0 0 1 .449.18c.18.149.195.359.195.449 0 .3-.225.54-.449.721-.464.359-1.066.368-1.215.391-.09.016-.165.016-.21.016h-.06c-.03.135-.105.39-.225.615-.195.39-.494.705-.69.854-.06.046-.105.076-.12.091a7.8 7.8 0 0 1-.36.479c-.345.435-.765.96-1.125 1.095-.53.201-.944.284-1.375.284-.27 0-.54-.035-.781-.076-.18-.029-.344-.059-.495-.059-.135 0-.284.016-.48.074-.375.105-.765.209-1.23.209-.48 0-.93-.104-1.38-.254a2.49 2.49 0 0 1-.63-.315c-.24-.165-.555-.47-.825-.84a5.9 5.9 0 0 1-.345-.51c-.12-.21-.195-.405-.24-.585a2.27 2.27 0 0 0-.27-.015c-.135.015-.555-.014-1.02-.345-.3-.225-.465-.449-.465-.735 0-.09.015-.27.165-.405.135-.18.3-.225.404-.225a.66.66 0 0 1 .345.12c.12.06.27.15.555.15.195 0 .345-.06.42-.09-.015-.225-.03-.45-.044-.69a43.55 43.55 0 0 1-.016-.255c-.09-1.59-.225-3.555.225-4.71C4.745 1.162 8.057.793 9.137.793h.63c.54 0 1.5 0 2.439 0z" />
-    </svg>
-);
-
-const TumblrIcon = ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M14.563 24c-5.093 0-7.031-3.756-7.031-6.411V9.747H5.116V6.648c3.63-1.313 4.512-4.596 4.71-6.469C9.84.051 9.941 0 9.999 0h3.517v6.114h4.801v3.633h-4.82v7.47c.016 1.001.375 2.371 2.207 2.371h.09c.631-.02 1.486-.205 1.936-.419l1.156 3.425c-.436.636-2.4 1.374-4.156 1.404h-.168z" />
-    </svg>
-);
-
-const TinderIcon = ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M9.652 1.344c-.174-.24-.498-.018-.498.252 0 3.6-2.556 5.04-4.848 8.016C1.782 13.284.966 17.892 3.87 21.168 6.39 24.006 10.152 24 12 24s5.61.006 8.13-2.832c2.904-3.276 2.088-7.884-.444-11.556-2.292-2.976-4.848-4.416-4.848-8.016 0-.27-.324-.492-.498-.252C13.056 3.132 11.4 4.32 10.2 6.576 9.636 7.56 9.456 8.1 9.456 8.1s-.456-1.176.066-3.264C9.9 3.372 9.816 1.56 9.652 1.344z" />
-    </svg>
-);
-
-const BumbleIcon = ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm4.346 16.12c-.18.503-.498.9-.912 1.14-.408.24-.888.36-1.44.36H9.99c-.552 0-1.032-.12-1.44-.36-.414-.24-.732-.636-.912-1.14-.18-.504-.27-1.14-.27-1.908V9.788c0-.768.09-1.404.27-1.908.18-.504.498-.9.912-1.14.408-.24.888-.36 1.44-.36h4.004c.552 0 1.032.12 1.44.36.414.24.732.636.912 1.14.18.504.27 1.14.27 1.908v4.424c0 .768-.09 1.404-.27 1.908zM14.1 9.312c0-.384-.126-.576-.378-.576h-3.444c-.252 0-.378.192-.378.576v5.376c0 .384.126.576.378.576h3.444c.252 0 .378-.192.378-.576V9.312z" />
-    </svg>
-);
-
-const YoutubeIcon = ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-    </svg>
-);
-
-const RedditIcon = ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
-    </svg>
-);
-
-const FacebookIcon = ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-    </svg>
-);
-
-const PhoneIcon = ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-    </svg>
-);
+import { SpotifyIcon, TikTokIcon, SnapchatIcon, TumblrIcon, TinderIcon,
+         BumbleIcon, YoutubeIcon, RedditIcon, FacebookIcon, PhoneIcon,
+         PinterestIcon, MediumIcon, ThreadsIcon, SteamIcon, DiscordIcon } from '@/components/ui/Icons';
 
 const LiveStatusMonitor = () => {
     const liveStatus = useChatStore(state => state.liveStatus);
@@ -672,10 +613,21 @@ export default function ChatInterface() {
                 linkedin_url: profileToSave.linkedin_url,
                 spotify_url: profileToSave.spotify_url,
                 tiktok_url: profileToSave.tiktok_url,
+                snapchat_url: profileToSave.snapchat_url,
+                tumblr_url: profileToSave.tumblr_url,
+                youtube_url: profileToSave.youtube_url,
+                reddit_url: profileToSave.reddit_url,
+                facebook_url: profileToSave.facebook_url,
+                tinder_mention: profileToSave.tinder_mention,
+                bumble_mention: profileToSave.bumble_mention,
+                phone_numbers: profileToSave.phone_numbers,
                 description: profileToSave.description,
                 additional_info: profileToSave.additional_info,
                 similar_profiles: profileToSave.similar_profiles,
-                cross_validation_issues: profileToSave.cross_validation_issues
+                cross_validation_issues: profileToSave.cross_validation_issues,
+                network_connections: profileToSave.network_connections,
+                email_addresses: profileToSave.email_addresses,
+                data_breaches: profileToSave.data_breaches,
             });
 
             setMessages(prev => {
@@ -778,7 +730,28 @@ export default function ChatInterface() {
                 const lastProfile = [...messages].reverse().find(m => m.role === 'assistant' && m.profileData)?.profileData;
                 if (!lastProfile) return null;
 
-                const socialEntries = [
+                // Search fallback URL generator for platforms without found profiles
+                const searchName = lastProfile.name || '';
+                const encoded = encodeURIComponent(searchName);
+                const searchUrls: Record<string, string> = {
+                    'GitHub': `https://github.com/search?q=${encoded}&type=users`,
+                    'Instagram': `https://www.instagram.com/explore/search/keyword/?q=${encoded}`,
+                    'X (Twitter)': `https://x.com/search?q=${encoded}&f=user`,
+                    'LinkedIn': `https://www.linkedin.com/search/results/people/?keywords=${encoded}`,
+                    'Spotify': `https://open.spotify.com/search/${encoded}/profiles`,
+                    'TikTok': `https://www.tiktok.com/search/user?q=${encoded}`,
+                    'Snapchat': `https://www.snapchat.com/explore/${encoded}`,
+                    'Tumblr': `https://www.tumblr.com/search/${encoded}`,
+                    'YouTube': `https://www.youtube.com/results?search_query=${encoded}`,
+                    'Reddit': `https://www.reddit.com/search/?q=${encoded}&type=user`,
+                    'Facebook': `https://www.facebook.com/search/people/?q=${encoded}`,
+                    'Pinterest': `https://www.pinterest.com/search/users/?q=${encoded}`,
+                    'Medium': `https://medium.com/search?q=${encoded}`,
+                    'Threads': `https://www.threads.net/search?q=${encoded}&filter=people`,
+                    'Steam': `https://steamcommunity.com/search/users/#text=${encoded}`,
+                };
+
+                const allPlatforms = [
                     { icon: Github, urls: lastProfile.github_url, label: 'GitHub', brandStyles: 'border-gray-500/40 bg-gray-900/50 hover:bg-gray-800/80 hover:border-gray-400 text-gray-300 shadow-[0_4px_15px_rgba(156,163,175,0.15)]' },
                     { icon: Instagram, urls: lastProfile.instagram_url, label: 'Instagram', brandStyles: 'border-pink-500/40 bg-fuchsia-950/40 hover:bg-fuchsia-900/60 hover:border-pink-400 text-pink-400 shadow-[0_4px_15px_rgba(236,72,153,0.15)]' },
                     { icon: Twitter, urls: lastProfile.twitter_url, label: 'X (Twitter)', brandStyles: 'border-slate-500/40 bg-slate-900/50 hover:bg-slate-800/80 hover:border-slate-300 text-slate-300 shadow-[0_4px_15px_rgba(148,163,184,0.15)]' },
@@ -790,9 +763,24 @@ export default function ChatInterface() {
                     { icon: YoutubeIcon, urls: lastProfile.youtube_url, label: 'YouTube', brandStyles: 'border-red-500/40 bg-red-950/40 hover:bg-red-900/60 hover:border-red-400 text-red-400 shadow-[0_4px_15px_rgba(239,68,68,0.15)]' },
                     { icon: RedditIcon, urls: lastProfile.reddit_url, label: 'Reddit', brandStyles: 'border-orange-500/40 bg-orange-950/40 hover:bg-orange-900/60 hover:border-orange-400 text-orange-400 shadow-[0_4px_15px_rgba(249,115,22,0.15)]' },
                     { icon: FacebookIcon, urls: lastProfile.facebook_url, label: 'Facebook', brandStyles: 'border-blue-600/40 bg-blue-950/40 hover:bg-blue-900/60 hover:border-blue-500 text-blue-500 shadow-[0_4px_15px_rgba(59,130,246,0.15)]' },
+                    { icon: PinterestIcon, urls: lastProfile.pinterest_url, label: 'Pinterest', brandStyles: 'border-red-600/40 bg-red-950/40 hover:bg-red-900/60 hover:border-red-500 text-red-500 shadow-[0_4px_15px_rgba(220,38,38,0.15)]' },
+                    { icon: MediumIcon, urls: lastProfile.medium_url, label: 'Medium', brandStyles: 'border-gray-400/40 bg-gray-950/50 hover:bg-gray-800/80 hover:border-gray-300 text-gray-200 shadow-[0_4px_15px_rgba(229,231,235,0.15)]' },
+                    { icon: ThreadsIcon, urls: lastProfile.threads_url, label: 'Threads', brandStyles: 'border-gray-500/40 bg-gray-900/50 hover:bg-gray-800/80 hover:border-gray-400 text-gray-300 shadow-[0_4px_15px_rgba(156,163,175,0.15)]' },
+                    { icon: SteamIcon, urls: lastProfile.steam_url, label: 'Steam', brandStyles: 'border-blue-800/40 bg-blue-950/50 hover:bg-blue-900/60 hover:border-blue-600 text-blue-400 shadow-[0_4px_15px_rgba(30,64,175,0.15)]' },
+                ];
+
+                // Separate: found profiles vs search fallbacks
+                const foundEntries = allPlatforms.filter(e => e.urls);
+                const searchEntries = allPlatforms.filter(e => !e.urls && searchUrls[e.label]);
+
+                // Mention-type entries (Tinder, Bumble, Discord)
+                const mentionEntries = [
                     { icon: TinderIcon, urls: lastProfile.tinder_mention, label: 'Tinder', isMention: true, brandStyles: 'border-orange-500/40 bg-orange-950/40 hover:bg-orange-900/60 hover:border-orange-400 text-orange-400 shadow-[0_4px_15px_rgba(249,115,22,0.15)]' },
                     { icon: BumbleIcon, urls: lastProfile.bumble_mention, label: 'Bumble', isMention: true, brandStyles: 'border-amber-500/40 bg-amber-950/40 hover:bg-amber-900/60 hover:border-amber-400 text-amber-400 shadow-[0_4px_15px_rgba(245,158,11,0.15)]' },
+                    { icon: DiscordIcon, urls: lastProfile.discord_mention, label: 'Discord', isMention: true, brandStyles: 'border-violet-500/40 bg-violet-950/40 hover:bg-violet-900/60 hover:border-violet-400 text-violet-400 shadow-[0_4px_15px_rgba(139,92,246,0.15)]' },
                 ].filter(e => e.urls);
+
+                const socialEntries: any[] = [...foundEntries, ...mentionEntries];
 
                 // Add phone numbers if found
                 if (lastProfile.phone_numbers && lastProfile.phone_numbers.length > 0) {
@@ -809,14 +797,15 @@ export default function ChatInterface() {
                         initial={{ opacity: 0, x: 50 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
-                        className="fixed z-40 right-6 top-6 w-56 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden"
+                        className="fixed z-40 right-6 top-6 w-60 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden"
                     >
-                        <div className="p-3 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
+                        <div className="p-2.5 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full animate-[shimmer_5s_infinite]" />
                             <Globe className="w-4 h-4 text-cyan-400" />
                             <ScrambleText text="Network Nodes" className="text-[10px] font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan" />
+                            <span className="ml-auto text-[8px] font-mono bg-cyan-400/10 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30">{socialEntries.length + searchEntries.length}</span>
                         </div>
-                        <div className="p-3 space-y-2 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                        <div className="p-2 space-y-1.5 overflow-y-auto max-h-[80vh] custom-scrollbar">
                             <AnimatePresence>
                                 {/* Empty state when no social profiles found */}
                                 {socialEntries.length === 0 && (
@@ -841,12 +830,12 @@ export default function ChatInterface() {
                                                 key={label}
                                                 initial={{ opacity: 0, x: 20 }}
                                                 animate={{ opacity: 1, x: 0 }}
-                                                className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all ${brandStyles}`}
+                                                className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${brandStyles}`}
                                             >
                                                 <Icon className="w-4 h-4 shrink-0" />
                                                 <div className="flex flex-col overflow-hidden">
                                                     <div className="flex items-center gap-1">
-                                                        <span className="text-xs text-white font-bold font-mono tracking-wider drop-shadow-sm">{label}</span>
+                                                        <span className="text-[11px] text-white font-bold font-mono tracking-wider drop-shadow-sm">{label}</span>
                                                         {isMention && <span className="text-[7px] font-mono bg-white/10 px-1 rounded">MENTION</span>}
                                                     </div>
                                                     <span className="text-[8px] opacity-60 font-mono truncate">{typeof urls === 'string' ? urls.substring(0, 40) : urls}</span>
@@ -855,8 +844,12 @@ export default function ChatInterface() {
                                         )];
                                     }
 
-                                    // Standard clickable URL entries
-                                    const parsedUrls = urls.split(',').map((u: string) => u.trim()).filter(Boolean);
+                                    // Standard clickable URL entries (only valid http/https URLs)
+                                    const parsedUrls = urls.split(',').map((u: string) => u.trim()).filter((u: string) => {
+                                        try { const p = new URL(u); return p.protocol === 'http:' || p.protocol === 'https:'; }
+                                        catch { return false; }
+                                    });
+                                    if (parsedUrls.length === 0) return [];
                                     return parsedUrls.map((singleUrl: string, idx: number) => {
                                         const username = singleUrl.replace(/\/+$/, '').split('/').pop() || '';
                                         const displayLabel = parsedUrls.length > 1 ? `@${username}` : label;
@@ -869,16 +862,50 @@ export default function ChatInterface() {
                                                 initial={{ opacity: 0, x: 20 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: idx * 0.05 }}
-                                                className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all group/link ${brandStyles}`}
+                                                className={`flex items-center gap-2 p-2 rounded-xl border transition-all group/link ${brandStyles}`}
                                                 whileHover={{ x: -3, scale: 1.02 }}
                                                 whileTap={{ scale: 0.98 }}
                                             >
                                                 <Icon className="w-4 h-4 transition-colors group-hover/link:text-white shrink-0" />
-                                                <span className="text-xs text-white font-bold font-mono tracking-wider drop-shadow-sm truncate">{displayLabel}</span>
+                                                <span className="text-[11px] text-white font-bold font-mono tracking-wider drop-shadow-sm truncate">{displayLabel}</span>
                                             </motion.a>
                                         );
                                     });
                                 })}
+
+                                {/* Search Fallback Section — platforms without found profiles */}
+                                {searchEntries.length > 0 && (
+                                    <motion.div
+                                        key="search-fallbacks"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="flex flex-col gap-1.5"
+                                    >
+                                        <div className="pt-2 pb-1 border-t border-cyan-500/10 mt-1">
+                                            <div className="flex items-center gap-2 px-1">
+                                                <Search className="w-3 h-3 text-cyan-500/50" />
+                                                <span className="text-[8px] font-bold font-mono tracking-widest text-cyan-500/50 uppercase">Search on Platform</span>
+                                            </div>
+                                        </div>
+                                        {searchEntries.map(({ icon: Icon, label, brandStyles }: any, idx: number) => (
+                                            <motion.a
+                                                key={`search-${label}`}
+                                                href={searchUrls[label]}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                initial={{ opacity: 0, x: 10 }}
+                                                animate={{ opacity: 0.7, x: 0 }}
+                                                transition={{ delay: idx * 0.03 }}
+                                                className="flex items-center gap-2 p-1.5 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] hover:opacity-100 hover:border-cyan-500/30 transition-all group/search"
+                                                whileHover={{ x: -2, scale: 1.02 }}
+                                            >
+                                                <Icon className="w-3.5 h-3.5 opacity-50 group-hover/search:opacity-80 shrink-0" />
+                                                <span className="text-[10px] text-white/50 font-mono tracking-wider truncate group-hover/search:text-white/70">{label}</span>
+                                                <span className="text-[7px] font-mono bg-cyan-500/10 text-cyan-400/50 px-1.5 py-0.5 rounded ml-auto shrink-0 group-hover/search:bg-cyan-500/20 group-hover/search:text-cyan-400/80">SEARCH</span>
+                                            </motion.a>
+                                        ))}
+                                    </motion.div>
+                                )}
 
                                 {/* Intelligence Sources Section */}
                                 {lastProfile.sources && lastProfile.sources.length > 0 && (
@@ -999,12 +1026,12 @@ export default function ChatInterface() {
                             </div>
 
                             {/* Wind speed if available */}
-                            {weather?.windspeed && (
+                            {weather?.wind_speed && (
                                 <div className="pt-2 border-t border-cyan-500/10 flex justify-between items-center opacity-70">
                                     <span className="text-[9px] font-mono text-cyan-500 uppercase tracking-tighter">Atmospheric Flow</span>
                                     <div className="flex items-center gap-1">
                                         <Wind className="w-3.5 h-3.5 text-cyan-300" />
-                                        <span className="text-[10px] font-mono font-bold text-white">{weather.windspeed} <span className="text-[8px]">km/h</span></span>
+                                        <span className="text-[10px] font-mono font-bold text-white">{weather.wind_speed} <span className="text-[8px]">km/h</span></span>
                                     </div>
                                 </div>
                             )}
