@@ -35,6 +35,15 @@ interface NetworkGraphProps {
     platforms?: PlatformNode[];
 }
 
+function isValidUrl(url: string): boolean {
+    try {
+        const parsed = new URL(url);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
 export default function NetworkGraph({ targetName, connections, platforms }: NetworkGraphProps) {
     const fgRef = useRef<any>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -72,7 +81,8 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
 
         platforms?.forEach((platform, index) => {
             const nodeId = `platform_${index}`;
-            const firstUrl = platform.url ? platform.url.split(',')[0].trim() : undefined;
+            const rawUrl = platform.url ? platform.url.split(',')[0].trim() : undefined;
+            const firstUrl = rawUrl && isValidUrl(rawUrl) ? rawUrl : undefined;
             nodes.push({
                 id: nodeId,
                 name: platform.name,
@@ -108,7 +118,7 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
             fgRef.current.d3Force('charge')?.strength(-300);
             fgRef.current.zoom(0.8, 1000);
         }
-    }, [graphData]);
+    }, [graphData, dimensions.width]);
 
     if ((!connections || graphData.validCount === 0) && (!platforms || platforms.length === 0)) {
         return null;
@@ -131,13 +141,13 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
                         ref={fgRef}
                         width={dimensions.width}
                         height={dimensions.height}
-                        graphData={graphData}
-                        nodeLabel={(node: GraphNode) => {
+                        graphData={{ nodes: graphData.nodes, links: graphData.links }}
+                        nodeLabel={(node: any) => {
                             if (node.id === 'target') return node.name ?? '';
                             const rel = node.relation ? `<br/><i>${node.relation}</i>` : '';
                             return `${node.name ?? ''}${rel}`;
                         }}
-                        nodeColor={(node: GraphNode) =>
+                        nodeColor={(node: any) =>
                             node.group === 1 ? '#00f3ff' :
                             node.group === 3 ? '#bf00ff' :
                             '#00ffd0'
@@ -149,7 +159,8 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
                         linkDirectionalParticleSpeed={0.005}
                         linkDirectionalParticleWidth={2}
                         backgroundColor="#00050a"
-                        onNodeClick={(node: GraphNode) => {
+                        showPointerCursor={(obj: any) => obj && obj.group === 3 && !!obj.url}
+                        onNodeClick={(node: any) => {
                             if (node.group === 3 && node.url) {
                                 window.open(node.url, '_blank', 'noopener,noreferrer');
                             } else {
