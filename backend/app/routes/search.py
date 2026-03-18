@@ -18,8 +18,30 @@ import json
 import os
 import re
 from datetime import datetime, timezone, timedelta
+from urllib.parse import quote as _url_quote
 
 router = APIRouter(prefix="/api/search", tags=["search"])
+
+def _platform_search_url(platform: str, name: str) -> str | None:
+    encoded = _url_quote(name)
+    _map = {
+        'instagram':  f"https://www.instagram.com/explore/search/keyword/?q={encoded}",
+        'twitter':    f"https://x.com/search?q={encoded}&f=user",
+        'linkedin':   f"https://www.linkedin.com/search/results/people/?keywords={encoded}",
+        'spotify':    f"https://open.spotify.com/search/{encoded}/profiles",
+        'tiktok':     f"https://www.tiktok.com/search/user?q={encoded}",
+        'snapchat':   f"https://www.snapchat.com/explore/{encoded}",
+        'tumblr':     f"https://www.tumblr.com/search/{encoded}",
+        'youtube':    f"https://www.youtube.com/results?search_query={encoded}",
+        'reddit':     f"https://www.reddit.com/search/?q={encoded}&type=user",
+        'facebook':   f"https://www.facebook.com/search/people/?q={encoded}",
+        'github':     f"https://github.com/search?q={encoded}&type=users",
+        'pinterest':  f"https://www.pinterest.com/search/users/?q={encoded}",
+        'medium':     f"https://medium.com/search?q={encoded}",
+        'threads':    f"https://www.threads.net/search?q={encoded}&filter=people",
+        'steam':      f"https://steamcommunity.com/search/users/#text={encoded}",
+    }
+    return _map.get(platform)
 
 # Initialize services
 ai_service = AIService()
@@ -391,19 +413,24 @@ async def search_person(query: SearchQuery, db: Session = Depends(get_db)):
         # Build response
         response = SearchResponse(
             name=structured_data.get('name', real_name),
-            github_url=github_url,
-            instagram_url=", ".join([p['url'] for p in social_profiles.get('instagram', [])]) or None,
-            twitter_url=", ".join([p['url'] for p in social_profiles.get('twitter', [])]) or None,
-            linkedin_url=", ".join([p['url'] for p in social_profiles.get('linkedin', [])]) or None,
-            spotify_url=", ".join([p['url'] for p in social_profiles.get('spotify', [])]) or None,
-            tiktok_url=", ".join([p['url'] for p in social_profiles.get('tiktok', [])]) or None,
-            snapchat_url=", ".join([p['url'] for p in social_profiles.get('snapchat', [])]) or None,
-            tumblr_url=", ".join([p['url'] for p in social_profiles.get('tumblr', [])]) or None,
-            youtube_url=", ".join([p['url'] for p in social_profiles.get('youtube', [])]) or None,
-            reddit_url=", ".join([p['url'] for p in social_profiles.get('reddit', [])]) or None,
-            facebook_url=", ".join([p['url'] for p in social_profiles.get('facebook', [])]) or None,
-            tinder_mention=", ".join([p.get('bio', '') for p in social_profiles.get('tinder', [])]) or None,
-            bumble_mention=", ".join([p.get('bio', '') for p in social_profiles.get('bumble', [])]) or None,
+            github_url=github_url or None,
+            instagram_url=", ".join([p['url'] for p in social_profiles.get('instagram', []) if p.get('url')]) or None,
+            twitter_url=  ", ".join([p['url'] for p in social_profiles.get('twitter',   []) if p.get('url')]) or None,
+            linkedin_url= ", ".join([p['url'] for p in social_profiles.get('linkedin',  []) if p.get('url')]) or None,
+            spotify_url=  ", ".join([p['url'] for p in social_profiles.get('spotify',   []) if p.get('url')]) or None,
+            tiktok_url=   ", ".join([p['url'] for p in social_profiles.get('tiktok',    []) if p.get('url')]) or None,
+            snapchat_url= ", ".join([p['url'] for p in social_profiles.get('snapchat',  []) if p.get('url')]) or None,
+            tumblr_url=   ", ".join([p['url'] for p in social_profiles.get('tumblr',    []) if p.get('url')]) or None,
+            youtube_url=  ", ".join([p['url'] for p in social_profiles.get('youtube',   []) if p.get('url')]) or None,
+            reddit_url=   ", ".join([p['url'] for p in social_profiles.get('reddit',    []) if p.get('url')]) or None,
+            facebook_url= ", ".join([p['url'] for p in social_profiles.get('facebook',  []) if p.get('url')]) or None,
+            pinterest_url=", ".join([p['url'] for p in social_profiles.get('pinterest', []) if p.get('url')]) or None,
+            medium_url=   ", ".join([p['url'] for p in social_profiles.get('medium',    []) if p.get('url')]) or None,
+            threads_url=  ", ".join([p['url'] for p in social_profiles.get('threads',   []) if p.get('url')]) or None,
+            steam_url=    ", ".join([p['url'] for p in social_profiles.get('steam',     []) if p.get('url')]) or None,
+            tinder_mention=", ".join([p.get('bio', '') for p in social_profiles.get('tinder', []) if p.get('url')]) or None,
+            bumble_mention=", ".join([p.get('bio', '') for p in social_profiles.get('bumble', []) if p.get('url')]) or None,
+            discord_mention=", ".join([p.get('bio', '') for p in social_profiles.get('discord', []) if p.get('url')]) or None,
             phone_numbers=phone_numbers if phone_numbers else None,
             location_country=structured_data.get('estimated_location'),
             location_city=structured_data.get('capital_city'),
