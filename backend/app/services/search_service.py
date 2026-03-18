@@ -394,30 +394,7 @@ class SearchService:
                 logger.log_success(f"Packet integrity verified for {res['url']}")
         
         logger.log_success("Data aggregation and content synthesis complete.")
-        
-        # 4. Integrate Academic and Technical (Patent) Sweeps
-        academic_data = self.search_academic_publications(name)
-        patent_data = self.search_patents(name)
-        official_data = self.search_official_registries(name)
-        
-        deep_context += "\n\n=== VERIFIED INSTITUTIONAL INTELLIGENCE ===\n"
-        has_institutional_data = False
-        
-        if academic_data:
-            deep_context += academic_data + "\n"
-            has_institutional_data = True
-            
-        if patent_data:
-            deep_context += patent_data + "\n"
-            has_institutional_data = True
-            
-        if official_data:
-            deep_context += official_data + "\n"
-            has_institutional_data = True
-            
-        if not has_institutional_data:
-             deep_context += "No significant academic, corporate, or patent registrations publicly detected.\n"
-        
+
         formatted_text = self.format_search_results(all_results)
-            
+
         return wiki_image, formatted_text, deep_context, all_results
