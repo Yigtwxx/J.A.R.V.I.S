@@ -20,8 +20,16 @@ class Profile(Base):
     tiktok_url = Column(Text, nullable=True)
     snapchat_url = Column(Text, nullable=True)
     tumblr_url = Column(Text, nullable=True)
+    youtube_url  = Column(Text, nullable=True)
+    reddit_url   = Column(Text, nullable=True)
+    facebook_url = Column(Text, nullable=True)
+    pinterest_url = Column(Text, nullable=True)
+    medium_url = Column(Text, nullable=True)
+    threads_url = Column(Text, nullable=True)
+    steam_url = Column(Text, nullable=True)
     tinder_mention = Column(Text, nullable=True)
     bumble_mention = Column(Text, nullable=True)
+    discord_mention = Column(Text, nullable=True)
     phone_numbers = Column(JSON, nullable=True)
     
     # Information
