@@ -26,9 +26,21 @@ async def create_profile(profile: ProfileCreate, db: Session = Depends(get_db)):
             linkedin_url=profile.linkedin_url,
             spotify_url=profile.spotify_url,
             tiktok_url=profile.tiktok_url,
+            snapchat_url=profile.snapchat_url,
+            tumblr_url=profile.tumblr_url,
+            youtube_url=profile.youtube_url,
+            reddit_url=profile.reddit_url,
+            facebook_url=profile.facebook_url,
+            tinder_mention=profile.tinder_mention,
+            bumble_mention=profile.bumble_mention,
+            phone_numbers=profile.phone_numbers,
             description=profile.description,
             additional_info=profile.additional_info,
-            similar_profiles=profile.similar_profiles
+            similar_profiles=profile.similar_profiles,
+            cross_validation_issues=profile.cross_validation_issues,
+            network_connections=profile.network_connections,
+            email_addresses=profile.email_addresses,
+            data_breaches=profile.data_breaches,
         )
         
         db.add(db_profile)
