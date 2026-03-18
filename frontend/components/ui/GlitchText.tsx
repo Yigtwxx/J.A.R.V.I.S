@@ -13,7 +13,7 @@ export default function GlitchText({ text, className = '', interval = 4000 }: Gl
   useEffect(() => {
     const trigger = () => {
       setGlitching(true);
-      setTimeout(() => setGlitching(false), 400);
+      setTimeout(() => setGlitching(false), 100);
     };
     trigger();
     const id = setInterval(trigger, interval);
