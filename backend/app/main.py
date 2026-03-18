@@ -6,7 +6,6 @@ from app.database import init_db
 from app.config import get_settings
 from app.utils.logger import logger
 import asyncio
-import sys
 import time
 
 settings = get_settings()
@@ -143,8 +142,7 @@ async def health_check():
 
 
 if __name__ == "__main__":
-    import uvicorn
-    import os
+    import sys, os, uvicorn
 
     # Ensure the parent directory is in the path
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
