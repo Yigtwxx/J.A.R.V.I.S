@@ -1,3 +1,36 @@
+export interface RagMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface BreachData {
+  _type?: undefined;
+  Name: string;
+  Title: string;
+  Domain: string;
+  BreachDate: string;
+  PwnCount?: number;
+  DataClasses: string[];
+  IsVerified: boolean;
+  IsSensitive?: boolean;
+  IsSpamList?: boolean;
+  IsFabricated?: boolean;
+  Description?: string;
+  TargetEmail: string;
+}
+
+export interface PasteData {
+  _type: 'paste';
+  Source: string;
+  Id: string;
+  Title: string;
+  Date: string;
+  EmailCount: number;
+  TargetEmail: string;
+}
+
+export type LeakRecord = BreachData | PasteData;
+
 export interface WeatherInfo {
   temperature: number;
   description: string;
@@ -59,8 +92,13 @@ export interface ProfileData {
   youtube_url?: string;
   reddit_url?: string;
   facebook_url?: string;
+  pinterest_url?: string;
+  medium_url?: string;
+  threads_url?: string;
+  steam_url?: string;
   tinder_mention?: string;
   bumble_mention?: string;
+  discord_mention?: string;
   phone_numbers?: string[];
   location_country?: string;
   location_city?: string;
@@ -75,7 +113,7 @@ export interface ProfileData {
   cross_validation_issues?: string[];
   network_connections?: { name: string, role: string, relation: string }[];
   email_addresses?: string[];
-  data_breaches?: DataBreach[];
+  data_breaches?: LeakRecord[];
   company_records?: CompanyRecord[];
   created_at?: string;
   updated_at?: string;
@@ -94,8 +132,13 @@ export interface SearchResponse {
   youtube_url?: string;
   reddit_url?: string;
   facebook_url?: string;
+  pinterest_url?: string;
+  medium_url?: string;
+  threads_url?: string;
+  steam_url?: string;
   tinder_mention?: string;
   bumble_mention?: string;
+  discord_mention?: string;
   phone_numbers?: string[];
   location_country?: string;
   location_city?: string;
@@ -110,7 +153,7 @@ export interface SearchResponse {
   cross_validation_issues?: string[];
   network_connections?: { name: string, role: string, relation: string }[];
   email_addresses?: string[];
-  data_breaches?: DataBreach[];
+  data_breaches?: LeakRecord[];
   company_records?: CompanyRecord[];
   sources?: { title: string; url: string; snippet: string }[];
   ai_response: string;
