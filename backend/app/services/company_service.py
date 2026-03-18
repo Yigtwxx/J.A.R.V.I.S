@@ -17,8 +17,8 @@ NOT: MERSİS, TOBB, Europages ve D&B gibi kaynaklar JS-bağımlı arayüzlere
      Playwright entegrasyonu ilerleyen aşamada eklenebilir.
 """
 
-import re
 import logging
+import re
 import unicodedata
 from dataclasses import dataclass, field
 from typing import Optional
