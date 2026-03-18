@@ -120,11 +120,49 @@ function ProfileCard({ profile }: ProfileCardProps) {
                     )}
 
                     {/* Knowledge Graph / Network Connections */}
-                    {profile.network_connections && profile.network_connections.length > 0 && (
-                        <div className="mt-4">
-                            <NetworkGraph targetName={profile.name} connections={profile.network_connections} />
-                        </div>
-                    )}
+                    {(() => {
+                        const platformMap: { key: keyof SearchResponse; label: string }[] = [
+                            { key: 'github_url',     label: 'GitHub' },
+                            { key: 'instagram_url',  label: 'Instagram' },
+                            { key: 'twitter_url',    label: 'Twitter/X' },
+                            { key: 'linkedin_url',   label: 'LinkedIn' },
+                            { key: 'spotify_url',    label: 'Spotify' },
+                            { key: 'tiktok_url',     label: 'TikTok' },
+                            { key: 'snapchat_url',   label: 'Snapchat' },
+                            { key: 'tumblr_url',     label: 'Tumblr' },
+                            { key: 'youtube_url',    label: 'YouTube' },
+                            { key: 'reddit_url',     label: 'Reddit' },
+                            { key: 'facebook_url',   label: 'Facebook' },
+                        ];
+                        const platformNodes = platformMap
+                            .filter(({ key }) => {
+                                const val = profile[key];
+                                if (!val) return false;
+                                const firstUrl = (val as string).split(',')[0].trim();
+                                try {
+                                    const parsed = new URL(firstUrl);
+                                    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+                                } catch {
+                                    return false;
+                                }
+                            })
+                            .map(({ key, label }) => ({
+                                name: label,
+                                url: profile[key] as string,
+                                activity: profile.platform_activity?.[label.toLowerCase().replace('/x', '')] ?? undefined,
+                            }));
+                        const hasConnections = profile.network_connections && profile.network_connections.length > 0;
+                        if (!hasConnections && platformNodes.length === 0) return null;
+                        return (
+                            <div className="mt-4">
+                                <NetworkGraph
+                                    targetName={profile.name}
+                                    connections={profile.network_connections ?? []}
+                                    platforms={platformNodes}
+                                />
+                            </div>
+                        );
+                    })()}
 
                     {/* Threat Intelligence / Dark Web Monitoring */}
                     <SecurityScanWidget
