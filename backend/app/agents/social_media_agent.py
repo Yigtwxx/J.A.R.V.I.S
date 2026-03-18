@@ -88,7 +88,7 @@ class SocialMediaAgent(BaseAgent):
             activity['github'] = min(100, score)
 
         # --- Standard social platforms ---
-        standard_platforms = ['instagram', 'twitter', 'linkedin', 'tiktok', 'snapchat', 'tumblr', 'youtube', 'reddit', 'facebook']
+        standard_platforms = ['instagram', 'twitter', 'linkedin', 'tiktok', 'snapchat', 'tumblr', 'youtube', 'reddit', 'facebook', 'pinterest', 'medium', 'threads', 'steam']
         for platform in standard_platforms:
             items = social_profiles.get(platform, [])
             if items:
