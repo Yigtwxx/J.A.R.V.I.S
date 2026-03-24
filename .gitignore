@@ -59,5 +59,23 @@ next-env.d.ts
 Thumbs.db
 *.pem
 
+# Python Testing & Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# ChromaDB
+chroma_db/
+
+# Docker
+*.pid
+
+# OS Ek
+desktop.ini
+ehthumbs.db
+
 # Logs
 logs/
