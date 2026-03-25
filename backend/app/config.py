@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     cors_origins: list[str] = ["http://localhost:3000"]
+
+    # Security — API Key Authentication (empty = auth disabled)
+    api_key: str = ""
+
+    # Rate Limiting (sliding window per IP)
+    rate_limit_requests: int = 30      # max requests per window
+    rate_limit_window_seconds: int = 60  # window size in seconds
     
     class Config:
         env_file = ".env"
