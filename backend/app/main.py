@@ -1,20 +1,47 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from app.routes import search_router, profiles_router, history_router, version_history_router, face_match_router, chat_router
 from app.database import init_db
 from app.config import get_settings
+from app.middleware.security import RateLimitMiddleware
 from app.utils.logger import logger
 import asyncio
 import time
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: startup and shutdown logic."""
+    # --- Startup ---
+    logger.print_header()
+    logger.log_action("Initializing J.A.R.V.I.S core systems...")
+    logger.log_action("Database Source", target=settings.database_url.split('@')[-1] if '@' in settings.database_url else 'Not configured')
+    logger.log_action("AI Neural Net", target=f"{settings.ollama_model} (Ollama)")
+    logger.log_action("Server Address", target=f"http://{settings.host}:{settings.port}")
+
+    try:
+        init_db()
+        logger.log_success("Memory matrices initialized successfully.")
+    except Exception as e:
+        logger.log_error(f"Memory matrix initialization failed: {e}")
+        logger.log_thought("Check active database connections.")
+
+    logger.log_success("All systems online. Awaiting coordinates.")
+    yield
+    # --- Shutdown ---
+
+
 # Create FastAPI app
 app = FastAPI(
     title="J.A.R.V.I.S API",
     description="AI Assistant API for searching and managing person profiles",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -24,6 +51,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Rate Limiting (per-IP sliding window)
+app.add_middleware(
+    RateLimitMiddleware,
+    max_requests=settings.rate_limit_requests,
+    window_seconds=settings.rate_limit_window_seconds,
 )
 
 @app.middleware("http")
@@ -67,26 +101,6 @@ app.include_router(face_match_router)
 app.include_router(chat_router)
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup"""
-    logger.print_header()
-    
-    logger.log_action("Initializing J.A.R.V.I.S core systems...")
-    logger.log_action("Database Source", target=settings.database_url.split('@')[-1] if '@' in settings.database_url else 'Not configured')
-    logger.log_action("AI Neural Net", target=f"{settings.ollama_model} (Ollama)")
-    logger.log_action("Server Address", target=f"http://{settings.host}:{settings.port}")
-    
-    # Initialize database tables
-    try:
-        init_db()
-        logger.log_success("Memory matrices initialized successfully.")
-    except Exception as e:
-        logger.log_error(f"Memory matrix initialization failed: {e}")
-        logger.log_thought("Check active database connections.")
-    
-    logger.log_success("All systems online. Awaiting coordinates.")
-    
 @app.get("/")
 async def root():
     """Root endpoint"""
@@ -114,8 +128,10 @@ async def stream_status():
             while True:
                 message = await queue.get()
                 yield f"data: {message}\n\n"
-        except (asyncio.CancelledError, Exception):
-            pass
+        except asyncio.CancelledError:
+            pass  # Normal: client disconnected
+        except Exception as e:
+            logger.log_warning(f"SSE stream error: {e}")
         finally:
             # Guarantee cleanup on any exit path (disconnect, error, GeneratorExit)
             logger.subscribers.discard(queue)
@@ -137,7 +153,7 @@ async def health_check():
     return {
         "status": "healthy",
         "ai_service": "Ollama",
-        "database": "PostgreSQL"
+        "database": "SQLite"
     }
 
 
