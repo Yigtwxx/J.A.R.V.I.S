@@ -51,7 +51,7 @@ class SearchOrchestrator:
         After gather: GitHub correlation and platform_activity computation are applied.
         Returns: (orch_result, github_data, search_results)
         """
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         social_agent = SocialMediaAgent(
             scraper_service=self._scraper,
@@ -120,7 +120,7 @@ class SearchOrchestrator:
         """
         Phase 2: Run SecurityAgent breach check after AI has extracted emails.
         """
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         security_agent = SecurityAgent(
             breach_service=self._breach,
             emails=emails,
