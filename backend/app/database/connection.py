@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from typing import Generator
 from app.config import get_settings
@@ -54,23 +54,7 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-def _migrate_db():
-    """Add new columns to existing tables (idempotent — safe to run every startup)."""
-    new_columns = [
-        "ALTER TABLE profiles ADD COLUMN youtube_url TEXT",
-        "ALTER TABLE profiles ADD COLUMN reddit_url TEXT",
-        "ALTER TABLE profiles ADD COLUMN facebook_url TEXT",
-    ]
-    with engine.connect() as conn:
-        for sql in new_columns:
-            try:
-                conn.execute(text(sql))
-                conn.commit()
-            except Exception:
-                pass  # Column already exists — safe to ignore
-
-
 def init_db():
-    """Initialize database tables"""
+    """Initialize database tables (creates missing tables for fresh installs).
+    Schema evolution is handled by Alembic migrations."""
     Base.metadata.create_all(bind=engine)
-    _migrate_db()
