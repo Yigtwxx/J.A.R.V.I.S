@@ -106,24 +106,19 @@ class JarvisLogger:
         """Log dynamic network requests like a cyber-security terminal"""
         try:
             if status_code is None:
-                # Incoming Request
                 console.print(f"[network][NET-IN][/network] [bold white]{method}[/bold white] [highlight]{path}[/highlight] <- from IP {client_ip}")
             else:
-                # Outgoing Response
                 color = "success" if status_code < 400 else "error"
                 console.print(f"[network][NET-OUT][/network] [bold white]{method}[/bold white] [highlight]{path}[/highlight] -> [{color}]Status: {status_code}[/{color}] [time]({process_time:.2f}ms)[/time]")
         except Exception:
-            pass
+            print(f"[NET] {method} {path} {status_code or '<-'} {client_ip}")
 
     def log_db_query(self, query_type: str, table: str = "", details: str = ""):
         """Log background database activity mimicking deep data retrieval"""
         try:
-            # Use a slightly simpler Markup to avoid parsing issues in background threads
-            # Adding a small sleep or using call_soon_threadsafe if needed, but console.print is usually thread-safe.
-            # We'll use the 'database' theme tag we defined.
             console.print(f"[database][DB-LINK][/database] [bold]{query_type}[/bold] [highlight]{table}[/highlight] {f'-> {details}' if details else ''}")
         except Exception:
-            pass
+            print(f"[DB] {query_type} {table} {details}")
 
     def display_panel(self, title: str, content: str, style: str = "cyan"):
         """Display important data in a styled panel"""
