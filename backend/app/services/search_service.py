@@ -1,4 +1,5 @@
 import requests
+import urllib3
 from bs4 import BeautifulSoup
 from typing import List, Dict
 import time
@@ -6,11 +7,8 @@ import urllib.parse
 import difflib
 import unicodedata
 from app.utils.logger import logger
-import warnings
 
-# Suppress InsecureRequestWarning
-warnings.filterwarnings('ignore', message='UnsecureRequestWarning')
-warnings.filterwarnings('ignore', message='Unverified HTTPS request')
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class SearchService:
     """Service for web search using Google scraping"""
@@ -39,7 +37,7 @@ class SearchService:
                 "srlimit": 1
             }
             
-            search_res = requests.get(search_url, params=search_params, headers=wiki_headers, timeout=5)
+            search_res = self.session.get(search_url, params=search_params, headers=wiki_headers, timeout=5)
             search_data = search_res.json()
             
             if not search_data.get('query', {}).get('search'):
@@ -72,7 +70,7 @@ class SearchService:
                 "pithumbsize": 800  # Request a reasonably large image
             }
             
-            img_res = requests.get(search_url, params=image_params, headers=wiki_headers, timeout=5)
+            img_res = self.session.get(search_url, params=image_params, headers=wiki_headers, timeout=5)
             img_data = img_res.json()
             
             pages = img_data.get('query', {}).get('pages', {})
@@ -207,7 +205,7 @@ class SearchService:
             
         try:
             logger.log_thought(f"Infiltrating host and extracting raw data packets: {url}")
-            response = self.session.get(url, timeout=12, verify=False)
+            response = self.session.get(url, timeout=12)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -239,7 +237,7 @@ class SearchService:
             # 1. ORCID Check (just to see if they are a registered researcher)
             orcid_url = f"https://pub.orcid.org/v3.0/search/?q={urllib.parse.quote(query)}"
             try:
-                orcid_res = requests.get(orcid_url, headers={'Accept': 'application/json'}, timeout=5)
+                orcid_res = self.session.get(orcid_url, headers={'Accept': 'application/json'}, timeout=5)
                 if orcid_res.status_code == 200:
                     orcid_data = orcid_res.json()
                     results = orcid_data.get('result', [])
@@ -251,7 +249,7 @@ class SearchService:
             # 2. Crossref API for Publications
             crossref_url = f"https://api.crossref.org/works?query.author={urllib.parse.quote(query)}&select=title,author,URL,published-print,publisher&rows=5"
             try:
-                crossref_res = requests.get(crossref_url, timeout=5)
+                crossref_res = self.session.get(crossref_url, timeout=5)
                 if crossref_res.status_code == 200:
                     cross_data = crossref_res.json()
                     items = cross_data.get('message', {}).get('items', [])
