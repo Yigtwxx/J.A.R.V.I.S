@@ -8,77 +8,8 @@ class SearchQuery(BaseModel):
     query: str = Field(..., description="Search query (e.g., person's name)")
 
 
-class ProfileCreate(BaseModel):
-    """Schema for creating a new profile"""
-    name: str
-    github_url: Optional[str] = None
-    instagram_url: Optional[str] = None
-    twitter_url: Optional[str] = None
-    linkedin_url: Optional[str] = None
-    spotify_url: Optional[str] = None
-    tiktok_url: Optional[str] = None
-    snapchat_url: Optional[str] = None
-    tumblr_url: Optional[str] = None
-    youtube_url:  Optional[str] = None
-    reddit_url:   Optional[str] = None
-    facebook_url: Optional[str] = None
-    pinterest_url: Optional[str] = None
-    medium_url: Optional[str] = None
-    threads_url: Optional[str] = None
-    steam_url: Optional[str] = None
-    tinder_mention: Optional[str] = None
-    bumble_mention: Optional[str] = None
-    discord_mention: Optional[str] = None
-    phone_numbers: Optional[List[str]] = None
-    description: Optional[str] = None
-    additional_info: Optional[Dict[str, Any]] = None
-    similar_profiles: Optional[List[str]] = None
-    cross_validation_issues: Optional[List[str]] = None
-    network_connections: Optional[List[Dict[str, str]]] = None
-    email_addresses: Optional[List[str]] = None
-    data_breaches: Optional[List[Dict[str, Any]]] = None
-
-
-class ProfileResponse(BaseModel):
-    """Schema for profile response"""
-    id: int
-    name: str
-    github_url: Optional[str] = None
-    instagram_url: Optional[str] = None
-    twitter_url: Optional[str] = None
-    linkedin_url: Optional[str] = None
-    spotify_url: Optional[str] = None
-    tiktok_url: Optional[str] = None
-    snapchat_url: Optional[str] = None
-    tumblr_url: Optional[str] = None
-    youtube_url:  Optional[str] = None
-    reddit_url:   Optional[str] = None
-    facebook_url: Optional[str] = None
-    pinterest_url: Optional[str] = None
-    medium_url: Optional[str] = None
-    threads_url: Optional[str] = None
-    steam_url: Optional[str] = None
-    tinder_mention: Optional[str] = None
-    bumble_mention: Optional[str] = None
-    discord_mention: Optional[str] = None
-    phone_numbers: Optional[List[str]] = None
-    description: Optional[str] = None
-    additional_info: Optional[Dict[str, Any]] = None
-    similar_profiles: Optional[List[str]] = None
-    cross_validation_issues: Optional[List[str]] = None
-    network_connections: Optional[List[Dict[str, str]]] = None
-    email_addresses: Optional[List[str]] = None
-    data_breaches: Optional[List[Dict[str, Any]]] = None
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    
-    class Config:
-        from_attributes = True
-
-
-class SearchResponse(BaseModel):
-    """AI search response with gathered information"""
-    name: str
+class SocialUrlsMixin(BaseModel):
+    """Shared social media URL fields — single source of truth for all profile schemas."""
     github_url: Optional[str] = None
     instagram_url: Optional[str] = None
     twitter_url: Optional[str] = None
@@ -98,6 +29,10 @@ class SearchResponse(BaseModel):
     bumble_mention: Optional[str] = None
     discord_mention: Optional[str] = None
     phone_numbers: Optional[List[str]] = None
+
+
+class ProfileDataMixin(SocialUrlsMixin):
+    """Extended profile fields shared across create, response, and search schemas."""
     description: Optional[str] = None
     additional_info: Optional[Dict[str, Any]] = None
     similar_profiles: Optional[List[str]] = None
@@ -105,6 +40,27 @@ class SearchResponse(BaseModel):
     network_connections: Optional[List[Dict[str, str]]] = None
     email_addresses: Optional[List[str]] = None
     data_breaches: Optional[List[Dict[str, Any]]] = None
+
+
+class ProfileCreate(ProfileDataMixin):
+    """Schema for creating a new profile"""
+    name: str
+
+
+class ProfileResponse(ProfileDataMixin):
+    """Schema for profile response"""
+    id: int
+    name: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SearchResponse(ProfileDataMixin):
+    """AI search response with gathered information"""
+    name: str
     location_country: Optional[str] = None
     location_city: Optional[str] = None
     weather_info: Optional[Dict[str, Any]] = None
