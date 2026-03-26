@@ -102,6 +102,9 @@ class SearchOrchestrator:
         # Per-platform activity scores
         platform_activity = SocialMediaAgent._compute_platform_activity(github_data, social_profiles)
 
+        found = [k for k, v in social_profiles.items() if v]
+        self._status(f"[DIAG] Orchestrator: {len(found)} platform(s) in final result: {found[:5]}")
+
         orch_result = OrchestratorResult(
             social_profiles=social_profiles,
             phone_numbers=phone_numbers or [],
