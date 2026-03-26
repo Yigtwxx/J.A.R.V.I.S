@@ -81,14 +81,13 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
 
         platforms?.forEach((platform, index) => {
             const nodeId = `platform_${index}`;
-            const rawUrl = platform.url ? platform.url.split(',')[0].trim() : undefined;
-            const firstUrl = rawUrl && isValidUrl(rawUrl) ? rawUrl : undefined;
+            const validUrl = platform.url && isValidUrl(platform.url) ? platform.url : undefined;
             nodes.push({
                 id: nodeId,
                 name: platform.name,
                 group: 3,
                 val: platform.activity ? 6 + (platform.activity / 100) * 8 : 8,
-                url: firstUrl,
+                url: validUrl,
             });
             links.push({ source: 'target', target: nodeId, name: platform.name });
         });
