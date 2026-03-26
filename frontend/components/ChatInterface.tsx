@@ -2,8 +2,8 @@
 
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2, TerminalSquare, Save, CheckCircle, History, Trash2, Clock, Github, Instagram, Twitter, Linkedin, Globe, Mic, MicOff, Volume2, VolumeX, MapPin, Thermometer, Cloud, Sun, Wind, Search } from 'lucide-react';
-import { searchPerson, saveProfile, getSearchHistory, deleteHistoryItem } from '@/services/api';
+import { TerminalSquare, Save, CheckCircle, Github, Instagram, Twitter, Linkedin, Globe, MapPin, Thermometer, Cloud, Sun, Wind, Search } from 'lucide-react';
+import { saveProfile, API_BASE_URL } from '@/services/api';
 import { Message, SearchResponse } from '@/types/profile';
 import ReactMarkdown from 'react-markdown';
 import dynamic from 'next/dynamic';
@@ -17,523 +17,26 @@ const VersionHistory = dynamic(() => import('./VersionHistory'), { ssr: false })
 const FaceMatch = dynamic(() => import('./FaceMatch'), { ssr: false });
 const SocialGauge = dynamic(() => import('./SocialGauge'), { ssr: false });
 const SentimentGauge = dynamic(() => import('./SentimentGauge'), { ssr: false });
-const LoadingAnimation = dynamic(() => import('./LoadingAnimation'), { ssr: false });
 
 // Custom Brand Icons
 import { SpotifyIcon, TikTokIcon, SnapchatIcon, TumblrIcon, TinderIcon,
          BumbleIcon, YoutubeIcon, RedditIcon, FacebookIcon, PhoneIcon,
          PinterestIcon, MediumIcon, ThreadsIcon, SteamIcon, DiscordIcon } from '@/components/ui/Icons';
 
-const LiveStatusMonitor = () => {
-    const liveStatus = useChatStore(state => state.liveStatus);
-    const isLoading = useChatStore(state => state.isLoading);
+// Extracted Sub-Components
+import LiveStatusMonitor from '@/components/chat/LiveStatusMonitor';
+import StreamingMessageBubble from '@/components/chat/StreamingMessageBubble';
+import HistorySidebar from '@/components/chat/HistorySidebar';
+import RagInteractionPanel from '@/components/chat/RagInteractionPanel';
+import ChatInputBar from '@/components/chat/ChatInputBar';
+import LoadingIndicator from '@/components/chat/LoadingIndicator';
+import VoiceSynthesizer from '@/components/chat/VoiceSynthesizer';
 
-    if (!isLoading) return null;
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="fixed z-40 right-6 top-6 w-64 glass-strong rounded-[1.5rem] border border-cyan-500/40 bg-cyan-950/30 backdrop-blur-xl shadow-[0_0_30px_rgba(0,255,255,0.1)] flex flex-col overflow-hidden"
-        >
-            <div className="p-4 border-b border-cyan-500/30 bg-cyan-900/50 flex items-center gap-3 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
-                <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_cyan]" />
-                <span className="text-[11px] font-black font-orbitron tracking-[0.2em] text-cyan-300 uppercase glow-cyan">Live Monitoring</span>
-            </div>
-            <div className="p-4 space-y-3 font-mono">
-                <AnimatePresence>
-                    {liveStatus.map((status, idx) => (
-                        <motion.div
-                            key={`${status}-${idx}`}
-                            initial={{ opacity: 0, x: 10, filter: 'blur(4px)' }}
-                            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                            exit={{ opacity: 0, x: -10, filter: 'blur(4px)' }}
-                            transition={{ duration: 0.3 }}
-                            className="text-[10px] leading-relaxed flex gap-2 items-start"
-                        >
-                            <span className="text-cyan-500 shrink-0 select-none opacity-50">[{new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span>
-                            <span className={`${status.includes('[OK]') ? 'text-green-400' : status.includes('[ERR]') ? 'text-red-400' : 'text-cyan-100/80'} break-words`}>
-                                {status.replace(/\[(SYS|OK|ERR|PROCESS|WARN)\]\s*/, '')}
-                            </span>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
-                <motion.div
-                    animate={{ opacity: [0.3, 1, 0.3] }}
-                    transition={{ repeat: Infinity, duration: 1 }}
-                    className="w-full h-px bg-cyan-500/30 mt-4"
-                />
-            </div>
-        </motion.div>
-    );
-};
-
-const StreamingMessageBubble = () => {
-    const streamingContent = useChatStore(state => state.streamingContent);
-    const isLoading = useChatStore(state => state.isLoading);
-
-    useEffect(() => {
-        document.getElementById('messages-end')?.scrollIntoView({ behavior: 'smooth' });
-    }, [streamingContent]);
-
-    if (!isLoading || !streamingContent) return null;
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex justify-start"
-        >
-            <div className="w-full max-w-3xl space-y-6">
-                <div className="message-bubble message-ai text-white font-mono text-[15px] leading-normal tracking-wide shadow-lg border-l-4 border-cyan-400 relative">
-                    <div className="flex items-center gap-2 mb-3 text-cyan-400 font-bold pb-2 border-b border-cyan-500/30">
-                        <TerminalSquare className="w-5 h-5 glow-cyan animate-pulse" />
-                        <span className="text-sm uppercase tracking-[0.2em] glow-cyan">Receiving Transmission...</span>
-                    </div>
-                    <ReactMarkdown
-                        components={{
-                            p: ({ children, ...props }) => <p className="leading-normal text-gray-200 mb-2 last:mb-0" {...props}>{children}</p>,
-                        }}
-                    >
-                        {streamingContent}
-                    </ReactMarkdown>
-                    <span className="inline-block w-2.5 h-4 ml-1 bg-cyan-400 animate-pulse align-middle shadow-[0_0_8px_cyan]" />
-                </div>
-            </div>
-        </motion.div>
-    );
-};
-
-const RagStreamingBubble = () => {
-    const streamingRagContent = useChatStore(state => state.streamingRagContent);
-    const isRagLoading = useChatStore(state => state.isRagLoading);
-
-    useEffect(() => {
-        document.getElementById('messages-end')?.scrollIntoView({ behavior: 'smooth' });
-    }, [streamingRagContent]);
-
-    if (!isRagLoading) return null;
-
-    return (
-        <div className="flex justify-start">
-            <div className="p-3.5 rounded-xl max-w-[90%] md:max-w-[80%] font-mono text-sm bg-teal-950/30 text-teal-50 border-l-4 border-teal-500 shadow-[0_4px_15px_rgba(45,212,191,0.1)]">
-                {streamingRagContent ? (
-                    <ReactMarkdown components={{ p: ({ children, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props}>{children}</p> }}>
-                        {streamingRagContent}
-                    </ReactMarkdown>
-                ) : (
-                    <div className="flex items-center gap-2 text-teal-400/80">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="uppercase tracking-widest text-xs">Querying deep context nodes...</span>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
-const HistorySidebar = () => {
-    const history = useChatStore(state => state.history);
-    const setHistory = useChatStore(state => state.setHistory);
-    const setInput = useChatStore(state => state.setInput);
-    const messages = useChatStore(state => state.messages);
-
-    const loadHistory = React.useCallback(async () => {
-        try {
-            const data = await getSearchHistory();
-            setHistory(data);
-        } catch (error) {
-            console.error('Failed to load history', error);
-        }
-    }, [setHistory]);
-
-    useEffect(() => {
-        loadHistory();
-    }, [loadHistory]);
-
-    const handleDeleteHistory = async (id: number) => {
-        try {
-            await deleteHistoryItem(id);
-            setHistory(prev => prev.filter(item => item.id !== id));
-        } catch (error) {
-            console.error('Failed to delete history item', error);
-        }
-    };
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
-            className={`fixed z-40 left-6 top-32 bottom-32 w-64 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden transition-all duration-700 ${messages.length === 0 ? 'translate-y-[15vh]' : 'translate-y-0'}`}
-        >
-            <div className="p-4 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full animate-[shimmer_5s_infinite]"></div>
-                <History className="w-5 h-5 text-cyan-400" />
-                <ScrambleText text="Secure Logs" className="text-xs font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan" />
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
-                {history.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-cyan-500/40 opacity-70">
-                        <Clock className="w-8 h-8 mb-2" />
-                        <p className="text-[10px] font-mono tracking-widest uppercase">No Records</p>
-                    </div>
-                ) : (
-                    <AnimatePresence>
-                        {history.map((item) => (
-                            <motion.div
-                                key={item.id}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                className="group/hist flex items-center justify-between p-2.5 rounded-lg hover:bg-cyan-900/40 border border-transparent hover:border-cyan-500/30 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_10px_rgba(0,255,255,0.1)]"
-                                onClick={() => setInput(item.query_name)}
-                            >
-                                <div className="flex items-center gap-2 overflow-hidden">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-500/50 group-hover/hist:bg-cyan-400 group-hover/hist:shadow-[0_0_5px_rgba(0,255,255,0.8)] transition-all shrink-0"></div>
-                                    <span className="text-[13px] text-gray-300 font-medium truncate group-hover/hist:text-white transition-colors">{item.query_name}</span>
-                                </div>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteHistory(item.id); }}
-                                    className="opacity-0 group-hover/hist:opacity-100 p-1.5 text-cyan-700 hover:text-red-400 hover:bg-red-950/30 rounded-md transition-all shrink-0"
-                                    title="Delete Log"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-                )}
-            </div>
-            <div className="px-4 py-2 border-t border-cyan-500/20 text-center bg-black/20">
-                <span className="text-[9px] text-cyan-500/60 font-mono tracking-widest uppercase flex items-center justify-center gap-1.5"><Clock className="w-3 h-3" /> Logs expire in 7 days</span>
-            </div>
-        </motion.div>
-    );
-};
-
-const RagInteractionPanel = ({ profileName }: { profileName: string }) => {
-    const ragInput = useChatStore(state => state.ragInput);
-    const setRagInput = useChatStore(state => state.setRagInput);
-    const ragMessages = useChatStore(state => state.ragMessages);
-    const setRagMessages = useChatStore(state => state.setRagMessages);
-    const isRagLoading = useChatStore(state => state.isRagLoading);
-    const setIsRagLoading = useChatStore(state => state.setIsRagLoading);
-    const setStreamingRagContent = useChatStore(state => state.setStreamingRagContent);
-
-    const handleRagSubmit = async () => {
-        if (!ragInput.trim() || isRagLoading) return;
-
-        const userMessage = { role: 'user' as const, content: ragInput.trim() };
-        setRagMessages(prev => [...prev, userMessage]);
-        setRagInput('');
-        setIsRagLoading(true);
-        setStreamingRagContent('');
-
-        try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/chat/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    query_name: profileName,
-                    messages: ragMessages.concat(userMessage)
-                })
-            });
-
-            if (!response.ok) throw new Error('RAG Chat failed');
-
-            const reader = response.body?.getReader();
-            const decoder = new TextDecoder();
-            let aiContent = '';
-
-            if (reader) {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value);
-                    aiContent += chunk;
-                    setStreamingRagContent(aiContent);
-                }
-            }
-
-            setRagMessages(prev => [...prev, { role: 'assistant', content: aiContent }]);
-            setStreamingRagContent('');
-
-        } catch (error) {
-            console.error(error);
-            setRagMessages(prev => [...prev, { role: 'assistant', content: '[SYSTEM ERROR: Neural reasoning engine failure. Check API logs.]' }]);
-            setStreamingRagContent('');
-        } finally {
-            setIsRagLoading(false);
-        }
-    };
-
-    return (
-        <div className="mt-8 border-t-2 border-cyan-500/20 pt-5">
-            <div className="flex items-center gap-2 mb-4">
-                <TerminalSquare className="w-5 h-5 text-teal-400 drop-shadow-[0_0_8px_rgba(45,212,191,0.8)]" />
-                <span className="text-sm font-bold font-mono text-teal-300 uppercase tracking-widest drop-shadow-[0_0_5px_rgba(45,212,191,0.5)]">
-                    Interactive Analysis Protocol
-                </span>
-            </div>
-
-            <div className="space-y-4 mb-4">
-                {ragMessages.map((ragMsg, rIndex) => (
-                    <div key={rIndex} className={`flex ${ragMsg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`p-3.5 rounded-xl max-w-[90%] md:max-w-[80%] font-mono text-sm shadow-md ${ragMsg.role === 'user' ? 'bg-cyan-950/40 text-cyan-50 border border-cyan-500/30' : 'bg-teal-950/30 text-teal-50 border-l-4 border-teal-500 shadow-[0_4px_15px_rgba(45,212,191,0.1)]'}`}>
-                            {ragMsg.role === 'assistant' ? (
-                                <ReactMarkdown components={{ p: ({ children, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props}>{children}</p> }}>
-                                    {ragMsg.content}
-                                </ReactMarkdown>
-                            ) : ragMsg.content}
-                        </div>
-                    </div>
-                ))}
-
-                <RagStreamingBubble />
-            </div>
-
-            <div className="flex gap-2">
-                <input
-                    type="text"
-                    value={ragInput}
-                    onChange={(e) => setRagInput(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRagSubmit();
-                    }}
-                    disabled={isRagLoading}
-                    placeholder={`Ask J.A.R.V.I.S about ${profileName}...`}
-                    className="flex-1 bg-black/40 border border-cyan-500/30 rounded-xl px-4 py-3 text-cyan-100 font-mono text-sm focus:border-teal-400 focus:outline-none placeholder:text-cyan-500/40 transition-colors shadow-inner"
-                />
-                <button
-                    onClick={handleRagSubmit}
-                    disabled={isRagLoading || !ragInput.trim()}
-                    className="bg-cyan-950/50 border border-cyan-500/50 hover:border-teal-400 hover:text-teal-300 text-cyan-400 px-5 py-3 rounded-xl font-mono tracking-widest uppercase transition-all flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed group/ragbtn"
-                >
-                    {isRagLoading ? <Loader2 className="w-5 h-5 animate-spin text-teal-400" /> : <Send className="w-5 h-5 group-hover/ragbtn:scale-110 transition-transform" />}
-                </button>
-            </div>
-        </div>
-    );
-};
-
-const ChatInputBar = () => {
-    const input = useChatStore(state => state.input);
-    const setInput = useChatStore(state => state.setInput);
-    const isLoading = useChatStore(state => state.isLoading);
-    const setIsLoading = useChatStore(state => state.setIsLoading);
-    const isListening = useChatStore(state => state.isListening);
-    const setIsListening = useChatStore(state => state.setIsListening);
-    const voiceEnabled = useChatStore(state => state.voiceEnabled);
-    const setVoiceEnabled = useChatStore(state => state.setVoiceEnabled);
-    const setMessages = useChatStore(state => state.setMessages);
-    const setRagMessages = useChatStore(state => state.setRagMessages);
-    const setRagInput = useChatStore(state => state.setRagInput);
-    const setStreamingContent = useChatStore(state => state.setStreamingContent);
-    const setHistory = useChatStore(state => state.setHistory);
-
-    const recognitionRef = useRef<any>(null);
-
-    useEffect(() => {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = false;
-            recognitionRef.current.interimResults = false;
-            recognitionRef.current.lang = 'tr-TR';
-
-            recognitionRef.current.onresult = (event: any) => {
-                const transcript = event.results[0][0].transcript;
-                const currentInput = useChatStore.getState().input;
-                setInput(currentInput + (currentInput ? ' ' : '') + transcript);
-                setIsListening(false);
-            };
-
-            recognitionRef.current.onerror = () => setIsListening(false);
-            recognitionRef.current.onend = () => setIsListening(false);
-        }
-    }, [setInput, setIsListening]);
-
-    const toggleListening = () => {
-        if (isListening) {
-            recognitionRef.current?.stop();
-            setIsListening(false);
-        } else {
-            recognitionRef.current?.start();
-            setIsListening(true);
-        }
-    };
-
-    const handleSearch = async () => {
-        if (!input.trim() || isLoading) return;
-
-        const userMessage: Message = {
-            role: 'user',
-            content: input.trim()
-        };
-
-        setMessages(prev => [...prev, userMessage]);
-        setInput('');
-        setIsLoading(true);
-        setRagMessages([]);
-        setRagInput('');
-
-        try {
-            const response = await searchPerson(input.trim());
-
-            const assistantMessage: Message = {
-                role: 'assistant',
-                content: response.ai_response,
-                profileData: response
-            };
-
-            setMessages(prev => [...prev, assistantMessage]);
-            setStreamingContent('');
-
-            // Background update history
-            getSearchHistory().then(setHistory).catch(console.error);
-
-        } catch (error: any) {
-            setStreamingContent('');
-            const errorMessage: Message = {
-                role: 'assistant',
-                content: `[ERROR] Analysis failed: ${error.response?.data?.detail || error.message || 'Unknown error'}. Please verify connection.`
-            };
-            setMessages(prev => [...prev, errorMessage]);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSearch();
-        }
-    };
-
-    return (
-        <motion.div
-            initial={{ y: 100 }}
-            animate={{ y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-            className="fixed bottom-10 left-0 w-full pl-[300px] pr-[280px] flex justify-center z-50 pointer-events-none"
-        >
-            <div className="pointer-events-auto w-full max-w-4xl glass-strong p-4 rounded-3xl flex gap-4 items-center border-2 border-cyan-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-hidden group hover:border-cyan-400/60 transition-all duration-500">
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-
-                <button
-                    onClick={() => {
-                        if (voiceEnabled) window.speechSynthesis.cancel();
-                        setVoiceEnabled(!voiceEnabled);
-                    }}
-                    className={`p-3 rounded-xl border transition-all ${voiceEnabled ? 'border-cyan-400 bg-cyan-900/40 text-cyan-400 glow-cyan' : 'border-slate-700 bg-slate-900/40 text-slate-500'}`}
-                    title={voiceEnabled ? "Mute JARVIS" : "Enable JARVIS Voice"}
-                >
-                    {voiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-                </button>
-
-                <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyPress}
-                    placeholder="Enter name or username (use '/' to separate)..."
-                    disabled={isLoading}
-                    className="flex-1 input-jarvis h-14 rounded-2xl border-none shadow-none bg-black/20 focus:bg-black/40 placeholder:tracking-widest text-xl font-bold px-8 transition-all"
-                />
-
-                <button
-                    onClick={toggleListening}
-                    className={`relative w-14 h-14 rounded-xl flex items-center justify-center transition-all border-2 ${isListening ? 'border-red-500 bg-red-950/40 text-red-500' : 'border-cyan-500/50 bg-cyan-950/40 text-cyan-400 hover:border-cyan-300'}`}
-                >
-                    {isListening && (
-                        <motion.div
-                            animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-                            transition={{ repeat: Infinity, duration: 1.5 }}
-                            className="absolute inset-0 bg-red-500/30 rounded-full"
-                        />
-                    )}
-                    {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-                </button>
-
-                <button
-                    onClick={handleSearch}
-                    disabled={isLoading || !input.trim()}
-                    className="btn-jarvis rounded-xl w-14 h-14 p-0 flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed group/btn hover:border-cyan-300 bg-cyan-950/40 border-2 border-cyan-500/50"
-                >
-                    {isLoading ? (
-                        <Loader2 className="w-6 h-6 animate-spin text-cyan-300" />
-                    ) : (
-                        <Send className="w-6 h-6 text-cyan-400 group-hover/btn:text-white group-hover/btn:scale-110 transition-all drop-shadow-[0_0_8px_rgba(0,255,255,0.8)]" />
-                    )}
-                </button>
-            </div>
-        </motion.div>
-    );
-};
-
-const LoadingIndicator = () => {
-    const isLoading = useChatStore(state => state.isLoading);
-    const streamingContent = useChatStore(state => state.streamingContent);
-
-    if (!isLoading || !!streamingContent) return null;
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex justify-start w-full max-w-3xl"
-        >
-            <div className="glass-strong rounded-2xl p-8 w-full flex justify-center border-t-2 border-t-cyan-400 shadow-[0_0_30px_rgba(0,255,255,0.1)]">
-                <LoadingAnimation />
-            </div>
-        </motion.div>
-    );
-};
-
-const VoiceSynthesizer = () => {
-    const messages = useChatStore(state => state.messages);
-    const voiceEnabled = useChatStore(state => state.voiceEnabled);
-    const isSpeaking = useChatStore(state => state.isSpeaking);
-    const setIsSpeaking = useChatStore(state => state.setIsSpeaking);
-
-    const speakResponse = React.useCallback((text: string) => {
-        if (!text || !voiceEnabled) return;
-
-        // Clean markdown for cleaner speech
-        const cleanText = text.replace(/[*_#`\[\]()]/g, '').slice(0, 500);
-
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-
-        // JARVIS Protocol: Force high-quality British accent
-        const voices = window.speechSynthesis.getVoices();
-        const jarvisVoice = voices.find(v => v.name.includes('Google UK English Male') || v.lang === 'en-GB');
-        if (jarvisVoice) utterance.voice = jarvisVoice;
-
-        utterance.rate = 1.0;
-        utterance.pitch = 0.9; // Deeper tone for JARVIS
-
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-
-        window.speechSynthesis.speak(utterance);
-    }, [voiceEnabled, setIsSpeaking]);
-
-    useEffect(() => {
-        // Handle auto-speech for new assistant messages
-        const lastMessage = messages[messages.length - 1];
-        if (voiceEnabled && lastMessage?.role === 'assistant' && !isSpeaking) {
-            speakResponse(lastMessage.content);
-        }
-    }, [messages, voiceEnabled, isSpeaking, speakResponse]);
-
-    return null;
+// Pure utility function — moved to module level
+const getHash = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    return Math.abs(hash);
 };
 
 export default function ChatInterface() {
@@ -554,7 +57,7 @@ export default function ChatInterface() {
 
         if (isLoading) {
             resetSearchState(); // Reset RAG and Live status
-            eventSource = new EventSource(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/status/stream`);
+            eventSource = new EventSource(`${API_BASE_URL}/api/status/stream`);
 
             eventSource.onmessage = (event) => {
                 const data = event.data as string;
@@ -602,6 +105,10 @@ export default function ChatInterface() {
         scrollToBottom();
     }, [messages]);
 
+    const lastProfile = React.useMemo(
+        () => [...messages].reverse().find(m => m.role === 'assistant' && m.profileData)?.profileData,
+        [messages]
+    );
 
     const handleApprove = async (messageIndex: number, profileToSave: SearchResponse) => {
         try {
@@ -618,6 +125,11 @@ export default function ChatInterface() {
                 youtube_url: profileToSave.youtube_url,
                 reddit_url: profileToSave.reddit_url,
                 facebook_url: profileToSave.facebook_url,
+                pinterest_url: profileToSave.pinterest_url,
+                medium_url: profileToSave.medium_url,
+                threads_url: profileToSave.threads_url,
+                steam_url: profileToSave.steam_url,
+                discord_mention: profileToSave.discord_mention,
                 tinder_mention: profileToSave.tinder_mention,
                 bumble_mention: profileToSave.bumble_mention,
                 phone_numbers: profileToSave.phone_numbers,
@@ -643,6 +155,7 @@ export default function ChatInterface() {
 
         } catch (error: any) {
             const errorMessage: Message = {
+                id: crypto.randomUUID(),
                 role: 'assistant',
                 content: `[ERROR] Archive failure: ${error.response?.data?.detail || error.message}`
             };
@@ -669,32 +182,13 @@ export default function ChatInterface() {
                 transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                 className="fixed z-50 pointer-events-none origin-top-left"
             >
-                <div className="glass-strong px-8 py-3.5 rounded-[2rem] flex items-center gap-6 border-cyan-400/40 shadow-[0_0_40px_rgba(0,255,255,0.1)] bg-cyan-950/40 backdrop-blur-md relative overflow-hidden group/logo">
-                    {/* Animated shine line across the pill */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -translate-x-[150%] animate-[shimmer_3s_infinite]" />
-
-                    <div className="relative flex items-center justify-center w-16 h-16 shrink-0 group-hover/logo:scale-110 transition-transform duration-700 ease-out">
-                        {/* Outer Glow */}
-                        <div className="absolute inset-0 bg-cyan-400/40 blur-xl rounded-full scale-75 group-hover/logo:scale-110 transition-transform duration-1000"></div>
-
-                        {/* Outer Dotted Ring (Slow Reverse Spin) */}
-                        <div className="absolute inset-[-4px] rounded-full border border-dashed border-cyan-500/30 animate-[spin_12s_linear_infinite_reverse]"></div>
-
-                        {/* Middle Segmented Ring (Medium Forward Spin) */}
-                        <div className="absolute inset-1 rounded-full border-[3px] border-transparent border-t-cyan-400 border-b-cyan-500/50 border-r-cyan-400/20 animate-[spin_8s_linear_infinite] shadow-[0_0_15px_rgba(0,255,255,0.4)]"></div>
-
-                        {/* Inner Dashed Ring (Fast Reverse Spin) */}
-                        <div className="absolute inset-3 rounded-full border-2 border-dotted border-cyan-300 animate-[spin_4s_linear_infinite_reverse]"></div>
-
-                        {/* Core Glowing Orb */}
-                        <div className="absolute inset-4 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-400 shadow-[0_0_20px_rgba(34,211,238,0.8)_inset] flex items-center justify-center overflow-hidden">
-                            <div className="absolute inset-0 bg-cyan-300/30 blur-sm animate-pulse"></div>
-                            <div className="w-2 h-2 bg-white rounded-full shadow-[0_0_10px_#fff]"></div>
+                <div className="flex flex-col items-center gap-4">
+                    <div className="flex items-center gap-5">
+                        <div className="relative w-12 h-12 rounded-xl overflow-hidden border-2 border-cyan-500/60 shadow-[0_0_20px_rgba(0,255,255,0.3)] bg-black/40 flex items-center justify-center">
+                            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-transparent" />
+                            <span className="text-xl font-black text-cyan-400 font-orbitron glow-cyan select-none">J</span>
                         </div>
-                    </div>
-
-                    <div className="flex flex-col justify-center">
-                        <h1 className="text-4xl font-orbitron font-black tracking-[0.25em] leading-none mb-1 drop-shadow-[0_2px_10px_rgba(0,255,255,0.3)]">
+                        <h1 className="text-3xl md:text-4xl font-black tracking-[0.3em] uppercase font-orbitron">
                             <GlitchText
                                 text="J.A.R.V.I.S"
                                 interval={5000}
@@ -726,8 +220,6 @@ export default function ChatInterface() {
                     return <LiveStatusMonitor />;
                 }
 
-                // Find the latest assistant message with profileData
-                const lastProfile = [...messages].reverse().find(m => m.role === 'assistant' && m.profileData)?.profileData;
                 if (!lastProfile) return null;
 
                 // Search fallback URL generator for platforms without found profiles
@@ -952,7 +444,6 @@ export default function ChatInterface() {
 
             {/* Floating Atmospheric Widget (Between Chat and Right Sidebar) */}
             {(() => {
-                const lastProfile = [...messages].reverse().find(m => m.role === 'assistant' && m.profileData)?.profileData;
                 if (!lastProfile || !lastProfile.weather_info) return null;
 
                 const weather = lastProfile.weather_info;
@@ -1045,7 +536,6 @@ export default function ChatInterface() {
 
             {/* Social Gauge Widget */}
             {(() => {
-                const lastProfile = [...messages].reverse().find(m => m.role === 'assistant' && m.profileData)?.profileData;
                 if (!lastProfile || typeof lastProfile.social_media_score === 'undefined') return null;
 
                 return (
@@ -1060,7 +550,6 @@ export default function ChatInterface() {
 
             {/* Sentiment Psychological Profiler Widget (Under Social Gauge) */}
             {(() => {
-                const lastProfile = [...messages].reverse().find(m => m.role === 'assistant' && m.profileData)?.profileData;
                 if (!lastProfile || !lastProfile.sentiment_analysis) return null;
 
                 // Adjust positioning dynamically (assuming SocialGauge takes up some space, we place this right below it)
@@ -1090,7 +579,7 @@ export default function ChatInterface() {
                     <AnimatePresence initial={false}>
                         {messages.map((message, index) => (
                             <motion.div
-                                key={index}
+                                key={message.id}
                                 initial={{ opacity: 0, y: 20, scale: 0.98 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 transition={{ duration: 0.4, ease: "easeOut" }}
@@ -1110,13 +599,6 @@ export default function ChatInterface() {
                                             <ReactMarkdown
                                                 components={{
                                                     strong: ({ children, ...props }) => {
-                                                        // Simple static hash to ensure the same header gets the same color consistently
-                                                        const getHash = (str: string) => {
-                                                            let hash = 0;
-                                                            for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-                                                            return Math.abs(hash);
-                                                        };
-
                                                         const textContent = Array.isArray(children) ? children.join('') : String(children);
                                                         const colors = [
                                                             'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.8)]',
@@ -1145,7 +627,7 @@ export default function ChatInterface() {
                                                     ul: ({ ...props }) => <ul className="list-none space-y-1 mb-2" {...props} />,
                                                     li: ({ ...props }) => (
                                                         <li className="flex gap-2">
-                                                            <span className="text-cyan-500 mt-0.5">▹</span>
+                                                            <span className="text-cyan-500 mt-0.5">&#9657;</span>
                                                             <span className="text-gray-300" {...props} />
                                                         </li>
                                                     ),
@@ -1198,7 +680,7 @@ export default function ChatInterface() {
                                                 )}
                                                 <div className="mt-3 flex flex-col md:flex-row items-end justify-between gap-3 text-right">
                                                     <span className="text-gray-400 italic text-xs max-w-sm">
-                                                        Aradığınız sonuç doğruysa daha sonrası için veritabanına kaydetmeniz erişim açısından daha iyi olur.
+                                                        If this profile looks correct, save it to the database for quick access later.
                                                     </span>
                                                     {!message.isSaved ? (
                                                         <button
@@ -1206,12 +688,12 @@ export default function ChatInterface() {
                                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-900/40 hover:border-cyan-400 transition-colors shadow-[0_0_10px_rgba(0,255,255,0.1)] shrink-0"
                                                         >
                                                             <Save className="w-4 h-4" />
-                                                            <span className="text-sm font-semibold tracking-wide">Kaydet</span>
+                                                            <span className="text-sm font-semibold tracking-wide">Save</span>
                                                         </button>
                                                     ) : (
                                                         <div className="flex items-center gap-1.5 px-3 py-1.5 text-green-400 font-medium shrink-0">
                                                             <CheckCircle className="w-5 h-5" />
-                                                            <span className="text-sm">DB'ye Kaydedildi</span>
+                                                            <span className="text-sm">Saved to DB</span>
                                                         </div>
                                                     )}
                                                 </div>
