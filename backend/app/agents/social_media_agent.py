@@ -31,6 +31,9 @@ class SocialMediaAgent(BaseAgent):
         # 1. find_all_profiles(username)
         social_profiles = await self._run_sync(self._scraper.find_all_profiles, self._username)
 
+        found_platforms = [k for k, v in social_profiles.items() if v]
+        self._broadcast(f"[DIAG] SocialMediaAgent: {len(found_platforms)} platform(s): {found_platforms[:5]}")
+
         # 2. Merge by real_name if different from username
         if self._real_name.lower() != self._username.lower():
             social_by_name = await self._run_sync(self._scraper.find_all_profiles, self._real_name)
