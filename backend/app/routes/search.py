@@ -129,3 +129,18 @@ async def test_search():
             "social": "Web Scraping"
         }
     }
+
+
+@router.get("/test-scraper")
+async def test_scraper(q: str = "Elon Musk"):
+    """Debug endpoint — run the scraper and return raw results."""
+    try:
+        results = scraper_service.find_all_profiles(q)
+        return {
+            "query": q,
+            "found_count": sum(1 for v in results.values() if v),
+            "profiles": {k: v for k, v in results.items() if v},
+            "empty_platforms": [k for k, v in results.items() if not v],
+        }
+    except Exception as e:
+        return {"error": str(e)}
