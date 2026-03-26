@@ -1,16 +1,14 @@
+import asyncio
 import json
 import os
 import re
-import warnings
 
 import ollama
 
 from app.config import get_settings
+from app.services.vector_store_service import vector_store_service
 from app.utils.logger import logger
 from typing import Dict, Any
-
-# Suppress warnings
-warnings.filterwarnings('ignore')
 
 settings = get_settings()
 
@@ -186,13 +184,10 @@ Return ONLY valid JSON, no other text."""
 
     async def chat_with_context(self, query_name: str, messages: list):
         """
-        RAG Chat generator — ChromaDB semantik arama öncelikli, JSON fallback destekli.
+        RAG Chat generator — ChromaDB semantic search primary, JSON fallback supported.
         Yields tokens for StreamingResponse.
         """
-        import asyncio
-        from app.services.vector_store_service import vector_store_service
-
-        # Kullanıcının son mesajını embedding sorgusu olarak kullan
+        # Use the most recent user message as the embedding query
         last_user_message = ""
         for msg in reversed(messages):
             role = msg.role if hasattr(msg, "role") else msg.get("role", "")
@@ -202,10 +197,10 @@ Return ONLY valid JSON, no other text."""
 
         search_query = last_user_message or query_name
 
-        # 1a. ChromaDB semantik arama (arka plan thread'inde çalıştır)
+        # 1a. ChromaDB semantic search (run in background thread)
         context_text = ""
         context_source = "none"
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         try:
             retrieved = await loop.run_in_executor(
@@ -218,13 +213,13 @@ Return ONLY valid JSON, no other text."""
                     None, vector_store_service.get_chunk_count, query_name
                 )
                 logger.log_action(
-                    f"Semantik RAG aktif — {chunk_count} chunk'tan en alakalı 8 parça seçildi",
+                    f"Semantic RAG active — top 8 chunks selected from {chunk_count} total",
                     target=query_name,
                 )
         except Exception as e:
-            logger.log_warning(f"Vector store arama hatası, JSON fallback'e geçiliyor: {e}")
+            logger.log_warning(f"Vector store search error, falling back to JSON: {e}")
 
-        # 1b. JSON fallback (vector store boş veya hatalıysa)
+        # 1b. JSON fallback (vector store empty or errored)
         if not context_text:
             safe_filename = re.sub(r"[^a-zA-Z0-9_\-]", "_", query_name.lower())
             context_path = f"data/contexts/{safe_filename}.json"
@@ -245,15 +240,15 @@ Return ONLY valid JSON, no other text."""
                     context_text += "WEB SEARCH DEEP CONTEXT:\n" + deep_ctx
                     context_source = "json"
                     logger.log_warning(
-                        f"JSON tabanlı RAG kullanılıyor (vector store mevcut değil): {query_name}"
+                        f"Using JSON-based RAG (vector store unavailable): {query_name}"
                     )
                 except Exception as e:
-                    logger.log_warning(f"JSON context yüklenemedi: {e}")
-                    context_text = "ERROR: Context dosyası okunamadı."
+                    logger.log_warning(f"Failed to load JSON context: {e}")
+                    context_text = "ERROR: Context file could not be read."
             else:
                 context_text = (
-                    "ERROR: Bu sorgu için herhangi bir intelligence verisi bulunamadı. "
-                    "Lütfen önce bir arama yapınız."
+                    "ERROR: No intelligence data found for this query. "
+                    "Please run a search first."
                 )
 
         source_label = (
@@ -320,7 +315,7 @@ CRITICAL RULES:
                 "neutral": 34,
                 "negative": 33,
                 "dominant_emotion": "INSUFFICIENT DATA",
-                "summary": "Veri yetersiz."
+                "summary": "Insufficient data."
             }
             
         # Protect context window limit
@@ -329,7 +324,7 @@ CRITICAL RULES:
 
         sentiment_prompt = f"""You are J.A.R.V.I.S., analyzing the psychological profile and public sentiment of an entity based on the following scraped text data.
 Analyze the overall tone, sentiment, and emotion present in the text.
-You MUST respond IN TURKISH.
+You MUST respond IN ENGLISH.
 You MUST output ONLY a valid JSON object without any markdown formatting or extra text.
 
 Required JSON Structure:
@@ -337,7 +332,7 @@ Required JSON Structure:
   "positive": <integer 0-100 representing positive sentiment percentage>,
   "neutral": <integer 0-100 representing neutral sentiment percentage>,
   "negative": <integer 0-100 representing negative sentiment percentage>,
-  "dominant_emotion": "<string, one or two words describing the main emotion, e.g., 'Öfkeli', 'Profesyonel', 'Neşeli', 'Agresif'>",
+  "dominant_emotion": "<string, one or two words describing the main emotion, e.g., 'Angry', 'Professional', 'Cheerful', 'Aggressive'>",
   "summary": "<string, 1 short sentence summarizing the public perception>"
 }}
 
@@ -386,8 +381,8 @@ TEXT TO ANALYZE:
                     "positive": pos,
                     "neutral": neu,
                     "negative": neg,
-                    "dominant_emotion": parsed_data.get('dominant_emotion', 'Belirsiz').upper(),
-                    "summary": parsed_data.get('summary', 'Analiz tamamlanamadı.')
+                    "dominant_emotion": parsed_data.get('dominant_emotion', 'UNKNOWN').upper(),
+                    "summary": parsed_data.get('summary', 'Analysis could not be completed.')
                 }
                 
         except Exception as e:
@@ -398,5 +393,5 @@ TEXT TO ANALYZE:
             "neutral": 34,
             "negative": 33,
             "dominant_emotion": "ERROR",
-            "summary": "Analiz modülü çöktü."
+            "summary": "Analysis module crashed."
         }
