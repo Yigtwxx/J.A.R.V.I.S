@@ -14,7 +14,7 @@ CHUNK_SIZE = 600
 CHUNK_OVERLAP = 150
 
 
-class OllamaEmbeddingFunction(EmbeddingFunction):
+class _JarvisOllamaEmbedder(EmbeddingFunction):
     """Ollama embedding API'sini kullanan ChromaDB embedding fonksiyonu."""
 
     def __init__(self, model: str, base_url: str):
@@ -39,7 +39,7 @@ class VectorStoreService:
 
     def __init__(self):
         self._client: chromadb.ClientAPI | None = None
-        self._embedding_fn: OllamaEmbeddingFunction | None = None
+        self._embedding_fn: _JarvisOllamaEmbedder | None = None
 
     # ------------------------------------------------------------------ helpers
 
@@ -48,9 +48,9 @@ class VectorStoreService:
             self._client = chromadb.PersistentClient(path=settings.chroma_db_path)
         return self._client
 
-    def _get_embedding_fn(self) -> OllamaEmbeddingFunction:
+    def _get_embedding_fn(self) -> _JarvisOllamaEmbedder:
         if self._embedding_fn is None:
-            self._embedding_fn = OllamaEmbeddingFunction(
+            self._embedding_fn = _JarvisOllamaEmbedder(
                 model=settings.embedding_model,
                 base_url=settings.ollama_url,
             )
