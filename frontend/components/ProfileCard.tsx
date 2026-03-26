@@ -7,6 +7,16 @@ import { User, Users, ChevronRight, Activity, AlertTriangle } from 'lucide-react
 import dynamic from 'next/dynamic';
 import GlitchText from '@/components/ui/GlitchText';
 
+function extractUsername(url: string): string {
+    try {
+        const pathname = new URL(url).pathname.replace(/\/+$/, '');
+        const segments = pathname.split('/').filter(Boolean);
+        return segments.length > 0 ? segments[segments.length - 1] : url;
+    } catch {
+        return url;
+    }
+}
+
 // ForceGraph MUST be loaded dynamically to avoid SSR 'window is not defined' error
 const NetworkGraph = dynamic(() => import('@/components/NetworkGraph'), { ssr: false });
 const SecurityScanWidget = dynamic(() => import('@/components/SecurityScanWidget'), { ssr: false });
@@ -133,24 +143,26 @@ function ProfileCard({ profile }: ProfileCardProps) {
                             { key: 'youtube_url',    label: 'YouTube' },
                             { key: 'reddit_url',     label: 'Reddit' },
                             { key: 'facebook_url',   label: 'Facebook' },
+                            { key: 'pinterest_url',  label: 'Pinterest' },
+                            { key: 'medium_url',     label: 'Medium' },
+                            { key: 'threads_url',    label: 'Threads' },
+                            { key: 'steam_url',      label: 'Steam' },
                         ];
-                        const platformNodes = platformMap
-                            .filter(({ key }) => {
-                                const val = profile[key];
-                                if (!val) return false;
-                                const firstUrl = (val as string).split(',')[0].trim();
-                                try {
-                                    const parsed = new URL(firstUrl);
-                                    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-                                } catch {
-                                    return false;
-                                }
-                            })
-                            .map(({ key, label }) => ({
-                                name: label,
-                                url: profile[key] as string,
-                                activity: profile.platform_activity?.[label.toLowerCase().replace('/x', '')] ?? undefined,
+                        const platformNodes = platformMap.flatMap(({ key, label }) => {
+                            const val = profile[key];
+                            if (!val) return [];
+                            const urls = (val as string).split(',').map(u => u.trim()).filter(u => {
+                                try { return ['http:', 'https:'].includes(new URL(u).protocol); }
+                                catch { return false; }
+                            });
+                            if (urls.length === 0) return [];
+                            const activity = profile.platform_activity?.[label.toLowerCase().replace('/x', '')] ?? undefined;
+                            return urls.map(url => ({
+                                name: urls.length > 1 ? `${label} (${extractUsername(url)})` : label,
+                                url,
+                                activity,
                             }));
+                        });
                         const hasConnections = profile.network_connections && profile.network_connections.length > 0;
                         if (!hasConnections && platformNodes.length === 0) return null;
                         return (
