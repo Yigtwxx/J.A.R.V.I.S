@@ -21,7 +21,7 @@ class SocialScoreService:
     """Algorithmic engine for computing the Digital Impact Score."""
 
     # Maximum possible platforms we track
-    TRACKED_PLATFORMS = ["github", "instagram", "twitter", "linkedin", "spotify", "tiktok", "snapchat", "tumblr", "youtube", "reddit", "facebook", "tinder", "bumble"]
+    TRACKED_PLATFORMS = ["github", "instagram", "twitter", "linkedin", "spotify", "tiktok", "snapchat", "tumblr", "youtube", "reddit", "facebook", "pinterest", "medium", "threads", "steam", "tinder", "bumble", "discord"]
 
     # Dimension weights (must sum to 100)
     W_PLATFORM_PRESENCE = 20
