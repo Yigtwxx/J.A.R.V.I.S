@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SearchResponse } from '@/types/profile';
-import { Check, X, ShieldAlert, Database } from 'lucide-react';
+import { Check, X, Database } from 'lucide-react';
 
 interface ApprovalDialogProps {
     profile: SearchResponse;
