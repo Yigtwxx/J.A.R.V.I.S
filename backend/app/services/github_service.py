@@ -2,10 +2,6 @@ import requests
 from typing import Dict, Optional
 from app.config import get_settings
 from app.utils.logger import logger
-import warnings
-
-# Suppress warnings
-warnings.filterwarnings('ignore')
 
 settings = get_settings()
 
