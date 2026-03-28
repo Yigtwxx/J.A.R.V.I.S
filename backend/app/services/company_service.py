@@ -17,7 +17,6 @@ NOT: MERSİS, TOBB, Europages ve D&B gibi kaynaklar JS-bağımlı arayüzlere
      Playwright entegrasyonu ilerleyen aşamada eklenebilir.
 """
 
-import logging
 import re
 import unicodedata
 from dataclasses import dataclass, field
@@ -26,8 +25,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 from bs4 import BeautifulSoup
-
-logger = logging.getLogger(__name__)
+from app.utils.logger import logger
 
 
 # ─── Data Model ───────────────────────────────────────────────────────────────
@@ -316,7 +314,7 @@ class CompanyScraperService:
         Returns:
             Confidence skoruna göre azalan sırada sıralı dict listesi.
         """
-        logger.info(f"[CompanyService] Global şirket taraması başlatıldı: {name}")
+        logger.log_action("CompanyService: Global şirket taraması başlatıldı", target=name)
         records: list[CompanyRecord] = []
 
         tasks = {
@@ -335,19 +333,19 @@ class CompanyScraperService:
                 try:
                     results = future.result(timeout=self.timeout + 8)
                     records.extend(results)
-                    logger.info(f"[CompanyService] {label}: {len(results)} kayıt")
+                    logger.log_action(f"CompanyService {label}: {len(results)} kayıt")
                 except Exception as exc:
-                    logger.warning(f"[CompanyService] {label} başarısız (kritik değil): {exc}")
+                    logger.log_warning(f"[CompanyService] {label} başarısız (kritik değil): {exc}")
 
         merged = self._deduplicate(records)
         merged.sort(key=lambda r: r.confidence, reverse=True)
 
         if len(merged) >= 5:
-            logger.info(
-                f"[CompanyService] {len(merged)} şirket bağlantısı — karmaşık ağ yapısı olabilir"
+            logger.log_thought(
+                f"[CompanyService] {len(merged)} şirket — karmaşık ağ yapısı olabilir"
             )
 
-        logger.info(f"[CompanyService] Toplam benzersiz şirket: {len(merged)}")
+        logger.log_success(f"[CompanyService] Toplam benzersiz şirket: {len(merged)}")
         return [r.to_dict() for r in merged]
 
     # ── OpenCorporates ────────────────────────────────────────────────────────
@@ -413,7 +411,7 @@ class CompanyScraperService:
                 ))
 
         except Exception as exc:
-            logger.debug(f"[CompanyService/OpenCorporates] Başarısız: {exc}")
+            logger.log_thought(f"[CompanyService/OpenCorporates] Başarısız: {exc}")
 
         return records
 
@@ -505,7 +503,7 @@ class CompanyScraperService:
                     ))
 
         except Exception as exc:
-            logger.debug(f"[CompanyService/SEC] Başarısız: {exc}")
+            logger.log_thought(f"[CompanyService/SEC] Başarısız: {exc}")
 
         return records
 
@@ -568,7 +566,7 @@ class CompanyScraperService:
                 ))
 
         except Exception as exc:
-            logger.debug(f"[CompanyService/CompaniesHouse] Başarısız: {exc}")
+            logger.log_thought(f"[CompanyService/CompaniesHouse] Başarısız: {exc}")
 
         return records
 
@@ -608,7 +606,7 @@ class CompanyScraperService:
                 records.extend(extracted)
 
         except Exception as exc:
-            logger.debug(f"[CompanyService/KAP] Başarısız: {exc}")
+            logger.log_thought(f"[CompanyService/KAP] Başarısız: {exc}")
 
         return records
 
@@ -644,7 +642,7 @@ class CompanyScraperService:
                 records.extend(extracted)
 
         except Exception as exc:
-            logger.debug(f"[CompanyService/TicaretSicil] Site erişilemez (kritik değil): {exc}")
+            logger.log_thought(f"[CompanyService/TicaretSicil] Site erişilemez (kritik değil): {exc}")
 
         return records
 
@@ -703,7 +701,7 @@ class CompanyScraperService:
                     )
                     records.extend(extracted)
             except Exception as exc:
-                logger.debug(f"[CompanyService/WebSearch] '{query[:50]}' başarısız: {exc}")
+                logger.log_thought(f"[CompanyService/WebSearch] '{query[:50]}' başarısız: {exc}")
 
         return records
 
