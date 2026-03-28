@@ -1,10 +1,11 @@
 import axios from 'axios';
 import { SearchResponse, ProfileData, SearchHistoryItem, ChangeReport } from '@/types/profile';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
+    timeout: 300_000,
     headers: {
         'Content-Type': 'application/json',
     },
