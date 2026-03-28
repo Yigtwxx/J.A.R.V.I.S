@@ -1,36 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, ShieldAlert, AlertTriangle, Key, Mail, MapPin, Phone, User, Calendar, FileText } from 'lucide-react';
-
-// ── Breach (HaveIBeenPwned "breachedaccount" response) ──────────────────────
-interface BreachData {
-    _type?: undefined;          // absent means it's a breach record
-    Name: string;
-    Title: string;
-    Domain: string;
-    BreachDate: string;
-    PwnCount?: number;
-    DataClasses: string[];
-    IsVerified: boolean;
-    IsSensitive?: boolean;
-    IsSpamList?: boolean;
-    IsFabricated?: boolean;
-    Description?: string;
-    TargetEmail: string;
-}
-
-// ── Paste (HaveIBeenPwned "pasteaccount" response) ──────────────────────────
-interface PasteData {
-    _type: 'paste';
-    Source: string;
-    Id: string;
-    Title: string;
-    Date: string;
-    EmailCount: number;
-    TargetEmail: string;
-}
-
-type LeakRecord = BreachData | PasteData;
+import { BreachData, PasteData, LeakRecord } from '@/types/profile';
 
 interface SecurityScanProps {
     emails?: string[];
