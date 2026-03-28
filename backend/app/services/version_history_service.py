@@ -27,8 +27,13 @@ TRACKED_SNAPSHOT_KEYS = {
     "youtube_url": "YouTube URL",
     "reddit_url": "Reddit URL",
     "facebook_url": "Facebook URL",
+    "pinterest_url": "Pinterest URL",
+    "medium_url": "Medium URL",
+    "threads_url": "Threads URL",
+    "steam_url": "Steam URL",
     "tinder_mention": "Tinder Mention",
     "bumble_mention": "Bumble Mention",
+    "discord_mention": "Discord Mention",
 }
 
 
