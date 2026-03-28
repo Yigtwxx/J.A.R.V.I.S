@@ -62,11 +62,11 @@ export interface CompanyRecord {
   source_url: string;
   source_name: string;
   country?: string;
-  confidence: number;           // 0.0–1.0
-  registry_id?: string;         // MERSİS, CIK, Company No, HRB, vb.
+  confidence: number;
+  registry_id?: string;
   city?: string;
   sector?: string;
-  risk_flags: string[];         // 'offshore' | 'shell_company' | 'liquidated' | 'pep_related' | 'sanction' | 'high_risk_sector' | 'rapid_change'
+  risk_flags: string[];
   snippet: string;
 }
 
@@ -78,8 +78,11 @@ export interface ScoreBreakdown {
   digital_diversity: number;
 }
 
-export interface ProfileData {
-  id?: number;
+/**
+ * Shared fields between ProfileData and SearchResponse.
+ * Single source of truth — add new social platforms here.
+ */
+interface SharedProfileFields {
   name: string;
   github_url?: string;
   instagram_url?: string;
@@ -111,50 +114,19 @@ export interface ProfileData {
   additional_info?: Record<string, unknown>;
   similar_profiles?: string[];
   cross_validation_issues?: string[];
-  network_connections?: { name: string, role: string, relation: string }[];
+  network_connections?: { name: string; role: string; relation: string }[];
   email_addresses?: string[];
   data_breaches?: LeakRecord[];
   company_records?: CompanyRecord[];
+}
+
+export interface ProfileData extends SharedProfileFields {
+  id?: number;
   created_at?: string;
   updated_at?: string;
 }
 
-export interface SearchResponse {
-  name: string;
-  github_url?: string;
-  instagram_url?: string;
-  twitter_url?: string;
-  linkedin_url?: string;
-  spotify_url?: string;
-  tiktok_url?: string;
-  snapchat_url?: string;
-  tumblr_url?: string;
-  youtube_url?: string;
-  reddit_url?: string;
-  facebook_url?: string;
-  pinterest_url?: string;
-  medium_url?: string;
-  threads_url?: string;
-  steam_url?: string;
-  tinder_mention?: string;
-  bumble_mention?: string;
-  discord_mention?: string;
-  phone_numbers?: string[];
-  location_country?: string;
-  location_city?: string;
-  weather_info?: WeatherInfo;
-  social_media_score?: number;
-  social_media_score_breakdown?: ScoreBreakdown;
-  last_activity_summary?: string;
-  platform_activity?: Record<string, number>;
-  description?: string;
-  additional_info?: Record<string, unknown>;
-  similar_profiles?: string[];
-  cross_validation_issues?: string[];
-  network_connections?: { name: string, role: string, relation: string }[];
-  email_addresses?: string[];
-  data_breaches?: LeakRecord[];
-  company_records?: CompanyRecord[];
+export interface SearchResponse extends SharedProfileFields {
   sources?: { title: string; url: string; snippet: string }[];
   ai_response: string;
   version_history?: ChangeReport;
@@ -202,6 +174,7 @@ export interface FaceMatchReport {
 }
 
 export interface Message {
+  id: string;
   role: 'user' | 'assistant';
   content: string;
   profileData?: SearchResponse;
