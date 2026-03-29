@@ -46,13 +46,16 @@ class ScraperService:
             content_snippet = response.text[:5000].lower()
             not_found_signatures = [
                 "page not found",
-                "sorry, this page isn't available",
+                "this page isn't available",
                 "doesn't exist",
                 "user not found",
                 "account not found",
                 "not a valid user",
                 "content is currently unavailable",
-                "expired"
+                "could not be found",
+                "no longer available",
+                "expired",
+                "nobody on reddit goes by that name",
             ]
 
             if any(sig in content_snippet for sig in not_found_signatures):
@@ -287,19 +290,55 @@ class ScraperService:
         'developer', 'security', 'privacy', 'help', 'press'
     }
 
+    @staticmethod
+    def _ascii_name(name: str) -> str:
+        """Normalize Turkish/diacritical chars to ASCII (ğ→g, ö→o, ş→s, etc.)"""
+        nfkd = unicodedata.normalize('NFD', name.strip())
+        return nfkd.encode('ascii', errors='ignore').decode().strip()
+
+    def _platform_queries(self, name: str, site_pattern: str, extra_terms: str = '') -> list[str]:
+        """Build an ordered list of search queries for a platform.
+        Handles both full names and usernames; adds ASCII variant for Turkish names."""
+        is_username = ' ' not in name.strip() and len(name.strip()) >= 3
+        ascii = self._ascii_name(name)
+        queries: list[str] = []
+        if is_username:
+            # For usernames: site-specific search is most reliable
+            queries.append(f'site:{site_pattern}/{name.strip()}')
+            queries.append(f'{site_pattern}/{name.strip()} profile')
+            if extra_terms:
+                queries.append(f'@{name.strip()} {extra_terms}')
+            # Unquoted fallback: broader match for similar profiles
+            queries.append(f'{name.strip()} {extra_terms or site_pattern}')
+        else:
+            # For full names: try ASCII variant first (Turkish names), then quoted name
+            bare = ascii if ascii and ascii.lower() != name.lower() else name
+            if ascii and ascii.lower() != name.lower():
+                queries.append(f'"{ascii}" site:{site_pattern}')
+                queries.append(f'"{ascii}" {extra_terms or site_pattern}')
+            queries.append(f'"{name}" site:{site_pattern}')
+            queries.append(f'"{name}" {extra_terms or site_pattern} profile')
+            # Unquoted fallback: finds "similar" profiles even without exact name match
+            # (mirrors searching the name manually in the platform's search bar)
+            queries.append(f'{bare} {extra_terms or site_pattern}')
+        return queries
+
     def find_instagram_profile(self, name: str) -> list:
         """Try to find Instagram profile URLs and bios"""
-        query = f'"{name}" instagram profile'
-        items = self._extract_urls_from_yahoo(query, r'instagram\.com/([a-zA-Z0-9._]+)')
+        pattern = r'instagram\.com/([a-zA-Z0-9._]+)'
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'instagram\.com/([a-zA-Z0-9._]+)', url)
-            if match and match.group(1).lower() not in self.INSTAGRAM_RESERVED_PATHS:
-                u = f"https://www.instagram.com/{match.group(1)}/"
-                if not any(p['url'] == u for p in valid_profiles):
-                    valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        for query in self._platform_queries(name, 'instagram.com', 'instagram'):
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(pattern, url)
+                if match and match.group(1).lower() not in self.INSTAGRAM_RESERVED_PATHS:
+                    u = f"https://www.instagram.com/{match.group(1)}/"
+                    if not any(p['url'] == u for p in valid_profiles):
+                        valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     TWITTER_NON_PROFILE = {
         'home', 'login', 'logout', 'signup', 'intent', 'i',
@@ -311,39 +350,41 @@ class ScraperService:
     }
 
     def find_twitter_profile(self, name: str) -> list:
-        """Try to find X (Twitter) profile URLs and bios.
-        X.com blocks all bot requests with 403, so _is_url_active always
-        returns True regardless of whether the profile exists.  We rely on
-        Yahoo site-search instead (same approach as Instagram).
-        """
-        query = f'site:x.com "{name}"'
-        items = self._extract_urls_from_yahoo(query, r'(twitter|x)\.com/([a-zA-Z0-9_]+)')
+        """Try to find X (Twitter) profile URLs and bios."""
+        pattern = r'(twitter|x)\.com/([a-zA-Z0-9_]+)'
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'(twitter|x)\.com/([a-zA-Z0-9_]+)', url)
-            if match:
-                username = match.group(2)
-                if (username.lower() not in self.TWITTER_NON_PROFILE
-                        and 1 <= len(username) <= 15):
-                    u = f"https://x.com/{username}"
-                    if not any(p['url'] == u for p in valid_profiles):
-                        valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        for query in self._platform_queries(name, 'x.com', 'twitter'):
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(pattern, url)
+                if match:
+                    username = match.group(2)
+                    if (username.lower() not in self.TWITTER_NON_PROFILE
+                            and 1 <= len(username) <= 15):
+                        u = f"https://x.com/{username}"
+                        if not any(p['url'] == u for p in valid_profiles):
+                            valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     def find_linkedin_profile(self, name: str) -> list:
         """Try to find LinkedIn profile URLs and bios"""
-        query = f'"{name}" linkedin'
-        items = self._extract_urls_from_yahoo(query, r'linkedin\.com/in/([a-zA-Z0-9-]+)')
+        pattern = r'linkedin\.com/in/([a-zA-Z0-9-]+)'
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'linkedin\.com/in/([a-zA-Z0-9-]+)', url)
-            if match:
-                u = f"https://www.linkedin.com/in/{match.group(1)}/"
-                if not any(p['url'] == u for p in valid_profiles):
-                    valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        for query in self._platform_queries(name, 'linkedin.com/in', 'linkedin'):
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(pattern, url)
+                if match:
+                    u = f"https://www.linkedin.com/in/{match.group(1)}/"
+                    if not any(p['url'] == u for p in valid_profiles):
+                        valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     def find_spotify_profile(self, name: str) -> list:
         """Try to find Spotify profile URLs and bios"""
@@ -361,165 +402,194 @@ class ScraperService:
 
     def find_tiktok_profile(self, name: str) -> list:
         """Try to find TikTok profile URLs and bios"""
-        query = f'"{name}" tiktok'
-        items = self._extract_urls_from_yahoo(query, r'tiktok\.com/@([a-zA-Z0-9._-]+)')
+        pattern = r'tiktok\.com/@([a-zA-Z0-9._-]+)'
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'tiktok\.com/@([a-zA-Z0-9._-]+)', url)
-            if match:
-                u = f"https://www.tiktok.com/@{match.group(1)}"
-                if not any(p['url'] == u for p in valid_profiles):
-                    valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        for query in self._platform_queries(name, 'tiktok.com', 'tiktok'):
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(pattern, url)
+                if match:
+                    u = f"https://www.tiktok.com/@{match.group(1)}"
+                    if not any(p['url'] == u for p in valid_profiles):
+                        valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     def find_snapchat_profile(self, name: str) -> list:
         """Try to find Snapchat profile URLs via Yahoo search"""
-        query = f'"{name}" snapchat'
-        items = self._extract_urls_from_yahoo(query, r'snapchat\.com/add/([a-zA-Z0-9._-]+)')
+        pattern = r'snapchat\.com/add/([a-zA-Z0-9._-]+)'
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'snapchat\.com/add/([a-zA-Z0-9._-]+)', url)
-            if match:
-                u = f"https://www.snapchat.com/add/{match.group(1)}"
-                if not any(p['url'] == u for p in valid_profiles):
-                    valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        for query in self._platform_queries(name, 'snapchat.com/add', 'snapchat'):
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(pattern, url)
+                if match:
+                    u = f"https://www.snapchat.com/add/{match.group(1)}"
+                    if not any(p['url'] == u for p in valid_profiles):
+                        valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     def find_tumblr_profile(self, name: str) -> list:
         """Try to find Tumblr profile URLs via Yahoo search"""
-        query = f'"{name}" tumblr'
-        items = self._extract_urls_from_yahoo(query, r'([a-zA-Z0-9_-]+)\.tumblr\.com')
+        pattern = r'([a-zA-Z0-9_-]+)\.tumblr\.com'
+        excluded_subdomains = {'www', 'assets', 'media', 'support', 'staff', 'engineering'}
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'([a-zA-Z0-9_-]+)\.tumblr\.com', url)
-            if match:
-                subdomain = match.group(1)
-                if subdomain.lower() in ['www', 'assets', 'media', 'support', 'staff', 'engineering']:
-                    continue
-                u = f"https://{subdomain}.tumblr.com"
-                if not any(p['url'] == u for p in valid_profiles):
-                    valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        is_username = ' ' not in name.strip()
+        queries = self._platform_queries(name, 'tumblr.com', 'tumblr')
+        if is_username:
+            queries.insert(0, f'"{name.strip()}.tumblr.com"')
+        for query in queries:
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(pattern, url)
+                if match:
+                    subdomain = match.group(1)
+                    if subdomain.lower() not in excluded_subdomains:
+                        u = f"https://{subdomain}.tumblr.com"
+                        if not any(p['url'] == u for p in valid_profiles):
+                            valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     def find_youtube_profile(self, name: str) -> list:
         """Try to find YouTube channel URLs via Yahoo search"""
-        query = f'"{name}" youtube channel'
-        items = self._extract_urls_from_yahoo(query, r'youtube\.com/(?:@|c/|user/)([a-zA-Z0-9._-]+)')
+        pattern = r'youtube\.com/(?:@|c/|user/)([a-zA-Z0-9._-]+)'
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'youtube\.com/(@[a-zA-Z0-9._-]+|c/[a-zA-Z0-9._-]+|user/[a-zA-Z0-9._-]+)', url)
-            if match:
-                handle = match.group(1)
-                u = f"https://www.youtube.com/{handle}"
-                if not any(p['url'] == u for p in valid_profiles):
-                    valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        for query in self._platform_queries(name, 'youtube.com', 'youtube channel'):
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(r'youtube\.com/(@[a-zA-Z0-9._-]+|c/[a-zA-Z0-9._-]+|user/[a-zA-Z0-9._-]+)', url)
+                if match:
+                    handle = match.group(1)
+                    u = f"https://www.youtube.com/{handle}"
+                    if not any(p['url'] == u for p in valid_profiles):
+                        valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     def find_reddit_profile(self, name: str) -> list:
         """Try to find Reddit user profile URLs via Yahoo search"""
-        query = f'"{name}" reddit'
-        items = self._extract_urls_from_yahoo(query, r'reddit\.com/u(?:ser)?/([a-zA-Z0-9_-]+)')
+        pattern = r'reddit\.com/u(?:ser)?/([a-zA-Z0-9_-]+)'
+        excluded = {'search', 'submit', 'login', 'register', 'wiki'}
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'reddit\.com/u(?:ser)?/([a-zA-Z0-9_-]+)', url)
-            if match:
-                username = match.group(1)
-                if username.lower() in ['search', 'submit', 'login', 'register', 'wiki']:
-                    continue
-                u = f"https://www.reddit.com/user/{username}"
-                if not any(p['url'] == u for p in valid_profiles):
-                    valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        for query in self._platform_queries(name, 'reddit.com/user', 'reddit'):
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(pattern, url)
+                if match:
+                    username = match.group(1)
+                    if username.lower() not in excluded:
+                        u = f"https://www.reddit.com/user/{username}"
+                        if not any(p['url'] == u for p in valid_profiles):
+                            valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     def find_facebook_profile(self, name: str) -> list:
         """Try to find Facebook profile URLs via Yahoo search"""
-        query = f'"{name}" facebook profile'
-        items = self._extract_urls_from_yahoo(query, r'facebook\.com/([a-zA-Z0-9._-]+)')
+        pattern = r'facebook\.com/([a-zA-Z0-9._-]+)'
         excluded = {'pages', 'groups', 'events', 'watch', 'login', 'sharer', 'share',
                     'dialog', 'permalink', 'photo', 'video', 'story', 'plugins', 'ads'}
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'facebook\.com/([a-zA-Z0-9._-]+)', url)
-            if match:
-                segment = match.group(1)
-                if segment.lower() in excluded:
-                    continue
-                u = f"https://www.facebook.com/{segment}"
-                if not any(p['url'] == u for p in valid_profiles):
-                    valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        for query in self._platform_queries(name, 'facebook.com', 'facebook profile'):
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(pattern, url)
+                if match:
+                    segment = match.group(1)
+                    if segment.lower() not in excluded:
+                        u = f"https://www.facebook.com/{segment}"
+                        if not any(p['url'] == u for p in valid_profiles):
+                            valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     def find_pinterest_profile(self, name: str) -> list:
         """Try to find Pinterest profile URLs via Yahoo search"""
-        query = f'"{name}" pinterest'
-        items = self._extract_urls_from_yahoo(query, r'pinterest\.com/([a-zA-Z0-9._-]+)')
+        pattern = r'pinterest\.com/([a-zA-Z0-9._-]+)'
         excluded = {'pin', 'search', 'explore', 'ideas', 'today', 'business', 'about', 'settings', 'news_hub'}
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'pinterest\.com/([a-zA-Z0-9._-]+)', url)
-            if match:
-                segment = match.group(1)
-                if segment.lower() in excluded:
-                    continue
-                u = f"https://www.pinterest.com/{segment}/"
-                if not any(p['url'] == u for p in valid_profiles):
-                    valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        for query in self._platform_queries(name, 'pinterest.com', 'pinterest'):
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(pattern, url)
+                if match:
+                    segment = match.group(1)
+                    if segment.lower() not in excluded:
+                        u = f"https://www.pinterest.com/{segment}/"
+                        if not any(p['url'] == u for p in valid_profiles):
+                            valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     def find_medium_profile(self, name: str) -> list:
         """Try to find Medium profile URLs via Yahoo search"""
-        query = f'"{name}" medium.com'
-        items = self._extract_urls_from_yahoo(query, r'medium\.com/@([a-zA-Z0-9._-]+)')
+        pattern = r'medium\.com/@([a-zA-Z0-9._-]+)'
         excluded = {'about', 'policy', 'creators', 'membership', 'topics', 'tag', 'search'}
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'medium\.com/@([a-zA-Z0-9._-]+)', url)
-            if match:
-                username = match.group(1)
-                if username.lower() in excluded:
-                    continue
-                u = f"https://medium.com/@{username}"
-                if not any(p['url'] == u for p in valid_profiles):
-                    valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        for query in self._platform_queries(name, 'medium.com', 'medium'):
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(pattern, url)
+                if match:
+                    username = match.group(1)
+                    if username.lower() not in excluded:
+                        u = f"https://medium.com/@{username}"
+                        if not any(p['url'] == u for p in valid_profiles):
+                            valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     def find_threads_profile(self, name: str) -> list:
         """Try to find Threads (Meta) profile URLs via Yahoo search"""
-        query = f'"{name}" threads.net'
-        items = self._extract_urls_from_yahoo(query, r'threads\.net/@([a-zA-Z0-9._]+)')
+        pattern = r'threads\.net/@([a-zA-Z0-9._]+)'
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'threads\.net/@([a-zA-Z0-9._]+)', url)
-            if match:
-                username = match.group(1)
-                u = f"https://www.threads.net/@{username}"
-                if not any(p['url'] == u for p in valid_profiles):
-                    valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        for query in self._platform_queries(name, 'threads.net', 'threads'):
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(pattern, url)
+                if match:
+                    u = f"https://www.threads.net/@{match.group(1)}"
+                    if not any(p['url'] == u for p in valid_profiles):
+                        valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     def find_steam_profile(self, name: str) -> list:
         """Try to find Steam profile URLs via Yahoo search"""
-        query = f'"{name}" steamcommunity.com'
-        items = self._extract_urls_from_yahoo(query, r'steamcommunity\.com/id/([a-zA-Z0-9._-]+)')
+        pattern = r'steamcommunity\.com/id/([a-zA-Z0-9._-]+)'
         valid_profiles = []
-        for item in items:
-            url = item['url']
-            match = re.search(r'steamcommunity\.com/id/([a-zA-Z0-9._-]+)', url)
-            if match:
-                username = match.group(1)
-                u = f"https://steamcommunity.com/id/{username}"
-                if not any(p['url'] == u for p in valid_profiles):
-                    valid_profiles.append({"url": u, "bio": item['bio']})
-        return valid_profiles
+        for query in self._platform_queries(name, 'steamcommunity.com/id', 'steam'):
+            items = self._extract_urls_from_yahoo(query, pattern)
+            for item in items:
+                url = item['url']
+                match = re.search(pattern, url)
+                if match:
+                    u = f"https://steamcommunity.com/id/{match.group(1)}"
+                    if not any(p['url'] == u for p in valid_profiles):
+                        valid_profiles.append({"url": u, "bio": item['bio']})
+            if len(valid_profiles) >= 3:
+                break
+        return valid_profiles[:3]
 
     def find_discord_mention(self, name: str) -> list:
         """Search for Discord mentions — profiles are private, only detect references"""
@@ -653,6 +723,61 @@ class ScraperService:
 
         return candidates[:15]
 
+    def generate_name_username_variations(self, full_name: str) -> list[str]:
+        """Generate username candidates from a full real name (e.g. 'Yağmur Özgan').
+        Produces concatenated, dot/underscore-separated, consonant-stripped, and
+        truncated forms — covering common social-media username conventions."""
+        ascii_name = self._ascii_name(full_name)
+        parts = [p for p in ascii_name.split() if p]
+        if not parts:
+            return []
+
+        candidates: list[str] = []
+        seen: set[str] = set()
+
+        def _add(s: str) -> None:
+            s = s.strip().lower()
+            if len(s) >= 3 and s not in seen:
+                seen.add(s)
+                candidates.append(s)
+
+        first = parts[0]
+        last = parts[-1] if len(parts) > 1 else ''
+
+        if last:
+            _add(first + last)                    # yagmurozgan
+            _add(first + '.' + last)              # yagmur.ozgan
+            _add(first + '_' + last)              # yagmur_ozgan
+            _add(last + first)                    # ozganyagmur
+            _add(last + '.' + first)              # ozgan.yagmur
+            _add(first + last[0])                 # yagmuro
+            _add(first[0] + last)                 # yozgan
+            # Drop vowels from both parts (common in Turkish usernames: yamurzgn)
+            vowels = set('aeiou')
+            cf = ''.join(c for c in first if c not in vowels)
+            cl = ''.join(c for c in last if c not in vowels)
+            if len(cf + cl) >= 4:
+                _add(cf + cl)                     # ygmrzgn
+                _add(cf + '_' + cl)               # ygmr_zgn
+            # Truncated forms
+            if len(first) > 4:
+                _add(first[:4] + last)            # yagmozgan
+            if len(last) > 3:
+                _add(first + last[:3])            # yagmurozg
+            # With digit suffix
+            _add(first + last + '1')
+            _add(first + last + '_')
+        else:
+            _add(first)
+
+        # Also add the raw non-ASCII-stripped form (Turkish chars stripped directly)
+        raw_strip = re.sub(r'[^a-zA-Z0-9]', '', full_name.strip().lower())
+        if raw_strip and len(raw_strip) >= 3 and raw_strip not in seen:
+            candidates.insert(0, raw_strip)
+            seen.add(raw_strip)
+
+        return candidates[:15]
+
     def find_all_profiles(self, name: str) -> Dict[str, list]:
         """Find all social media profiles and bios for a person (PARALLEL)"""
         logger.log_thought(f"Initiating deep-web scraping protocol for entity: {name}")
@@ -722,6 +847,33 @@ class ScraperService:
                 if profiles.get(platform):
                     logger.log_success(f"{platform.capitalize()} direct-hit confirmed: @{name.strip()}")
 
+        # Phase 1.5: For real names, probe name-derived username variations via platform search fns.
+        # This runs BEFORE the standard username cross-check so that discovered usernames
+        # feed into Phase 2 collection below.
+        SEARCH_PLATFORMS = ('instagram', 'twitter', 'tiktok', 'youtube', 'reddit', 'linkedin', 'threads', 'medium', 'snapchat', 'tumblr', 'pinterest', 'steam')
+        if not input_is_username:
+            name_unames = self.generate_name_username_variations(name)
+            logger.log_action(f"Generated {len(name_unames)} name-based username candidate(s)")
+            for uname in name_unames[:8]:
+                empty = [p for p in SEARCH_PLATFORMS if not profiles.get(p)]
+                if not empty:
+                    break
+                logger.log_action(f"Probing name-derived username @{uname}")
+                # Search each empty platform using its own search function (not blind URL build)
+                with ThreadPoolExecutor(max_workers=min(len(empty), 6)) as ex:
+                    fut_map = {ex.submit(platform_fns[p], uname): p for p in empty if p in platform_fns}
+                    for fut in as_completed(fut_map):
+                        platform = fut_map[fut]
+                        try:
+                            results = fut.result()
+                            if results and not profiles.get(platform):
+                                for item in results:
+                                    item['found_via_name_variation'] = uname
+                                profiles[platform] = results
+                                logger.log_success(f"{platform.capitalize()} matched via name-derived @{uname}")
+                        except Exception as e:
+                            logger.log_warning(f"{platform} probe for @{uname} failed: {e}")
+
         # Phase 2: Collect all found usernames + the input itself
         collected_usernames: list[str] = []
         seen_unames: set[str] = set()
@@ -789,18 +941,25 @@ class ScraperService:
                 else:
                     break
 
-        # Last resort: if no profiles found and input is a real name, try name-based username
+        # Last resort: if still nothing found for a real name, search key platforms
+        # using the simple ASCII-stripped username — via search functions (NOT blind URL build)
         found_count = sum(1 for v in profiles.values() if v)
         if found_count == 0 and not input_is_username:
             fallback_username = re.sub(r'[^a-zA-Z0-9]', '', name.strip().lower())
             if len(fallback_username) >= 3:
-                logger.log_action(f"No profiles found via search — trying fallback username: @{fallback_username}")
-                fallback = self.find_profiles_by_username(fallback_username)
-                for platform, items in fallback.items():
-                    if items and not profiles.get(platform):
-                        for item in items:
-                            item['found_via_fallback'] = True
-                        profiles[platform] = items
+                logger.log_action(f"Last resort search for @{fallback_username}")
+                for platform in ('instagram', 'twitter', 'tiktok', 'youtube'):
+                    fn = platform_fns.get(platform)
+                    if fn and not profiles.get(platform):
+                        try:
+                            results = fn(fallback_username)
+                            if results:
+                                for item in results:
+                                    item['found_via_fallback'] = True
+                                profiles[platform] = results
+                                logger.log_success(f"{platform.capitalize()} fallback found: @{fallback_username}")
+                        except Exception as e:
+                            logger.log_warning(f"Fallback {platform} search failed: {e}")
 
         return profiles
 
@@ -814,20 +973,22 @@ class ScraperService:
 
     def find_profiles_by_username(self, username: str) -> Dict[str, list]:
         """
-        Directly verify a username across all major platforms by constructing
-        the profile URL and checking if it is active.
+        Verify a username via format validation (Instagram) or HTTP check (verifiable platforms).
+        Blind URL construction is intentionally avoided for platforms that cannot be reliably
+        verified — those are discovered via search in Phase 1 and Phase 1.5 instead.
         Returns dict matching find_all_profiles format.
         """
-        # Instagram: _is_url_active always fails (login redirect) — use format validation
-        ig_url = f"https://www.instagram.com/{username}/"
         results: Dict[str, list] = {}
+
+        # Instagram: _is_url_active always fails (login redirect) — format validation only
+        ig_url = f"https://www.instagram.com/{username}/"
         if self._is_instagram_username_valid(username):
             results['instagram'] = [{"url": ig_url, "bio": ""}]
             logger.log_success(f"Instagram username candidate accepted: @{username}")
         else:
             results['instagram'] = []
 
-        # Twitter/X: _is_url_active always returns True (403 bot-block) — use format validation
+        # Twitter/X: always returns 403 for bots — format validation only
         if (1 <= len(username) <= 15
                 and re.match(r'^[a-zA-Z0-9_]+$', username)
                 and username.lower() not in self.TWITTER_NON_PROFILE):
@@ -836,25 +997,39 @@ class ScraperService:
         else:
             results['twitter'] = []
 
-        # Accept all well-formatted username URLs as candidates.
-        # HTTP probing (_is_url_active) is unreliable — most platforms block bots.
-        # Format validation is sufficient: the username was found via search or cross-check.
-        candidates = {
-            'tiktok':    f"https://www.tiktok.com/@{username}",
-            'snapchat':  f"https://www.snapchat.com/add/{username}",
-            'tumblr':    f"https://{username}.tumblr.com",
+        # HTTP-verified platforms: only accept if URL actually resolves to an existing profile.
+        # Run verifications in parallel to minimise latency.
+        verifiable = {
             'youtube':   f"https://www.youtube.com/@{username}",
             'reddit':    f"https://www.reddit.com/user/{username}",
-            'linkedin':  f"https://www.linkedin.com/in/{username}/",
-            'pinterest': f"https://www.pinterest.com/{username}/",
             'medium':    f"https://medium.com/@{username}",
-            'threads':   f"https://www.threads.net/@{username}",
+            'pinterest': f"https://www.pinterest.com/{username}/",
+            'tumblr':    f"https://{username}.tumblr.com",
             'steam':     f"https://steamcommunity.com/id/{username}",
+            'linkedin':  f"https://www.linkedin.com/in/{username}/",
+            'threads':   f"https://www.threads.net/@{username}",
         }
 
-        for platform, url in candidates.items():
-            results[platform] = [{"url": url, "bio": ""}]
-            logger.log_success(f"{platform.capitalize()} username candidate accepted: @{username}")
+        with ThreadPoolExecutor(max_workers=len(verifiable)) as ex:
+            fut_map = {ex.submit(self._is_url_active, url): (platform, url)
+                       for platform, url in verifiable.items()}
+            for fut in as_completed(fut_map):
+                platform, url = fut_map[fut]
+                try:
+                    if fut.result():
+                        results[platform] = [{"url": url, "bio": ""}]
+                        logger.log_success(f"{platform.capitalize()} URL verified: @{username}")
+                    else:
+                        results[platform] = []
+                        logger.log_warning(f"{platform.capitalize()} URL inactive for @{username}")
+                except Exception as exc:
+                    results[platform] = []
+                    logger.log_warning(f"{platform.capitalize()} verification error for @{username}: {exc}")
+
+        # TikTok and Snapchat: SPA rendering makes HTTP verification unreliable.
+        # Rely on Phase 1 / Phase 1.5 search-based discovery for these platforms.
+        results['tiktok'] = []
+        results['snapchat'] = []
 
         return results
 
