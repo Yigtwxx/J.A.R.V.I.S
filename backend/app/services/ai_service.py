@@ -129,7 +129,7 @@ extract and return ONLY a JSON object with these fields:
 - social_media_score: integer (0-100, estimate based on number of linked accounts and recency of posts/activity)
 - last_activity_summary: string (brief 2-4 word summary of when they were last active, e.g., "Active today", "Active last week", "No recent activity")
 - cross_validation_issues: array of strings (Identify any significant inconsistencies across different data sources. E.g., 'GitHub location is Turkey but LinkedIn says USA' or 'Web results indicate doctor, GitHub indicates programmer'. If all sources match and refer to the same person, return an empty array [])
-- network_connections: array of objects [{{"name": "Name of connection", "role": "Their job/title", "relation": "How they are related (e.g. Co-founder, Co-author, GitHub Collaborator)"}}] (Extract verifiable relationships from context, max 10 people. If none, return [])
+- network_connections: array of objects [{{"name": "Name of connection", "role": "Their job/title", "relation": "How they are related (e.g. Co-founder, Co-author, Co-star, Director, Producer, Collaborator, Colleague)"}}] (Extract ALL verifiable relationships from context: co-workers, co-stars, directors, producers, collaborators, academic/business partners, frequently mentioned associates. Include relationships found in Turkish-language or non-English sources. Max 15 people. Return [] only if truly no relationships are found.)
 - email_addresses: array of strings (Extract any email addresses found in the context. E.g. found in GitHub bio or web results. If none, return [])
 
 Previous Information:
