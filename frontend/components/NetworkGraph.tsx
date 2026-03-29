@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { Network } from 'lucide-react';
 
@@ -48,6 +48,7 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
     const fgRef = useRef<any>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const containerRef = useRef<HTMLDivElement>(null);
+    const engineConfigured = useRef(false);
 
     // Parse nodes and links
     const graphData = useMemo(() => {
@@ -95,9 +96,14 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
         return { nodes, links, validCount: validConnections.length };
     }, [targetName, connections, platforms]);
 
+    // Reset engine config flag when graph data changes
+    useEffect(() => {
+        engineConfigured.current = false;
+    }, [graphData]);
+
     useEffect(() => {
         const updateDimensions = () => {
-            if (containerRef.current) {
+            if (containerRef.current && containerRef.current.clientWidth > 0) {
                 setDimensions({
                     width: containerRef.current.clientWidth,
                     height: 350
@@ -106,21 +112,33 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
         };
 
         updateDimensions();
+        // Retry after 50ms to handle React 19 Strict Mode double-mount timing
+        const timeout = setTimeout(updateDimensions, 50);
         window.addEventListener('resize', updateDimensions);
-        return () => window.removeEventListener('resize', updateDimensions);
+        return () => {
+            clearTimeout(timeout);
+            window.removeEventListener('resize', updateDimensions);
+        };
     }, []);
 
-    // Set distance forces when graph loads
-    useEffect(() => {
-        if (fgRef.current && graphData.nodes.length > 0) {
+    // Configure force simulation via onEngineStop — fires from inside ForceGraph2D
+    // so fgRef.current is guaranteed to be set at that point
+    const handleEngineStop = useCallback(() => {
+        if (fgRef.current && !engineConfigured.current) {
+            engineConfigured.current = true;
             fgRef.current.d3Force('link')?.distance(100);
             fgRef.current.d3Force('charge')?.strength(-300);
-            fgRef.current.zoom(0.8, 1000);
+            fgRef.current.zoom(0.8, 0);
         }
-    }, [graphData, dimensions.width]);
+    }, []);
 
     if ((!connections || graphData.validCount === 0) && (!platforms || platforms.length === 0)) {
-        return null;
+        return (
+            <div className="border border-[#00f3ff]/10 rounded-xl p-4 mt-6 flex flex-col items-center gap-1 bg-black/20">
+                <Network size={16} className="text-[#00f3ff]/30" />
+                <p className="font-mono text-[10px] text-white/25 tracking-widest uppercase">No Relational Network Data Available</p>
+            </div>
+        );
     }
 
     return (
@@ -159,12 +177,13 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
                         linkDirectionalParticleWidth={2}
                         backgroundColor="#00050a"
                         showPointerCursor={(obj: any) => obj && obj.group === 3 && !!obj.url}
+                        onEngineStop={handleEngineStop}
                         onNodeClick={(node: any) => {
                             if (node.group === 3 && node.url) {
                                 window.open(node.url, '_blank', 'noopener,noreferrer');
-                            } else {
-                                fgRef.current?.centerAt(node.x, node.y, 1000);
-                                fgRef.current?.zoom(1.5, 2000);
+                            } else if (fgRef.current) {
+                                fgRef.current.centerAt(node.x, node.y, 1000);
+                                fgRef.current.zoom(1.5, 2000);
                             }
                         }}
                     />
