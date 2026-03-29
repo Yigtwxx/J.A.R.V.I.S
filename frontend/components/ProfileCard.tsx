@@ -163,8 +163,6 @@ function ProfileCard({ profile }: ProfileCardProps) {
                                 activity,
                             }));
                         });
-                        const hasConnections = profile.network_connections && profile.network_connections.length > 0;
-                        if (!hasConnections && platformNodes.length === 0) return null;
                         return (
                             <div className="mt-4">
                                 <NetworkGraph
