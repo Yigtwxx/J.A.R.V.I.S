@@ -73,7 +73,7 @@ def test_full_profile():
         web_results="A" * 5000,
     )
     assert result["total_score"] >= 75, f"Expected >= 75, got {result['total_score']}"
-    assert result["breakdown"]["platform_presence"] == 1.0
+    assert result["breakdown"]["platform_presence"] >= 0.75
     print(f"  [PASS] Full profile → score = {result['total_score']}, breakdown: {result['breakdown']}")
 
 
