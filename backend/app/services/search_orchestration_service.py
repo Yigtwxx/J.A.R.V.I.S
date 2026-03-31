@@ -9,12 +9,11 @@ import asyncio
 import json
 import os
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.schemas import SearchResponse
 from app.utils.logger import logger
-
 
 # ---------------------------------------------------------------------------
 # Pure-utility helpers (no service dependency)
@@ -24,7 +23,7 @@ def _parse_snippet_date(snippet: str) -> datetime | None:
     """Extract a datetime from a Yahoo search result snippet (best-effort)."""
     if not snippet:
         return None
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     s = snippet.lower()
 
     for pattern, unit in [
@@ -56,14 +55,14 @@ def _parse_snippet_date(snippet: str) -> datetime | None:
     )
     if m:
         try:
-            return datetime(int(m.group(3)), month_map[m.group(1)[:3]], int(m.group(2)), tzinfo=timezone.utc)
+            return datetime(int(m.group(3)), month_map[m.group(1)[:3]], int(m.group(2)), tzinfo=UTC)
         except ValueError:
             pass
 
     m = re.search(r'(\d{4})-(\d{2})-(\d{2})', snippet)
     if m:
         try:
-            return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)), tzinfo=timezone.utc)
+            return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)), tzinfo=UTC)
         except ValueError:
             pass
 
@@ -100,7 +99,7 @@ def _format_last_activity(
     if not candidates:
         return None
 
-    days = (datetime.now(timezone.utc) - max(candidates)).days
+    days = (datetime.now(UTC) - max(candidates)).days
     if days == 0:
         return "Active today"
     if days <= 7:

@@ -1,6 +1,6 @@
+from .face_match import FaceMatchReport, FacePairResult
 from .profile import ProfileCreate, ProfileResponse, SearchQuery, SearchResponse
-from .snapshot import SnapshotResponse, FieldChange, ChangeReport
-from .face_match import FacePairResult, FaceMatchReport
+from .snapshot import ChangeReport, FieldChange, SnapshotResponse
 
 __all__ = [
     "ProfileCreate", "ProfileResponse", "SearchQuery", "SearchResponse",

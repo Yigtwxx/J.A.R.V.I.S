@@ -1,15 +1,23 @@
+import asyncio
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from app.routes import search_router, profiles_router, history_router, version_history_router, face_match_router, chat_router
-from app.database import init_db
+
 from app.config import get_settings
+from app.database import init_db
 from app.middleware.security import RateLimitMiddleware
+from app.routes import (
+    chat_router,
+    face_match_router,
+    history_router,
+    profiles_router,
+    search_router,
+    version_history_router,
+)
 from app.utils.logger import logger
-import asyncio
-import time
 
 settings = get_settings()
 
@@ -69,7 +77,7 @@ async def log_requests(request: Request, call_next):
 
     start_time = time.time()
     client_ip = request.client.host if request.client else "Unknown"
-    
+
     # Log incoming request
     logger.log_network_traffic(
         method=request.method,
@@ -78,9 +86,9 @@ async def log_requests(request: Request, call_next):
     )
 
     response = await call_next(request)
-    
+
     process_time = (time.time() - start_time) * 1000  # ms
-    
+
     # Log outgoing response
     logger.log_network_traffic(
         method=request.method,
@@ -89,7 +97,7 @@ async def log_requests(request: Request, call_next):
         status_code=response.status_code,
         process_time=process_time
     )
-        
+
     return response
 
 # Include routers
@@ -124,7 +132,7 @@ async def stream_status():
         logger.subscribers.add(queue)
         try:
             # Send initial connection success
-            yield f"data: [SYS] Virtual Intelligence Link Established\n\n"
+            yield "data: [SYS] Virtual Intelligence Link Established\n\n"
             while True:
                 message = await queue.get()
                 yield f"data: {message}\n\n"
@@ -158,11 +166,14 @@ async def health_check():
 
 
 if __name__ == "__main__":
-    import sys, os, uvicorn
+    import os
+    import sys
+
+    import uvicorn
 
     # Ensure the parent directory is in the path
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    
+
     uvicorn.run(
         "app.main:app",
         host=settings.host,

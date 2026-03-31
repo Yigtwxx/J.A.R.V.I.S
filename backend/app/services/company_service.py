@@ -19,14 +19,13 @@ NOT: MERSİS, TOBB, Europages ve D&B gibi kaynaklar JS-bağımlı arayüzlere
 
 import re
 import unicodedata
-from dataclasses import dataclass, field
-from typing import Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 
 import requests
 from bs4 import BeautifulSoup
-from app.utils.logger import logger
 
+from app.utils.logger import logger
 
 # ─── Data Model ───────────────────────────────────────────────────────────────
 
@@ -43,11 +42,11 @@ class CompanyRecord:
     status: str = "unknown"          # active | passive | liquidated | unknown
     source_url: str = ""
     source_name: str = ""
-    country: Optional[str] = None    # Şirketin kayıtlı olduğu ülke
+    country: str | None = None    # Şirketin kayıtlı olduğu ülke
     confidence: float = 0.5          # 0.0–1.0; kaynağın otoritesi + bağlam zenginliğine göre
-    registry_id: Optional[str] = None  # OpenCorporates id, MERSİS, Company No, CIK, vb.
-    city: Optional[str] = None
-    sector: Optional[str] = None
+    registry_id: str | None = None  # OpenCorporates id, MERSİS, Company No, CIK, vb.
+    city: str | None = None
+    sector: str | None = None
     risk_flags: list = field(default_factory=list)
     snippet: str = ""
 
@@ -425,7 +424,7 @@ class CompanyScraperService:
             return "passive"
         return "unknown"
 
-    def _jurisdiction_to_country(self, code: str) -> Optional[str]:
+    def _jurisdiction_to_country(self, code: str) -> str | None:
         """OpenCorporates jurisdiction kodunu insan-okunabilir ülke adına çevirir."""
         mapping = {
             "us": "USA", "gb": "United Kingdom", "de": "Germany",
@@ -538,7 +537,7 @@ class CompanyScraperService:
 
             # Companies House search results: officer cards
             for card in soup.select('.officer-result, .search-result'):
-                name_el    = card.select_one('.officer-name, h3, .result-name')
+                card.select_one('.officer-name, h3, .result-name')
                 company_el = card.select_one('.company-name, .result-company')
                 role_el    = card.select_one('.officer-role, .role')
                 link_el    = card.select_one('a')
@@ -737,7 +736,7 @@ class CompanyScraperService:
         base_confidence: float = 0.5,
         source_url: str = "",
         source_name: str = "",
-        country: Optional[str] = None,
+        country: str | None = None,
     ) -> list[CompanyRecord]:
         """
         Metindeki kişi adı etrafındaki ±200 karakterlik bağlam penceresinde
@@ -782,10 +781,14 @@ class CompanyScraperService:
                 company_type         = self._extract_company_type(raw_name)
 
                 conf = base_confidence
-                if role_cat != 'unknown':    conf = min(1.0, conf + 0.05)
-                if status == 'active':       conf = min(1.0, conf + 0.03)
-                if risk_flags:              conf = max(0.1, conf - 0.03)
-                if registry_id:             conf = min(1.0, conf + 0.08)
+                if role_cat != 'unknown':
+                    conf = min(1.0, conf + 0.05)
+                if status == 'active':
+                    conf = min(1.0, conf + 0.03)
+                if risk_flags:
+                    conf = max(0.1, conf - 0.03)
+                if registry_id:
+                    conf = min(1.0, conf + 0.08)
 
                 records.append(CompanyRecord(
                     company_name=raw_name,
@@ -837,7 +840,7 @@ class CompanyScraperService:
                     break
         return flags
 
-    def _infer_sector(self, text: str) -> Optional[str]:
+    def _infer_sector(self, text: str) -> str | None:
         text_lower = text.lower()
         for sector, pattern in SECTOR_PATTERNS.items():
             if re.search(pattern, text_lower, re.IGNORECASE | re.UNICODE):
@@ -851,7 +854,7 @@ class CompanyScraperService:
                 return type_name
         return "Unknown"
 
-    def _extract_registry_id(self, text: str) -> Optional[str]:
+    def _extract_registry_id(self, text: str) -> str | None:
         """
         Farklı ülke formatlarındaki kayıt numaralarını tanır:
           - MERSİS (TR): 16 hane
@@ -910,12 +913,14 @@ class CompanyScraperService:
                 ex.role, ex.role_category = rec.role, rec.role_category
             if ex.status == 'unknown' and rec.status != 'unknown':
                 ex.status = rec.status
-            if not ex.sector    and rec.sector:    ex.sector    = rec.sector
-            if not ex.country   and rec.country:   ex.country   = rec.country
-            if not ex.registry_id and rec.registry_id: ex.registry_id = rec.registry_id
+            if not ex.sector and rec.sector:
+                ex.sector = rec.sector
+            if not ex.country and rec.country:
+                ex.country = rec.country
+            if not ex.registry_id and rec.registry_id:
+                ex.registry_id = rec.registry_id
 
-            if any(s in rec.source_name for s in authority_sources):
-                if not any(s in ex.source_name for s in authority_sources):
+            if any(s in rec.source_name for s in authority_sources) and not any(s in ex.source_name for s in authority_sources):
                     ex.source_name = rec.source_name
                     ex.source_url  = rec.source_url
 

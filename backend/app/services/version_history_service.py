@@ -1,9 +1,10 @@
 import json
-from sqlalchemy.orm import Session
-from app.models.snapshot import ProfileSnapshot
-from app.schemas.snapshot import FieldChange, ChangeReport
-from app.utils.logger import logger
 
+from sqlalchemy.orm import Session
+
+from app.models.snapshot import ProfileSnapshot
+from app.schemas.snapshot import ChangeReport, FieldChange
+from app.utils.logger import logger
 
 # Fields to track with their human-readable labels
 TRACKED_FIELDS = {

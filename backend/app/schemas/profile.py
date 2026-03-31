@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, List, Any
 from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class SearchQuery(BaseModel):
@@ -10,36 +11,36 @@ class SearchQuery(BaseModel):
 
 class SocialUrlsMixin(BaseModel):
     """Shared social media URL fields — single source of truth for all profile schemas."""
-    github_url: Optional[str] = None
-    instagram_url: Optional[str] = None
-    twitter_url: Optional[str] = None
-    linkedin_url: Optional[str] = None
-    spotify_url: Optional[str] = None
-    tiktok_url: Optional[str] = None
-    snapchat_url: Optional[str] = None
-    tumblr_url: Optional[str] = None
-    youtube_url: Optional[str] = None
-    reddit_url: Optional[str] = None
-    facebook_url: Optional[str] = None
-    pinterest_url: Optional[str] = None
-    medium_url: Optional[str] = None
-    threads_url: Optional[str] = None
-    steam_url: Optional[str] = None
-    tinder_mention: Optional[str] = None
-    bumble_mention: Optional[str] = None
-    discord_mention: Optional[str] = None
-    phone_numbers: Optional[List[str]] = None
+    github_url: str | None = None
+    instagram_url: str | None = None
+    twitter_url: str | None = None
+    linkedin_url: str | None = None
+    spotify_url: str | None = None
+    tiktok_url: str | None = None
+    snapchat_url: str | None = None
+    tumblr_url: str | None = None
+    youtube_url: str | None = None
+    reddit_url: str | None = None
+    facebook_url: str | None = None
+    pinterest_url: str | None = None
+    medium_url: str | None = None
+    threads_url: str | None = None
+    steam_url: str | None = None
+    tinder_mention: str | None = None
+    bumble_mention: str | None = None
+    discord_mention: str | None = None
+    phone_numbers: list[str] | None = None
 
 
 class ProfileDataMixin(SocialUrlsMixin):
     """Extended profile fields shared across create, response, and search schemas."""
-    description: Optional[str] = None
-    additional_info: Optional[Dict[str, Any]] = None
-    similar_profiles: Optional[List[str]] = None
-    cross_validation_issues: Optional[List[str]] = None
-    network_connections: Optional[List[Dict[str, str]]] = None
-    email_addresses: Optional[List[str]] = None
-    data_breaches: Optional[List[Dict[str, Any]]] = None
+    description: str | None = None
+    additional_info: dict[str, Any] | None = None
+    similar_profiles: list[str] | None = None
+    cross_validation_issues: list[str] | None = None
+    network_connections: list[dict[str, str]] | None = None
+    email_addresses: list[str] | None = None
+    data_breaches: list[dict[str, Any]] | None = None
 
 
 class ProfileCreate(ProfileDataMixin):
@@ -52,7 +53,7 @@ class ProfileResponse(ProfileDataMixin):
     id: int
     name: str
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -61,16 +62,16 @@ class ProfileResponse(ProfileDataMixin):
 class SearchResponse(ProfileDataMixin):
     """AI search response with gathered information"""
     name: str
-    location_country: Optional[str] = None
-    location_city: Optional[str] = None
-    weather_info: Optional[Dict[str, Any]] = None
-    social_media_score: Optional[int] = None
-    social_media_score_breakdown: Optional[Dict[str, Any]] = None
-    last_activity_summary: Optional[str] = None
-    platform_activity: Optional[Dict[str, Any]] = None
-    sources: Optional[List[Dict[str, str]]] = None
+    location_country: str | None = None
+    location_city: str | None = None
+    weather_info: dict[str, Any] | None = None
+    social_media_score: int | None = None
+    social_media_score_breakdown: dict[str, Any] | None = None
+    last_activity_summary: str | None = None
+    platform_activity: dict[str, Any] | None = None
+    sources: list[dict[str, str]] | None = None
     ai_response: str
-    version_history: Optional[Dict[str, Any]] = None
-    face_match_results: Optional[Dict[str, Any]] = None
-    sentiment_analysis: Optional[Dict[str, Any]] = None
-    company_records: Optional[List[Dict[str, Any]]] = None
+    version_history: dict[str, Any] | None = None
+    face_match_results: dict[str, Any] | None = None
+    sentiment_analysis: dict[str, Any] | None = None
+    company_records: list[dict[str, Any]] | None = None

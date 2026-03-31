@@ -1,10 +1,11 @@
 from __future__ import annotations
-from typing import Any
+
 import asyncio
 import math
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
+from typing import Any
 
-from .base_agent import BaseAgent, AgentResult, StatusCallback
+from .base_agent import AgentResult, BaseAgent, StatusCallback
 
 
 class SocialMediaAgent(BaseAgent):
@@ -75,7 +76,7 @@ class SocialMediaAgent(BaseAgent):
                         last_dt = datetime.fromisoformat(last_active.replace('Z', '+00:00'))
                     else:
                         last_dt = last_active
-                    days = (datetime.now(timezone.utc) - last_dt).days
+                    days = (datetime.now(UTC) - last_dt).days
                     if days <= 7:
                         score += 30
                     elif days <= 30:

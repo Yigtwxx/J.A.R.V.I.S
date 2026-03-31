@@ -1,9 +1,10 @@
 from __future__ import annotations
-from typing import Any
+
 import asyncio
 import unicodedata
+from typing import Any
 
-from .base_agent import BaseAgent, AgentResult, StatusCallback
+from .base_agent import AgentResult, BaseAgent, StatusCallback
 
 
 def _normalize_text(text: str) -> str:
@@ -58,8 +59,7 @@ class SecurityAgent(BaseAgent):
         if github_data and username:
             gh_login = (github_data.get('login') or '').strip().lower()
             searched_username = username.strip().lower()
-            if gh_login and searched_username and gh_login != searched_username:
-                if searched_username not in gh_login and gh_login not in searched_username:
+            if gh_login and searched_username and gh_login != searched_username and searched_username not in gh_login and gh_login not in searched_username:
                     issues.append(
                         f"GitHub login '@{github_data.get('login')}' doesn't match searched username '{username}'. Verify this is the correct account."
                     )

@@ -4,8 +4,6 @@ Tests for the Profiles API endpoints.
 Covers: CRUD operations for /api/profiles/*
 """
 
-import pytest
-from app.models import Profile
 
 
 class TestCreateProfile:

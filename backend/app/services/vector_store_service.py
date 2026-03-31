@@ -1,5 +1,5 @@
+import contextlib
 import re
-from typing import List
 
 import chromadb
 import httpx
@@ -21,7 +21,7 @@ class _JarvisOllamaEmbedder(EmbeddingFunction):
         self.model = model
         self.base_url = base_url.rstrip("/")
 
-    def __call__(self, input: List[str]) -> Embeddings:
+    def __call__(self, input: list[str]) -> Embeddings:
         embeddings = []
         for text in input:
             response = httpx.post(
@@ -64,7 +64,7 @@ class VectorStoreService:
         return name[:63]
 
     @staticmethod
-    def _chunk_text(text: str) -> List[str]:
+    def _chunk_text(text: str) -> list[str]:
         """Metni örtüşen parçalara böler."""
         if not text or len(text.strip()) < 20:
             return []
@@ -90,10 +90,8 @@ class VectorStoreService:
         collection_name = self._safe_name(query_name)
 
         # Eski koleksiyonu temizle
-        try:
+        with contextlib.suppress(Exception):
             client.delete_collection(collection_name)
-        except Exception:
-            pass
 
         collection = client.create_collection(
             name=collection_name,
@@ -183,7 +181,7 @@ class VectorStoreService:
             return ""
 
         parts = []
-        for doc, meta, dist in zip(docs, metas, distances):
+        for doc, meta, dist in zip(docs, metas, distances, strict=False):
             section = meta.get("section", "unknown").upper().replace("_", " ")
             similarity = round(1.0 - dist, 3)
             parts.append(f"[{section} | benzerlik: {similarity}]\n{doc}")

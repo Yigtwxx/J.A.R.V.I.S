@@ -1,5 +1,6 @@
+
 import requests
-from typing import Dict, Optional
+
 from app.config import get_settings
 from app.utils.logger import logger
 
@@ -8,19 +9,19 @@ settings = get_settings()
 
 class GitHubService:
     """Service for GitHub API interactions"""
-    
+
     def __init__(self):
         self.base_url = "https://api.github.com"
         self.session = requests.Session()
         self.session.headers.update({
             'Accept': 'application/vnd.github.v3+json',
         })
-        
+
         if settings.github_token:
             self.session.headers['Authorization'] = f'token {settings.github_token}'
             logger.log_success("GitHub authentication protocol loaded.")
-    
-    def search_user(self, username: str) -> Optional[Dict]:
+
+    def search_user(self, username: str) -> dict | None:
         """
         Search for GitHub user by username
         """
@@ -31,7 +32,7 @@ class GitHubService:
             if user_data:
                 logger.log_success("Direct GitHub profile match confirmed.")
                 return user_data
-            
+
             # If not found, search by name
             logger.log_warning("Direct match failed. Initiating fuzzy search protocol...")
             search_url = f"{self.base_url}/search/users"
@@ -39,36 +40,36 @@ class GitHubService:
 
             response = self.session.get(search_url, params=params, timeout=10)
             response.raise_for_status()
-            
+
             data = response.json()
             if data['total_count'] > 0:
                 user_login = data['items'][0]['login']
                 logger.log_action("Correlated identity found", target=user_login)
                 return self._get_user_by_username(user_login)
-            
+
             logger.log_error("No GitHub profile correlations found.")
             return None
-        
+
         except Exception as e:
             logger.log_error(f"GitHub neural connection severed: {e}")
             return None
-    
-    def _get_user_by_username(self, username: str) -> Optional[Dict]:
+
+    def _get_user_by_username(self, username: str) -> dict | None:
         """Get user profile by exact username"""
         try:
             logger.log_action("Downloading profile schematics", target=username)
             user_url = f"{self.base_url}/users/{username}"
             response = self.session.get(user_url, timeout=10)
-            
+
             if response.status_code == 404:
                 return None
-            
+
             response.raise_for_status()
             user_data = response.json()
-            
+
             # Get repositories
             repos = self._get_user_repos(username)
-            
+
             return {
                 'username': user_data.get('login'),
                 'name': user_data.get('name'),
@@ -86,11 +87,11 @@ class GitHubService:
                 'last_active': user_data.get('updated_at'),
                 'repositories': repos
             }
-        
+
         except Exception as e:
             logger.log_error(f"Error fetching GitHub user node: {e}")
             return None
-    
+
     def _get_user_repos(self, username: str, max_repos: int = 5) -> list:
         """Get user's top repositories"""
         try:
@@ -100,12 +101,12 @@ class GitHubService:
                 'sort': 'updated',
                 'per_page': max_repos
             }
-            
+
             response = self.session.get(repos_url, params=params, timeout=10)
             response.raise_for_status()
-            
+
             repos_data = response.json()
-            
+
             repos = []
             for repo in repos_data:
                 repos.append({
@@ -116,39 +117,39 @@ class GitHubService:
                     'language': repo.get('language'),
                     'updated_at': repo.get('updated_at')
                 })
-            
+
             return repos
-        
+
         except Exception as e:
             logger.log_error(f"Error fetching repository nodes: {e}")
             return []
-    
-    def format_github_data(self, github_data: Dict) -> str:
+
+    def format_github_data(self, github_data: dict) -> str:
         """Format GitHub data for AI context"""
         if not github_data:
             return "No GitHub profile found."
-        
+
         formatted = f"GitHub Profile: {github_data.get('profile_url', '')}\n"
         formatted += f"Username: {github_data.get('username', 'N/A')}\n"
-        
+
         if github_data.get('name'):
             formatted += f"Name: {github_data['name']}\n"
-        
+
         if github_data.get('bio'):
             formatted += f"Bio: {github_data['bio']}\n"
-        
+
         if github_data.get('company'):
             formatted += f"Company: {github_data['company']}\n"
-        
+
         if github_data.get('location'):
             formatted += f"Location: {github_data['location']}\n"
-        
+
         formatted += f"Public Repos: {github_data.get('public_repos', 0)}\n"
         formatted += f"Followers: {github_data.get('followers', 0)}\n"
-        
+
         if github_data.get('last_active'):
             formatted += f"Last Account Activity: {github_data['last_active']}\n"
-        
+
         if github_data.get('repositories'):
             formatted += "\nTop Repositories:\n"
             for repo in github_data['repositories']:
@@ -162,5 +163,5 @@ class GitHubService:
                 formatted += "\n"
                 if repo.get('description'):
                     formatted += f"    {repo['description']}\n"
-        
+
         return formatted

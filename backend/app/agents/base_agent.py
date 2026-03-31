@@ -1,9 +1,11 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+
 import asyncio
 import traceback
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
 
 StatusCallback = Callable[[str], None]
 
@@ -25,7 +27,7 @@ class AgentResult:
     # Metadata
     agent_name: str           = ""
     success:    bool          = True
-    error:      Optional[str] = None
+    error:      str | None = None
 
 
 class BaseAgent(ABC):

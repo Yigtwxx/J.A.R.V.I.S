@@ -1,10 +1,10 @@
-from rich.console import Console
-from rich.theme import Theme
-from rich.panel import Panel
-from rich.align import Align
 import asyncio
 import re
-from typing import Set
+
+from rich.align import Align
+from rich.console import Console
+from rich.panel import Panel
+from rich.theme import Theme
 
 # Custom JARVIS Theme
 jarvis_theme = Theme({
@@ -24,7 +24,7 @@ console = Console(theme=jarvis_theme)
 
 class JarvisLogger:
     def __init__(self):
-        self.subscribers: Set[asyncio.Queue] = set()
+        self.subscribers: set[asyncio.Queue] = set()
 
     def _push_to_queues(self, message: str):
         """Internal: push a message to all SSE subscriber queues (thread-safe)."""
@@ -61,13 +61,13 @@ class JarvisLogger:
         # console.clear()
         header = """
 [bold cyan]
-      :::::::::::     :::     :::::::::  :::     ::: ::::::::::: ::::::::  
-         :+:       :+: :+:   :+:    :+: :+:     :+:     :+:    :+:    :+: 
-        +:+      +:+   +:+  +:+    +:+ +:+     +:+     +:+    +:+         
-       +#+     +#++:++#++: +#++:++#:  +#+     +:+     +#+    +#++:++#++  
-      +#+     +#+     +#+ +#+    +#+  +#+   +#+      +#+           +#+   
- #+# #+#     #+#     #+# #+#    #+#   #+#+#+#       #+#    #+#    #+#    
- #####      ###     ### ###    ###     ###      ########### ########     
+      :::::::::::     :::     :::::::::  :::     ::: ::::::::::: ::::::::
+         :+:       :+: :+:   :+:    :+: :+:     :+:     :+:    :+:    :+:
+        +:+      +:+   +:+  +:+    +:+ +:+     +:+     +:+    +:+
+       +#+     +#++:++#++: +#++:++#:  +#+     +:+     +#+    +#++:++#++
+      +#+     +#+     +#+ +#+    +#+  +#+   +#+      +#+           +#+
+ #+# #+#     #+#     #+# #+#    #+#   #+#+#+#       #+#    #+#    #+#
+ #####      ###     ### ###    ###     ###      ########### ########
 [/bold cyan]
 [bold blue]=== SYSTEM NODE ONLINE ===[/bold blue]
 [cyan]Awaiting input parameters...[/cyan]

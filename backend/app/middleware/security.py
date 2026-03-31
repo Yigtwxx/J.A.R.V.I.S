@@ -8,9 +8,8 @@ Provides:
 
 import time
 from collections import defaultdict
-from typing import Optional
 
-from fastapi import Request, HTTPException, Security
+from fastapi import HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -27,7 +26,7 @@ settings = get_settings()
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
-async def verify_api_key(api_key: Optional[str] = Security(_api_key_header)) -> Optional[str]:
+async def verify_api_key(api_key: str | None = Security(_api_key_header)) -> str | None:
     """
     FastAPI dependency that verifies the X-API-Key header.
     If API_KEY is not configured (empty), authentication is disabled.

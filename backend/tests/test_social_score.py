@@ -1,14 +1,13 @@
 """
 Unit tests for SocialScoreService (Digital Impact Score Algorithm).
 """
-import sys
 import os
+import sys
 
 # Add the backend app directory to the import path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from app.services.social_score_service import SocialScoreService
-
 
 service = SocialScoreService()
 
@@ -68,6 +67,14 @@ def test_full_profile():
             "tumblr": [{"url": "https://user.tumblr.com", "bio": "My blog"}],
             "tinder": [{"url": "https://example.com", "bio": "[Mention] tinder profile found"}],
             "bumble": [{"url": "https://example.com", "bio": "[Mention] bumble profile found"}],
+            "youtube": [{"url": "https://youtube.com/@user", "bio": "Tech channel"}],
+            "reddit": [{"url": "https://reddit.com/u/user", "bio": ""}],
+            "facebook": [{"url": "https://facebook.com/user", "bio": ""}],
+            "pinterest": [{"url": "https://pinterest.com/user", "bio": ""}],
+            "medium": [{"url": "https://medium.com/@user", "bio": "Writer"}],
+            "threads": [{"url": "https://threads.net/@user", "bio": ""}],
+            "steam": [{"url": "https://steamcommunity.com/id/user", "bio": "Gamer"}],
+            "discord": [{"url": "https://discord.com/users/user", "bio": ""}],
         },
         raw_sources=[{"title": f"Result {i}", "url": f"https://example.com/{i}", "snippet": "..."} for i in range(20)],
         web_results="A" * 5000,

@@ -1,5 +1,5 @@
+
 from pydantic import BaseModel
-from typing import List, Optional
 
 
 class FacePairResult(BaseModel):
@@ -16,6 +16,6 @@ class FaceMatchReport(BaseModel):
     overall_confidence: float       # Weighted average 0-100
     total_comparisons: int
     successful_comparisons: int
-    pairs: List[FacePairResult]
+    pairs: list[FacePairResult]
     face_detected_count: int        # How many images had detectable faces
     total_images: int               # How many images were collected

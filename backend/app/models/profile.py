@@ -1,16 +1,17 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON
+from sqlalchemy import JSON, Column, DateTime, Integer, String, Text
 from sqlalchemy.sql import func
+
 from app.database import Base
 
 
 class Profile(Base):
     """Profile model for storing person information"""
-    
+
     __tablename__ = "profiles"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False, index=True)
-    
+
     # Social media URLs
     github_url = Column(Text, nullable=True)
     instagram_url = Column(Text, nullable=True)
@@ -31,7 +32,7 @@ class Profile(Base):
     bumble_mention = Column(Text, nullable=True)
     discord_mention = Column(Text, nullable=True)
     phone_numbers = Column(JSON, nullable=True)
-    
+
     # Information
     description = Column(Text, nullable=True)
     additional_info = Column(JSON, nullable=True)  # Flexible JSON field
@@ -40,10 +41,10 @@ class Profile(Base):
     network_connections = Column(JSON, nullable=True)  # Array of related entities
     email_addresses = Column(JSON, nullable=True)  # List of found emails
     data_breaches = Column(JSON, nullable=True)  # Dark web intelligence details
-    
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     def __repr__(self):
         return f"<Profile(id={self.id}, name='{self.name}')>"

@@ -1,11 +1,13 @@
-import requests
-from bs4 import BeautifulSoup
-from typing import Optional, Dict
-from app.utils.logger import logger
+import contextlib
 import re
 import unicodedata
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import requests
+from bs4 import BeautifulSoup
+
+from app.utils.logger import logger
 
 
 class ScraperService:
@@ -58,10 +60,7 @@ class ScraperService:
                 "nobody on reddit goes by that name",
             ]
 
-            if any(sig in content_snippet for sig in not_found_signatures):
-                return False
-
-            return True
+            return not any(sig in content_snippet for sig in not_found_signatures)
         except Exception:
             return False
 
@@ -95,15 +94,14 @@ class ScraperService:
                 else:
                     actual_url = href
 
-                if re.search(domain_pattern, actual_url, re.IGNORECASE):
-                    if not any(r['url'] == actual_url for r in results):
-                        snippet_elem = link.find_parent('div')
-                        snippet = ""
-                        if snippet_elem:
-                            snippet_text = snippet_elem.find('a', class_='result__snippet')
-                            if snippet_text:
-                                snippet = snippet_text.text.strip()
-                        results.append({"url": actual_url, "bio": snippet})
+                if re.search(domain_pattern, actual_url, re.IGNORECASE) and not any(r['url'] == actual_url for r in results):
+                    snippet_elem = link.find_parent('div')
+                    snippet = ""
+                    if snippet_elem:
+                        snippet_text = snippet_elem.find('a', class_='result__snippet')
+                        if snippet_text:
+                            snippet = snippet_text.text.strip()
+                    results.append({"url": actual_url, "bio": snippet})
                 if len(results) >= max_results:
                     break
 
@@ -117,9 +115,8 @@ class ScraperService:
                             actual_url = urllib.parse.unquote(href.split('uddg=')[1].split('&')[0])
                         except IndexError:
                             continue
-                    if actual_url.startswith('http') and re.search(domain_pattern, actual_url, re.IGNORECASE):
-                        if not any(r['url'] == actual_url for r in results):
-                            results.append({"url": actual_url, "bio": ""})
+                    if actual_url.startswith('http') and re.search(domain_pattern, actual_url, re.IGNORECASE) and not any(r['url'] == actual_url for r in results):
+                        results.append({"url": actual_url, "bio": ""})
                     if len(results) >= max_results:
                         break
 
@@ -155,13 +152,12 @@ class ScraperService:
                 if not link:
                     continue
                 href = link.get('href', '')
-                if href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
-                    if not any(r['url'] == href for r in results):
-                        snippet = ""
-                        snippet_elem = item.find('p') or item.find('div', class_='b_caption')
-                        if snippet_elem:
-                            snippet = snippet_elem.text.strip()[:200]
-                        results.append({"url": href, "bio": snippet})
+                if href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE) and not any(r['url'] == href for r in results):
+                    snippet = ""
+                    snippet_elem = item.find('p') or item.find('div', class_='b_caption')
+                    if snippet_elem:
+                        snippet = snippet_elem.text.strip()[:200]
+                    results.append({"url": href, "bio": snippet})
                 if len(results) >= max_results:
                     break
 
@@ -169,12 +165,10 @@ class ScraperService:
             if not results:
                 for link in soup.find_all('a', href=True):
                     href = link.get('href', '')
-                    if href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
-                        if 'bing.com' not in href and 'microsoft.com' not in href:
-                            if not any(r['url'] == href for r in results):
-                                results.append({"url": href, "bio": ""})
-                        if len(results) >= max_results:
-                            break
+                    if href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE) and 'bing.com' not in href and 'microsoft.com' not in href and not any(r['url'] == href for r in results):
+                        results.append({"url": href, "bio": ""})
+                    if len(results) >= max_results:
+                        break
 
             if results:
                 logger.log_success(f"Bing fallback found {len(results)} result(s) for: {query}")
@@ -251,10 +245,8 @@ class ScraperService:
                     href = link.get('href', '')
                     actual_url = None
                     if 'RU=' in href:
-                        try:
+                        with contextlib.suppress(IndexError):
                             actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
-                        except IndexError:
-                            pass
                     elif href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
                         actual_url = href
 
@@ -269,7 +261,7 @@ class ScraperService:
                 logger.log_warning(f"Yahoo returned 0 results for: {query} — trying DuckDuckGo fallback")
                 results = self._extract_urls_from_duckduckgo(query, domain_pattern, max_results)
             if not results:
-                logger.log_warning(f"DuckDuckGo also returned 0 — trying Bing fallback")
+                logger.log_warning("DuckDuckGo also returned 0 — trying Bing fallback")
                 results = self._extract_urls_from_bing(query, domain_pattern, max_results)
             if results:
                 logger.log_success(f"Search found {len(results)} result(s) for: {query}")
@@ -778,7 +770,7 @@ class ScraperService:
 
         return candidates[:15]
 
-    def find_all_profiles(self, name: str) -> Dict[str, list]:
+    def find_all_profiles(self, name: str) -> dict[str, list]:
         """Find all social media profiles and bios for a person (PARALLEL)"""
         logger.log_thought(f"Initiating deep-web scraping protocol for entity: {name}")
         logger.log_action(f"[DIAG] find_all_profiles v3 — name={name}")
@@ -806,7 +798,7 @@ class ScraperService:
             'discord': self.find_discord_mention,
         }
 
-        profiles: Dict[str, list] = {k: [] for k in platform_fns}
+        profiles: dict[str, list] = {k: [] for k in platform_fns}
 
         # Phase 1: Yahoo searches + direct username probe run in parallel
         DIRECT_TAG = '__direct_username_probe__'
@@ -819,7 +811,7 @@ class ScraperService:
                 logger.log_action(f"Direct username probe: @{clean_name}")
                 futures[executor.submit(self.find_profiles_by_username, clean_name)] = DIRECT_TAG
 
-            direct_hits: Dict[str, list] = {}
+            direct_hits: dict[str, list] = {}
             for future in as_completed(futures):
                 tag = futures[future]
                 try:
@@ -971,14 +963,14 @@ class ScraperService:
             and username.lower() not in self.INSTAGRAM_RESERVED_PATHS
         )
 
-    def find_profiles_by_username(self, username: str) -> Dict[str, list]:
+    def find_profiles_by_username(self, username: str) -> dict[str, list]:
         """
         Verify a username via format validation (Instagram) or HTTP check (verifiable platforms).
         Blind URL construction is intentionally avoided for platforms that cannot be reliably
         verified — those are discovered via search in Phase 1 and Phase 1.5 instead.
         Returns dict matching find_all_profiles format.
         """
-        results: Dict[str, list] = {}
+        results: dict[str, list] = {}
 
         # Instagram: _is_url_active always fails (login redirect) — format validation only
         ig_url = f"https://www.instagram.com/{username}/"
@@ -1048,7 +1040,7 @@ class ScraperService:
         except Exception:
             return None
 
-    def format_social_profiles(self, profiles: Dict[str, list]) -> str:
+    def format_social_profiles(self, profiles: dict[str, list]) -> str:
         """Format social media profiles and their bios for AI context"""
         formatted = "Social Media Profiles and Bios:\n"
 

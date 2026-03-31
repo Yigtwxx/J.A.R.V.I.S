@@ -19,12 +19,11 @@ Endpoints used:
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List
+from typing import Any
 
 import httpx
 
 from app.utils.logger import logger
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -40,7 +39,7 @@ _REQ_DELAY  = 1.5   # stay comfortably under 2 req/s
 # Normalizer
 # ---------------------------------------------------------------------------
 
-def _normalize_breach(raw: Dict[str, Any], email: str) -> Dict[str, Any]:
+def _normalize_breach(raw: dict[str, Any], email: str) -> dict[str, Any]:
     """
     Map a raw XposedOrNot breach object to the SecurityScanWidget shape.
 
@@ -90,7 +89,7 @@ class BreachService:
     Completely free — no API key, no mock data.
     """
 
-    async def check_breaches(self, emails: List[str]) -> List[Dict[str, Any]]:
+    async def check_breaches(self, emails: list[str]) -> list[dict[str, Any]]:
         """
         Main entry point called by the search route.
 
@@ -100,7 +99,7 @@ class BreachService:
         if not emails:
             return []
 
-        all_breaches: List[Dict] = []
+        all_breaches: list[dict] = []
         seen: set = set()
 
         async with httpx.AsyncClient(follow_redirects=True) as client:

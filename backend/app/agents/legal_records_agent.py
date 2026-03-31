@@ -1,8 +1,9 @@
 from __future__ import annotations
-from typing import Any
-import asyncio
 
-from .base_agent import BaseAgent, AgentResult, StatusCallback
+import asyncio
+from typing import Any
+
+from .base_agent import AgentResult, BaseAgent, StatusCallback
 
 
 class LegalRecordsAgent(BaseAgent):

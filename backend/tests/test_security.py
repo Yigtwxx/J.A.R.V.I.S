@@ -6,10 +6,11 @@ Covers:
 - Rate limiting middleware
 """
 
-import pytest
 from unittest.mock import patch
-from fastapi.testclient import TestClient
-from app.main import app
+
+import pytest
+from fastapi import HTTPException
+
 from app.middleware.security import RateLimitMiddleware
 
 
@@ -52,18 +53,20 @@ class TestApiKeyAuthentication:
     def test_search_rejected_without_key(self, mock_settings):
         """When API_KEY is set, requests without the key should get 401."""
         mock_settings.api_key = "secret-key-123"
-        from app.middleware.security import verify_api_key
         import asyncio
 
-        with pytest.raises(Exception):  # HTTPException
+        from app.middleware.security import verify_api_key
+
+        with pytest.raises(HTTPException):
             asyncio.run(verify_api_key(None))
 
     @patch("app.middleware.security.settings")
     def test_search_accepted_with_correct_key(self, mock_settings):
         """When API_KEY is set and correct key is provided, auth should pass."""
         mock_settings.api_key = "secret-key-123"
-        from app.middleware.security import verify_api_key
         import asyncio
+
+        from app.middleware.security import verify_api_key
 
         result = asyncio.run(verify_api_key("secret-key-123"))
         assert result == "secret-key-123"
@@ -72,10 +75,11 @@ class TestApiKeyAuthentication:
     def test_search_rejected_with_wrong_key(self, mock_settings):
         """When API_KEY is set but wrong key is provided, should get 401."""
         mock_settings.api_key = "secret-key-123"
-        from app.middleware.security import verify_api_key
         import asyncio
 
-        with pytest.raises(Exception):
+        from app.middleware.security import verify_api_key
+
+        with pytest.raises(HTTPException):
             asyncio.run(verify_api_key("wrong-key"))
 
 

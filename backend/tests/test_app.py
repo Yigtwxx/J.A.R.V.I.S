@@ -4,7 +4,6 @@ Tests for core FastAPI application endpoints.
 Covers: root, health, docs availability, CORS, status endpoints.
 """
 
-import pytest
 
 
 class TestRootEndpoint:

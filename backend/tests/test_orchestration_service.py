@@ -5,14 +5,14 @@ Covers the pure-utility helpers and the parse_query method
 that were extracted from the monolithic search_person route.
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
 from app.services.search_orchestration_service import (
     SearchOrchestrationService,
-    _parse_snippet_date,
     _format_last_activity,
-    _join_urls,
     _join_bios,
+    _join_urls,
+    _parse_snippet_date,
 )
 
 
@@ -51,17 +51,17 @@ class TestParseSnippetDate:
     def test_hours_ago(self):
         dt = _parse_snippet_date("Posted 3 hours ago")
         assert dt is not None
-        assert (datetime.now(timezone.utc) - dt).total_seconds() < 4 * 3600
+        assert (datetime.now(UTC) - dt).total_seconds() < 4 * 3600
 
     def test_days_ago(self):
         dt = _parse_snippet_date("Updated 5 days ago")
         assert dt is not None
-        assert (datetime.now(timezone.utc) - dt).days <= 6
+        assert (datetime.now(UTC) - dt).days <= 6
 
     def test_yesterday(self):
         dt = _parse_snippet_date("Last seen yesterday")
         assert dt is not None
-        assert (datetime.now(timezone.utc) - dt).days <= 2
+        assert (datetime.now(UTC) - dt).days <= 2
 
     def test_explicit_date(self):
         dt = _parse_snippet_date("Published on Jan 15, 2025")
@@ -91,12 +91,12 @@ class TestFormatLastActivity:
 
     def test_active_today(self):
         result = _format_last_activity(
-            github_data={"last_active": datetime.now(timezone.utc).isoformat()},
+            github_data={"last_active": datetime.now(UTC).isoformat()},
         )
         assert result == "Active today"
 
     def test_active_days_ago(self):
-        three_days_ago = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+        three_days_ago = (datetime.now(UTC) - timedelta(days=3)).isoformat()
         result = _format_last_activity(
             github_data={"last_active": three_days_ago},
         )

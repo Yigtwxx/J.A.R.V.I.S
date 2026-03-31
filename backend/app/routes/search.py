@@ -1,17 +1,25 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+from app.agents.orchestrator import SearchOrchestrator
 from app.database import get_db
+from app.middleware.security import verify_api_key
 from app.schemas import SearchQuery, SearchResponse
-from app.services import AIService, SearchService, GitHubService, ScraperService, WeatherService, SocialScoreService
-from app.services import version_history_service
-from app.services.face_matching_service import FaceMatchingService
+from app.services import (
+    AIService,
+    GitHubService,
+    ScraperService,
+    SearchService,
+    SocialScoreService,
+    WeatherService,
+    version_history_service,
+)
 from app.services.breach_service import breach_service
 from app.services.company_service import company_service
-from app.services.vector_store_service import vector_store_service
+from app.services.face_matching_service import FaceMatchingService
 from app.services.search_orchestration_service import SearchOrchestrationService
-from app.middleware.security import verify_api_key
+from app.services.vector_store_service import vector_store_service
 from app.utils.logger import logger
-from app.agents.orchestrator import SearchOrchestrator
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
@@ -113,7 +121,7 @@ async def search_person(
         raise
     except Exception as e:
         logger.log_error(f"Error during search: {e}")
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}") from e
 
 
 @router.get("/test")

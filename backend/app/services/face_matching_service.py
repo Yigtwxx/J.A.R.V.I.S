@@ -1,7 +1,6 @@
+import logging
 import os
 import tempfile
-import logging
-from typing import Optional
 from io import BytesIO
 
 import requests
@@ -27,7 +26,7 @@ class FaceMatchingService:
     # Facenet512 cosine threshold (from DeepFace defaults)
     THRESHOLD = 0.30
 
-    def download_image(self, url: str) -> Optional[str]:
+    def download_image(self, url: str) -> str | None:
         """
         Download an image from URL and save to a temp file.
         Returns the temp file path, or None on failure.
@@ -56,16 +55,15 @@ class FaceMatchingService:
                 img = img.convert("RGB")
 
             # Save to temp file
-            tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
-            img.save(tmp, format="JPEG", quality=95)
-            tmp.close()
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+                img.save(tmp, format="JPEG", quality=95)
             return tmp.name
 
         except Exception as e:
             logger.log_warning(f"Face match: Failed to download image from {url[:60]}...: {e}")
             return None
 
-    def compare_faces(self, img_path_a: str, img_path_b: str, label_a: str, label_b: str) -> Optional[dict]:
+    def compare_faces(self, img_path_a: str, img_path_b: str, label_a: str, label_b: str) -> dict | None:
         """
         Compare two face images using DeepFace.
         Returns a result dict or None if comparison fails.
@@ -108,7 +106,7 @@ class FaceMatchingService:
             logger.log_warning(f"Face match: Comparison failed ({label_a} vs {label_b}): {e}")
             return None
 
-    def analyze_all_images(self, labeled_images: list[tuple[str, str]]) -> Optional[dict]:
+    def analyze_all_images(self, labeled_images: list[tuple[str, str]]) -> dict | None:
         """
         Download all images, perform pairwise face comparison, return a report.
 

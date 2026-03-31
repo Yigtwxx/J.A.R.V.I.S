@@ -5,7 +5,6 @@ This tests the pure-algorithmic cross_validate() static method
 which detects inconsistencies between data sources.
 """
 
-import pytest
 from app.agents.security_agent import SecurityAgent, _normalize_text
 
 

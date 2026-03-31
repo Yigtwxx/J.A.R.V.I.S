@@ -12,8 +12,9 @@ from real data signals across 5 dimensions:
 """
 
 import math
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from app.utils.logger import logger
 
 
@@ -32,11 +33,11 @@ class SocialScoreService:
 
     def calculate_score(
         self,
-        github_data: Optional[Dict[str, Any]],
-        social_profiles: Dict[str, list],
-        raw_sources: List[Dict[str, str]],
+        github_data: dict[str, Any] | None,
+        social_profiles: dict[str, list],
+        raw_sources: list[dict[str, str]],
         web_results: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Compute the Digital Impact Score from all gathered data.
 
@@ -93,8 +94,8 @@ class SocialScoreService:
 
     def _calc_platform_presence(
         self,
-        github_data: Optional[Dict],
-        social_profiles: Dict[str, list],
+        github_data: dict | None,
+        social_profiles: dict[str, list],
     ) -> float:
         """Ratio of platforms where a profile was actually found."""
         found = 0
@@ -111,7 +112,7 @@ class SocialScoreService:
 
         return found / total
 
-    def _calc_follower_impact(self, github_data: Optional[Dict]) -> float:
+    def _calc_follower_impact(self, github_data: dict | None) -> float:
         """
         Logarithmic follower scale.
         0 followers  → 0.0
@@ -130,7 +131,7 @@ class SocialScoreService:
         score = math.log10(followers + 1) / 3.0
         return min(1.0, score)
 
-    def _calc_activity_intensity(self, github_data: Optional[Dict]) -> float:
+    def _calc_activity_intensity(self, github_data: dict | None) -> float:
         """
         Combines repo count (log scale) and recency of last activity.
         50/50 split within this dimension.
@@ -140,11 +141,7 @@ class SocialScoreService:
 
         # Sub-dimension A: Repo count (log scale)
         repos = github_data.get("public_repos", 0) or 0
-        if repos > 0:
-            # log10(51) ≈ 1.7 → normalize so 50+ repos = 1.0
-            repo_score = min(1.0, math.log10(repos + 1) / 1.7)
-        else:
-            repo_score = 0.0
+        repo_score = min(1.0, math.log10(repos + 1) / 1.7) if repos > 0 else 0.0
 
         # Sub-dimension B: Recency of last activity
         last_active = github_data.get("last_active")
@@ -156,7 +153,7 @@ class SocialScoreService:
                 else:
                     last_dt = last_active
 
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 days_ago = (now - last_dt).days
 
                 if days_ago <= 7:
@@ -178,7 +175,7 @@ class SocialScoreService:
 
     def _calc_web_visibility(
         self,
-        raw_sources: List[Dict[str, str]],
+        raw_sources: list[dict[str, str]],
         web_results: str,
     ) -> float:
         """
@@ -200,8 +197,8 @@ class SocialScoreService:
 
     def _calc_digital_diversity(
         self,
-        github_data: Optional[Dict],
-        social_profiles: Dict[str, list],
+        github_data: dict | None,
+        social_profiles: dict[str, list],
     ) -> float:
         """
         Rewards richness and variety of digital identity.
@@ -221,7 +218,7 @@ class SocialScoreService:
 
         # Social media bios — check if any scraped profile has a bio/snippet
         has_social_bio = False
-        for platform, items in social_profiles.items():
+        for _platform, items in social_profiles.items():
             for item in items:
                 if item.get("bio") and len(item["bio"].strip()) > 10:
                     has_social_bio = True
@@ -251,9 +248,9 @@ class SocialScoreService:
     def _generate_explanation(
         self,
         total_score: int,
-        breakdown: Dict[str, float],
-        github_data: Optional[Dict],
-        social_profiles: Dict[str, list],
+        breakdown: dict[str, float],
+        github_data: dict | None,
+        social_profiles: dict[str, list],
     ) -> str:
         """Generate a concise human-readable summary of the score."""
         parts = []

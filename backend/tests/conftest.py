@@ -7,27 +7,27 @@ Provides:
 - Mock service singletons
 """
 
-import sys
 import os
+import sys
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock
 
 # Ensure the backend package is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from fastapi.testclient import TestClient
 
 from app.database import Base, get_db
 from app.main import app
+from app.models.history import SearchHistory  # noqa: F401
 
 # Import all models so Base.metadata knows about all tables
 from app.models.profile import Profile  # noqa: F401
-from app.models.history import SearchHistory  # noqa: F401
 from app.models.snapshot import ProfileSnapshot  # noqa: F401
-
 
 # ---------------------------------------------------------------------------
 # Database Fixtures
@@ -36,7 +36,7 @@ from app.models.snapshot import ProfileSnapshot  # noqa: F401
 @pytest.fixture
 def db_engine():
     """Create an in-memory SQLite engine with all tables.
-    
+
     Uses StaticPool so all connections share the SAME in-memory database.
     Without this, each new connection would create a separate empty database.
     """

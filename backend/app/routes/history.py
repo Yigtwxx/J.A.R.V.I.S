@@ -1,8 +1,7 @@
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import delete
-from typing import List
-from datetime import datetime, timedelta, timezone
 
 from app.database import get_db
 from app.models.history import SearchHistory
@@ -14,7 +13,7 @@ router = APIRouter(prefix="/api/history", tags=["History"])
 def cleanup_old_history(db: Session):
     """Delete history older than 7 days"""
     try:
-        one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+        one_week_ago = datetime.now(UTC) - timedelta(days=7)
         deleted = db.query(SearchHistory).filter(SearchHistory.searched_at < one_week_ago).delete()
         if deleted > 0:
             db.commit()
@@ -22,13 +21,13 @@ def cleanup_old_history(db: Session):
     except Exception as e:
         logger.log_error(f"Failed to cleanup old history: {str(e)}")
 
-@router.get("/", response_model=List[HistoryResponse])
+@router.get("/", response_model=list[HistoryResponse])
 def get_history(db: Session = Depends(get_db)):
     """Get all search history ordered by newest first, removing duplicates."""
     cleanup_old_history(db)
-    
+
     records = db.query(SearchHistory).order_by(SearchHistory.searched_at.desc()).all()
-    
+
     # Deduplicate by query name for the UI, keeping the newest one
     seen = set()
     unique_records = []
@@ -37,7 +36,7 @@ def get_history(db: Session = Depends(get_db)):
         if key not in seen:
             seen.add(key)
             unique_records.append(r)
-            
+
     return unique_records
 
 @router.delete("/{history_id}", status_code=status.HTTP_204_NO_CONTENT)

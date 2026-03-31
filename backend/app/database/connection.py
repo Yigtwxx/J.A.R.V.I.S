@@ -1,6 +1,8 @@
+from collections.abc import Generator
+
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
-from typing import Generator
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
+
 from app.config import get_settings
 from app.utils.logger import logger
 
@@ -24,7 +26,7 @@ def before_cursor_execute(conn, cursor, statement, parameters, context, executem
     stmt_str = str(statement)
     clean_stmt = stmt_str.replace('\n', ' ').strip()
     action = "READ" if "SELECT" in clean_stmt[:10].upper() else "WRITE" if any(x in clean_stmt[:10].upper() for x in ["INSERT", "UPDATE", "DELETE"]) else "AFFECT"
-    
+
     # Try to extract table name for a cooler log
     table = "UNKNOWN_NODE"
     words = clean_stmt.split()
@@ -32,7 +34,7 @@ def before_cursor_execute(conn, cursor, statement, parameters, context, executem
         if word.upper() in ["FROM", "INTO", "UPDATE"] and i + 1 < len(words):
             table = words[i+1].strip('"\'`[]')
             break
-            
+
     logger.log_db_query(f"{action}_MATRIX", table, clean_stmt[:60] + "..." if len(clean_stmt) > 60 else clean_stmt)
 
 # Create session factory

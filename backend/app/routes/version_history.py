@@ -1,16 +1,16 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
 
 from app.database import get_db
-from app.schemas.snapshot import SnapshotResponse, ChangeReport
+from app.schemas.snapshot import ChangeReport, SnapshotResponse
 from app.services import version_history_service
 from app.utils.logger import logger
 
 router = APIRouter(prefix="/api/version-history", tags=["Version History"])
 
 
-@router.get("/{query_name}", response_model=List[SnapshotResponse])
+@router.get("/{query_name}", response_model=list[SnapshotResponse])
 def get_snapshots(query_name: str, db: Session = Depends(get_db)):
     """Get all snapshots for a person, ordered oldest → newest."""
     try:
@@ -22,7 +22,7 @@ def get_snapshots(query_name: str, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.log_error(f"Error fetching snapshots for '{query_name}': {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch snapshots: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch snapshots: {str(e)}") from e
 
 
 @router.get("/{query_name}/report", response_model=ChangeReport)
@@ -37,4 +37,4 @@ def get_change_report(query_name: str, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.log_error(f"Error generating change report for '{query_name}': {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate change report: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate change report: {str(e)}") from e

@@ -1,17 +1,18 @@
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Application settings"""
-    
+
     # Database
     database_url: str = "sqlite:///./data/jarvis.db"
-    
+
     # Ollama
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5"
-    
+
     # Embedding & Vector Store
     embedding_model: str = "nomic-embed-text"
     chroma_db_path: str = "data/chroma_db"
@@ -30,13 +31,13 @@ class Settings(BaseSettings):
     # Rate Limiting (sliding window per IP)
     rate_limit_requests: int = 30      # max requests per window
     rate_limit_window_seconds: int = 60  # window size in seconds
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = False
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance"""
     return Settings()

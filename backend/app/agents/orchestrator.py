@@ -1,12 +1,14 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
-from typing import Any, Callable
-import asyncio
 
-from .base_agent          import AgentResult
-from .social_media_agent  import SocialMediaAgent
+import asyncio
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
+
+from .base_agent import AgentResult
 from .legal_records_agent import LegalRecordsAgent
-from .security_agent      import SecurityAgent
+from .security_agent import SecurityAgent
+from .social_media_agent import SocialMediaAgent
 
 
 @dataclass
