@@ -102,12 +102,12 @@ class SecurityAgent(BaseAgent):
             if gh_bio and len(gh_bio) > 10 and web_results:
                 web_lower = web_results.lower()
                 profession_clusters = [
-                    ({'developer', 'programmer', 'engineer', 'software', 'coding', 'github'},
-                     {'doctor', 'physician', 'medical', 'hospital', 'clinical', 'surgeon'}),
-                    ({'developer', 'programmer', 'engineer', 'software'},
-                     {'lawyer', 'attorney', 'legal', 'law firm', 'court'}),
-                    ({'student', 'öğrenci', 'university', 'üniversite', 'college'},
-                     {'ceo', 'founder', 'director', 'chairman', 'president', 'managing'}),
+                    (('developer', 'programmer', 'engineer', 'software', 'coding', 'github'),
+                     ('doctor', 'physician', 'medical', 'hospital', 'clinical', 'surgeon')),
+                    (('developer', 'programmer', 'engineer', 'software'),
+                     ('lawyer', 'attorney', 'legal', 'law firm', 'court')),
+                    (('student', 'öğrenci', 'university', 'üniversite', 'college'),
+                     ('ceo', 'founder', 'director', 'chairman', 'president', 'managing')),
                 ]
                 for cluster_a, cluster_b in profession_clusters:
                     bio_has_a = any(kw in gh_bio for kw in cluster_a)
