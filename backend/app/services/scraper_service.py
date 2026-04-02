@@ -956,7 +956,8 @@ class ScraperService:
         return profiles
 
     def _is_instagram_username_valid(self, username: str) -> bool:
-        """Instagram doesn't allow _is_url_active (login redirect). Validate format instead."""
+        """Check Instagram username format validity. Not used for profile discovery
+        (format-only validation creates false positives); retained as a utility helper."""
         return (
             3 <= len(username) <= 30
             and bool(re.match(r'^[a-zA-Z0-9._]+$', username))
@@ -965,29 +966,25 @@ class ScraperService:
 
     def find_profiles_by_username(self, username: str) -> dict[str, list]:
         """
-        Verify a username via format validation (Instagram) or HTTP check (verifiable platforms).
-        Blind URL construction is intentionally avoided for platforms that cannot be reliably
-        verified — those are discovered via search in Phase 1 and Phase 1.5 instead.
+        Verify a username via HTTP check on platforms that support it.
+
+        Non-verifiable platforms (Instagram, Twitter/X, TikTok, Snapchat) always
+        return empty — they cannot be HTTP-checked (login redirects, 403s, SPAs)
+        and format-only validation creates false positives.  These platforms are
+        discovered exclusively via search-based methods in Phase 1 and Phase 1.5.
+
         Returns dict matching find_all_profiles format.
         """
         results: dict[str, list] = {}
 
-        # Instagram: _is_url_active always fails (login redirect) — format validation only
-        ig_url = f"https://www.instagram.com/{username}/"
-        if self._is_instagram_username_valid(username):
-            results['instagram'] = [{"url": ig_url, "bio": ""}]
-            logger.log_success(f"Instagram username candidate accepted: @{username}")
-        else:
-            results['instagram'] = []
+        # Instagram: _is_url_active always fails (login redirect) and format-only
+        # validation creates false positives.  Rely on search-based discovery
+        # (Phase 1 / Phase 1.5) which returns real, indexed profile URLs.
+        results['instagram'] = []
 
-        # Twitter/X: always returns 403 for bots — format validation only
-        if (1 <= len(username) <= 15
-                and re.match(r'^[a-zA-Z0-9_]+$', username)
-                and username.lower() not in self.TWITTER_NON_PROFILE):
-            results['twitter'] = [{"url": f"https://x.com/{username}", "bio": ""}]
-            logger.log_success(f"Twitter/X username candidate accepted: @{username}")
-        else:
-            results['twitter'] = []
+        # Twitter/X: always returns 403 for bots, so HTTP verification is
+        # impossible.  Same rationale as Instagram — search-based discovery only.
+        results['twitter'] = []
 
         # HTTP-verified platforms: only accept if URL actually resolves to an existing profile.
         # Run verifications in parallel to minimise latency.
