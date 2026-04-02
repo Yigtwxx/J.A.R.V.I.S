@@ -648,7 +648,7 @@ class ScraperService:
     def find_pinterest_profile(self, name: str) -> list:
         """Try to find Pinterest profile URLs via Yahoo search"""
         pattern = r'pinterest\.com/([a-zA-Z0-9._-]+)'
-        excluded = {'pin', 'search', 'explore', 'ideas', 'today', 'business', 'about', 'settings', 'news_hub'}
+        excluded = {'pin', 'search', 'explore', 'ideas', 'today', 'business', 'about', 'settings', 'news_hub', 'login', 'signup'}
         valid_profiles = []
         for query in self._platform_queries(name, 'pinterest.com', 'pinterest'):
             items = self._search_all_engines(query, pattern)
@@ -1020,8 +1020,16 @@ class ScraperService:
         for platform in ['instagram', 'tiktok', 'twitter', 'youtube', 'reddit', 'snapchat', 'tumblr', 'linkedin', 'pinterest', 'medium', 'threads', 'steam']:
             items = profiles.get(platform, [])
             if items:
+                # Skip search fallback URLs — they don't contain real usernames
+                if items[0].get('bio') == '[SEARCH]':
+                    continue
                 url = items[0]['url'].rstrip('/')
-                candidate = url.split('/')[-1].lstrip('@').lower()
+                # Tumblr uses subdomains (username.tumblr.com), not path-based URLs
+                if platform == 'tumblr' and '.tumblr.com' in url:
+                    m = re.search(r'//([a-zA-Z0-9_-]+)\.tumblr\.com', url)
+                    candidate = m.group(1).lower() if m else ''
+                else:
+                    candidate = url.split('/')[-1].lstrip('@').lower()
                 if candidate and len(candidate) >= 3 and candidate not in seen_unames:
                     collected_usernames.append(candidate)
                     seen_unames.add(candidate)
