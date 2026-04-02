@@ -14,9 +14,12 @@ class ScraperService:
     """Service for scraping social media profiles"""
 
     _USER_AGENTS = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:126.0) Gecko/20100101 Firefox/126.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
     ]
 
     _CB_THRESHOLD = 3  # Skip a search engine after this many consecutive failures
@@ -30,6 +33,7 @@ class ScraperService:
             'Accept-Language': 'en-US,en;q=0.9',
         })
         # Circuit breaker counters — skip engines after consecutive failures
+        self._google_fails = 0
         self._yahoo_fails = 0
         self._ddg_fails = 0
         self._bing_fails = 0
@@ -71,20 +75,116 @@ class ScraperService:
             return False
 
     def _rotate_user_agent(self):
-        """Rotate User-Agent to reduce blocking."""
+        """Rotate User-Agent and set realistic browser headers to reduce blocking."""
         self._ua_index = (self._ua_index + 1) % len(self._USER_AGENTS)
-        self.session.headers['User-Agent'] = self._USER_AGENTS[self._ua_index]
+        ua = self._USER_AGENTS[self._ua_index]
+        is_firefox = 'Firefox' in ua
+        self.session.headers.update({
+            'User-Agent': ua,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' if is_firefox else 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Upgrade-Insecure-Requests': '1',
+        })
+        if not is_firefox:
+            self.session.headers.update({
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+            })
+        else:
+            for key in ('Sec-Fetch-Dest', 'Sec-Fetch-Mode', 'Sec-Fetch-Site', 'Sec-Fetch-User'):
+                self.session.headers.pop(key, None)
 
     def _all_engines_broken(self) -> bool:
         """True when every search engine has tripped its circuit breaker."""
-        return (self._yahoo_fails >= self._CB_THRESHOLD
+        return (self._google_fails >= self._CB_THRESHOLD
+                and self._yahoo_fails >= self._CB_THRESHOLD
                 and self._ddg_fails >= self._CB_THRESHOLD
                 and self._bing_fails >= self._CB_THRESHOLD)
+
+    def _extract_urls_from_google(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
+        """Search via Google HTML results."""
+        try:
+            self._rotate_user_agent()
+            self.session.headers['Referer'] = 'https://www.google.com/'
+            search_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}&num=10&hl=en"
+            response = self.session.get(search_url, timeout=15)
+
+            if response.status_code != 200:
+                self._google_fails += 1
+                logger.log_warning(f"Google returned status {response.status_code}")
+                return []
+
+            # Detect consent/captcha page
+            if 'consent.google.com' in response.url or 'sorry/index' in response.url:
+                self._google_fails += 1
+                logger.log_warning("Google consent/captcha page detected")
+                return []
+
+            self._google_fails = 0
+            soup = BeautifulSoup(response.text, 'html.parser')
+            results = []
+
+            # Primary: <div class="g"> containers
+            for item in soup.find_all('div', class_='g'):
+                link = item.find('a', href=True)
+                if not link:
+                    continue
+                href = link.get('href', '')
+                # Google sometimes wraps URLs in /url?q= redirects
+                if href.startswith('/url?q='):
+                    try:
+                        href = urllib.parse.unquote(href.split('/url?q=')[1].split('&')[0])
+                    except IndexError:
+                        continue
+                if href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
+                    if not any(r['url'] == href for r in results):
+                        snippet = ""
+                        # Try multiple known snippet selectors
+                        snippet_elem = (item.find('div', class_='VwiC3b')
+                                        or item.find('span', class_='aCOpRe')
+                                        or item.find('div', attrs={'style': lambda s: s and '-webkit-line-clamp' in str(s)}))
+                        if snippet_elem:
+                            snippet = snippet_elem.get_text(strip=True)[:200]
+                        results.append({"url": href, "bio": snippet})
+                if len(results) >= max_results:
+                    break
+
+            # Fallback: scan all <a> tags
+            if not results:
+                for link in soup.find_all('a', href=True):
+                    href = link.get('href', '')
+                    if href.startswith('/url?q='):
+                        try:
+                            href = urllib.parse.unquote(href.split('/url?q=')[1].split('&')[0])
+                        except IndexError:
+                            continue
+                    if (href.startswith('http')
+                            and re.search(domain_pattern, href, re.IGNORECASE)
+                            and 'google.com' not in href
+                            and 'googleapis.com' not in href
+                            and not any(r['url'] == href for r in results)):
+                        results.append({"url": href, "bio": ""})
+                    if len(results) >= max_results:
+                        break
+
+            if results:
+                logger.log_success(f"Google found {len(results)} result(s) for: {query}")
+            return results
+
+        except Exception as e:
+            self._google_fails += 1
+            logger.log_error(f"Google search failed for {query}: {e}")
+            return []
 
     def _extract_urls_from_duckduckgo(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
         """Fallback search via DuckDuckGo HTML when Yahoo fails."""
         try:
             self._rotate_user_agent()
+            self.session.headers['Referer'] = 'https://duckduckgo.com/'
             search_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
             response = self.session.get(search_url, timeout=15)
 
@@ -147,6 +247,7 @@ class ScraperService:
         """Third fallback search via Bing when Yahoo and DuckDuckGo both fail."""
         try:
             self._rotate_user_agent()
+            self.session.headers['Referer'] = 'https://www.bing.com/'
             search_url = f"https://www.bing.com/search?q={urllib.parse.quote(query)}"
             response = self.session.get(search_url, timeout=15)
 
@@ -196,105 +297,120 @@ class ScraperService:
             logger.log_error(f"Bing fallback failed for {query}: {e}")
             return []
 
-    def _extract_urls_from_yahoo(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
-        """Search Yahoo → DuckDuckGo → Bing with circuit-breaker.
+    def _search_all_engines(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
+        """Search Google → Bing → DuckDuckGo → Yahoo with circuit-breaker.
         Engines that have failed consecutively are skipped automatically."""
+        logger.log_action("Scanning global networks for targeted node", target=query)
         results: list = []
 
-        # --- Yahoo --------------------------------------------------------
-        if self._yahoo_fails < self._CB_THRESHOLD:
-            try:
-                self._rotate_user_agent()
-                logger.log_action("Scanning global networks for targeted node", target=query)
-                search_url = f"https://search.yahoo.com/search?p={urllib.parse.quote(query)}"
-
-                response = self.session.get(search_url, timeout=15)
-
-                if response.status_code != 200:
-                    self._yahoo_fails += 1
-                    logger.log_warning(f"Yahoo returned status {response.status_code} for query: {query}")
-                    # fall through to DDG/Bing below
-                else:
-                    self._yahoo_fails = 0
-                    soup = BeautifulSoup(response.text, 'html.parser')
-
-                    # Attempt 1: Primary selector
-                    items = soup.find_all('div', class_='algo')
-
-                    # Attempt 2: Class contains 'algo'
-                    if not items:
-                        items = soup.find_all('div', class_=lambda c: c and 'algo' in c)
-
-                    # Attempt 3: Any result-like container with data-bk attribute
-                    if not items:
-                        items = soup.find_all(['li', 'div'], attrs={'data-bk': True})
-
-                    # Attempt 4: Search result containers (Sr class)
-                    if not items:
-                        items = soup.find_all('div', class_=lambda c: c and ('Sr' in c or 'dd' in c or 'searchCenterMiddle' in c))
-
-                    if items:
-                        for item in items:
-                            link_elem = item.find('a', href=True)
-                            snippet_elem = item.find('div', class_='compTitle')
-
-                            if not link_elem:
-                                continue
-
-                            href = link_elem.get('href', '')
-                            try:
-                                actual_url = None
-                                if 'RU=' in href:
-                                    actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
-                                elif href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
-                                    actual_url = href
-
-                                if actual_url and re.search(domain_pattern, actual_url, re.IGNORECASE):
-                                    if not any(r['url'] == actual_url for r in results):
-                                        snippet = ""
-                                        sibling = snippet_elem.find_next_sibling('div') if snippet_elem else None
-                                        if sibling:
-                                            snippet = sibling.text.strip()
-                                        results.append({"url": actual_url, "bio": snippet})
-                                    if len(results) >= max_results:
-                                        break
-                            except IndexError:
-                                pass
-
-                    # Fallback: Extract ALL <a> tags and filter by domain pattern
-                    if not results:
-                        all_links = soup.find_all('a', href=True)
-                        for link in all_links:
-                            href = link.get('href', '')
-                            actual_url = None
-                            if 'RU=' in href:
-                                with contextlib.suppress(IndexError):
-                                    actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
-                            elif href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
-                                actual_url = href
-
-                            if actual_url and re.search(domain_pattern, actual_url, re.IGNORECASE):
-                                if not any(r['url'] == actual_url for r in results):
-                                    results.append({"url": actual_url, "bio": ""})
-                                if len(results) >= max_results:
-                                    break
-
-            except Exception as e:
-                self._yahoo_fails += 1
-                logger.log_error(f"Network scan failed during {query} extraction: {e}")
-
-        # --- DuckDuckGo fallback ------------------------------------------
-        if not results and self._ddg_fails < self._CB_THRESHOLD:
-            results = self._extract_urls_from_duckduckgo(query, domain_pattern, max_results)
+        # --- Google (primary) ---------------------------------------------
+        if not results and self._google_fails < self._CB_THRESHOLD:
+            results = self._extract_urls_from_google(query, domain_pattern, max_results)
 
         # --- Bing fallback ------------------------------------------------
         if not results and self._bing_fails < self._CB_THRESHOLD:
             results = self._extract_urls_from_bing(query, domain_pattern, max_results)
 
+        # --- DuckDuckGo fallback ------------------------------------------
+        if not results and self._ddg_fails < self._CB_THRESHOLD:
+            results = self._extract_urls_from_duckduckgo(query, domain_pattern, max_results)
+
+        # --- Yahoo fallback -----------------------------------------------
+        if not results and self._yahoo_fails < self._CB_THRESHOLD:
+            results = self._extract_urls_from_yahoo(query, domain_pattern, max_results)
+
         if results:
             logger.log_success(f"Search found {len(results)} result(s) for: {query}")
 
         return results
+
+    def _extract_urls_from_yahoo(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
+        """Search via Yahoo HTML results."""
+        try:
+            self._rotate_user_agent()
+            self.session.headers['Referer'] = 'https://search.yahoo.com/'
+            search_url = f"https://search.yahoo.com/search?p={urllib.parse.quote(query)}"
+
+            response = self.session.get(search_url, timeout=15)
+
+            if response.status_code != 200:
+                self._yahoo_fails += 1
+                logger.log_warning(f"Yahoo returned status {response.status_code} for query: {query}")
+                return []
+
+            self._yahoo_fails = 0
+            soup = BeautifulSoup(response.text, 'html.parser')
+            results = []
+
+            # Attempt 1: Primary selector
+            items = soup.find_all('div', class_='algo')
+
+            # Attempt 2: Class contains 'algo'
+            if not items:
+                items = soup.find_all('div', class_=lambda c: c and 'algo' in c)
+
+            # Attempt 3: Any result-like container with data-bk attribute
+            if not items:
+                items = soup.find_all(['li', 'div'], attrs={'data-bk': True})
+
+            # Attempt 4: Search result containers (Sr class)
+            if not items:
+                items = soup.find_all('div', class_=lambda c: c and ('Sr' in c or 'dd' in c or 'searchCenterMiddle' in c))
+
+            if items:
+                for item in items:
+                    link_elem = item.find('a', href=True)
+                    snippet_elem = item.find('div', class_='compTitle')
+
+                    if not link_elem:
+                        continue
+
+                    href = link_elem.get('href', '')
+                    try:
+                        actual_url = None
+                        if 'RU=' in href:
+                            actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
+                        elif href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
+                            actual_url = href
+
+                        if actual_url and re.search(domain_pattern, actual_url, re.IGNORECASE):
+                            if not any(r['url'] == actual_url for r in results):
+                                snippet = ""
+                                sibling = snippet_elem.find_next_sibling('div') if snippet_elem else None
+                                if sibling:
+                                    snippet = sibling.text.strip()
+                                results.append({"url": actual_url, "bio": snippet})
+                            if len(results) >= max_results:
+                                break
+                    except IndexError:
+                        pass
+
+            # Fallback: Extract ALL <a> tags and filter by domain pattern
+            if not results:
+                all_links = soup.find_all('a', href=True)
+                for link in all_links:
+                    href = link.get('href', '')
+                    actual_url = None
+                    if 'RU=' in href:
+                        with contextlib.suppress(IndexError):
+                            actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
+                    elif href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
+                        actual_url = href
+
+                    if actual_url and re.search(domain_pattern, actual_url, re.IGNORECASE):
+                        if not any(r['url'] == actual_url for r in results):
+                            results.append({"url": actual_url, "bio": ""})
+                        if len(results) >= max_results:
+                            break
+
+            if results:
+                logger.log_success(f"Yahoo found {len(results)} result(s) for: {query}")
+            return results
+
+        except Exception as e:
+            self._yahoo_fails += 1
+            logger.log_error(f"Yahoo search failed for {query}: {e}")
+            return []
 
     INSTAGRAM_RESERVED_PATHS = {
         'p', 'reel', 'reels', 'explore', 'tags', 'accounts',
@@ -340,7 +456,7 @@ class ScraperService:
         pattern = r'instagram\.com/([a-zA-Z0-9._]+)'
         valid_profiles = []
         for query in self._platform_queries(name, 'instagram.com', 'instagram'):
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(pattern, url)
@@ -366,7 +482,7 @@ class ScraperService:
         pattern = r'(twitter|x)\.com/([a-zA-Z0-9_]+)'
         valid_profiles = []
         for query in self._platform_queries(name, 'x.com', 'twitter'):
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(pattern, url)
@@ -386,7 +502,7 @@ class ScraperService:
         pattern = r'linkedin\.com/in/([a-zA-Z0-9-]+)'
         valid_profiles = []
         for query in self._platform_queries(name, 'linkedin.com/in', 'linkedin'):
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(pattern, url)
@@ -401,7 +517,7 @@ class ScraperService:
     def find_spotify_profile(self, name: str) -> list:
         """Try to find Spotify profile URLs and bios"""
         query = f'"{name}" spotify'
-        items = self._extract_urls_from_yahoo(query, r'open\.spotify\.com/(user|artist)/([a-zA-Z0-9._-]+)')
+        items = self._search_all_engines(query, r'open\.spotify\.com/(user|artist)/([a-zA-Z0-9._-]+)')
         valid_profiles = []
         for item in items:
             url = item['url']
@@ -417,7 +533,7 @@ class ScraperService:
         pattern = r'tiktok\.com/@([a-zA-Z0-9._-]+)'
         valid_profiles = []
         for query in self._platform_queries(name, 'tiktok.com', 'tiktok'):
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(pattern, url)
@@ -434,7 +550,7 @@ class ScraperService:
         pattern = r'snapchat\.com/add/([a-zA-Z0-9._-]+)'
         valid_profiles = []
         for query in self._platform_queries(name, 'snapchat.com/add', 'snapchat'):
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(pattern, url)
@@ -456,7 +572,7 @@ class ScraperService:
         if is_username:
             queries.insert(0, f'"{name.strip()}.tumblr.com"')
         for query in queries:
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(pattern, url)
@@ -475,7 +591,7 @@ class ScraperService:
         pattern = r'youtube\.com/(?:@|c/|user/)([a-zA-Z0-9._-]+)'
         valid_profiles = []
         for query in self._platform_queries(name, 'youtube.com', 'youtube channel'):
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(r'youtube\.com/(@[a-zA-Z0-9._-]+|c/[a-zA-Z0-9._-]+|user/[a-zA-Z0-9._-]+)', url)
@@ -494,7 +610,7 @@ class ScraperService:
         excluded = {'search', 'submit', 'login', 'register', 'wiki'}
         valid_profiles = []
         for query in self._platform_queries(name, 'reddit.com/user', 'reddit'):
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(pattern, url)
@@ -515,7 +631,7 @@ class ScraperService:
                     'dialog', 'permalink', 'photo', 'video', 'story', 'plugins', 'ads'}
         valid_profiles = []
         for query in self._platform_queries(name, 'facebook.com', 'facebook profile'):
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(pattern, url)
@@ -535,7 +651,7 @@ class ScraperService:
         excluded = {'pin', 'search', 'explore', 'ideas', 'today', 'business', 'about', 'settings', 'news_hub'}
         valid_profiles = []
         for query in self._platform_queries(name, 'pinterest.com', 'pinterest'):
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(pattern, url)
@@ -555,7 +671,7 @@ class ScraperService:
         excluded = {'about', 'policy', 'creators', 'membership', 'topics', 'tag', 'search'}
         valid_profiles = []
         for query in self._platform_queries(name, 'medium.com', 'medium'):
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(pattern, url)
@@ -574,7 +690,7 @@ class ScraperService:
         pattern = r'threads\.net/@([a-zA-Z0-9._]+)'
         valid_profiles = []
         for query in self._platform_queries(name, 'threads.net', 'threads'):
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(pattern, url)
@@ -591,7 +707,7 @@ class ScraperService:
         pattern = r'steamcommunity\.com/id/([a-zA-Z0-9._-]+)'
         valid_profiles = []
         for query in self._platform_queries(name, 'steamcommunity.com/id', 'steam'):
-            items = self._extract_urls_from_yahoo(query, pattern)
+            items = self._search_all_engines(query, pattern)
             for item in items:
                 url = item['url']
                 match = re.search(pattern, url)
@@ -606,7 +722,7 @@ class ScraperService:
     def find_discord_mention(self, name: str) -> list:
         """Search for Discord mentions — profiles are private, only detect references"""
         query = f'"{name}" discord server OR profile'
-        items = self._extract_urls_from_yahoo(query, r'discord', max_results=2)
+        items = self._search_all_engines(query, r'discord', max_results=2)
         mentions = []
         for item in items:
             snippet = item.get('bio', '').strip()
@@ -617,7 +733,7 @@ class ScraperService:
     def find_tinder_mention(self, name: str) -> list:
         """Search for Tinder mentions — profiles are private, only detect references"""
         query = f'"{name}" tinder profile'
-        items = self._extract_urls_from_yahoo(query, r'tinder', max_results=2)
+        items = self._search_all_engines(query, r'tinder', max_results=2)
         mentions = []
         for item in items:
             snippet = item.get('bio', '').strip()
@@ -628,7 +744,7 @@ class ScraperService:
     def find_bumble_mention(self, name: str) -> list:
         """Search for Bumble mentions — profiles are private, only detect references"""
         query = f'"{name}" bumble profile'
-        items = self._extract_urls_from_yahoo(query, r'bumble', max_results=2)
+        items = self._search_all_engines(query, r'bumble', max_results=2)
         mentions = []
         for item in items:
             snippet = item.get('bio', '').strip()
@@ -973,7 +1089,35 @@ class ScraperService:
                         except Exception as e:
                             logger.log_warning(f"Fallback {platform} search failed: {e}")
 
+        # Inject platform search URLs for platforms that returned no results
+        search_urls = self._platform_search_urls(name)
+        for platform, search_url in search_urls.items():
+            if not profiles.get(platform):
+                profiles[platform] = [{"url": search_url, "bio": "[SEARCH]"}]
+                logger.log_action(f"Search fallback injected for {platform}")
+
         return profiles
+
+    @staticmethod
+    def _platform_search_urls(name: str) -> dict[str, str]:
+        """Generate platform-specific search URLs for a given name."""
+        encoded = urllib.parse.quote(name)
+        return {
+            'instagram':  f"https://www.google.com/search?q=site:instagram.com+{encoded}",
+            'twitter':    f"https://x.com/search?q={encoded}&f=user",
+            'linkedin':   f"https://www.linkedin.com/search/results/people/?keywords={encoded}",
+            'spotify':    f"https://open.spotify.com/search/{encoded}",
+            'tiktok':     f"https://www.tiktok.com/search/user?q={encoded}",
+            'snapchat':   f"https://www.snapchat.com/add/{encoded}",
+            'tumblr':     f"https://www.tumblr.com/search/{encoded}",
+            'youtube':    f"https://www.youtube.com/results?search_query={encoded}",
+            'reddit':     f"https://www.reddit.com/search/?q={encoded}&type=user",
+            'facebook':   f"https://www.facebook.com/search/people/?q={encoded}",
+            'pinterest':  f"https://www.pinterest.com/search/users/?q={encoded}",
+            'medium':     f"https://medium.com/search?q={encoded}",
+            'threads':    f"https://www.threads.net/search?q={encoded}&serp_type=default",
+            'steam':      f"https://steamcommunity.com/search/users/#text={encoded}",
+        }
 
     def _is_instagram_username_valid(self, username: str) -> bool:
         """Check Instagram username format validity. Not used for profile discovery
