@@ -227,19 +227,19 @@ export default function ChatInterface() {
                 const encoded = encodeURIComponent(searchName);
                 const searchUrls: Record<string, string> = {
                     'GitHub': `https://github.com/search?q=${encoded}&type=users`,
-                    'Instagram': `https://www.instagram.com/explore/search/keyword/?q=${encoded}`,
+                    'Instagram': `https://www.google.com/search?q=site:instagram.com+${encoded}`,
                     'X (Twitter)': `https://x.com/search?q=${encoded}&f=user`,
                     'LinkedIn': `https://www.linkedin.com/search/results/people/?keywords=${encoded}`,
-                    'Spotify': `https://open.spotify.com/search/${encoded}/profiles`,
+                    'Spotify': `https://open.spotify.com/search/${encoded}`,
                     'TikTok': `https://www.tiktok.com/search/user?q=${encoded}`,
-                    'Snapchat': `https://www.snapchat.com/explore/${encoded}`,
+                    'Snapchat': `https://www.snapchat.com/add/${encoded}`,
                     'Tumblr': `https://www.tumblr.com/search/${encoded}`,
                     'YouTube': `https://www.youtube.com/results?search_query=${encoded}`,
                     'Reddit': `https://www.reddit.com/search/?q=${encoded}&type=user`,
                     'Facebook': `https://www.facebook.com/search/people/?q=${encoded}`,
                     'Pinterest': `https://www.pinterest.com/search/users/?q=${encoded}`,
                     'Medium': `https://medium.com/search?q=${encoded}`,
-                    'Threads': `https://www.threads.net/search?q=${encoded}&filter=people`,
+                    'Threads': `https://www.threads.net/search?q=${encoded}&serp_type=default`,
                     'Steam': `https://steamcommunity.com/search/users/#text=${encoded}`,
                 };
 
