@@ -19,6 +19,8 @@ class ScraperService:
         'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     ]
 
+    _CB_THRESHOLD = 3  # Skip a search engine after this many consecutive failures
+
     def __init__(self):
         self.session = requests.Session()
         self._ua_index = 0
@@ -27,6 +29,10 @@ class ScraperService:
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
         })
+        # Circuit breaker counters — skip engines after consecutive failures
+        self._yahoo_fails = 0
+        self._ddg_fails = 0
+        self._bing_fails = 0
 
     def _is_url_active(self, url: str) -> bool:
         """Check if a URL is active (returns 200 OK and isn't a known error/login page)"""
@@ -69,6 +75,12 @@ class ScraperService:
         self._ua_index = (self._ua_index + 1) % len(self._USER_AGENTS)
         self.session.headers['User-Agent'] = self._USER_AGENTS[self._ua_index]
 
+    def _all_engines_broken(self) -> bool:
+        """True when every search engine has tripped its circuit breaker."""
+        return (self._yahoo_fails >= self._CB_THRESHOLD
+                and self._ddg_fails >= self._CB_THRESHOLD
+                and self._bing_fails >= self._CB_THRESHOLD)
+
     def _extract_urls_from_duckduckgo(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
         """Fallback search via DuckDuckGo HTML when Yahoo fails."""
         try:
@@ -77,9 +89,11 @@ class ScraperService:
             response = self.session.get(search_url, timeout=15)
 
             if response.status_code != 200:
+                self._ddg_fails += 1
                 logger.log_warning(f"DuckDuckGo returned status {response.status_code}")
                 return []
 
+            self._ddg_fails = 0
             soup = BeautifulSoup(response.text, 'html.parser')
             results = []
 
@@ -125,6 +139,7 @@ class ScraperService:
             return results
 
         except Exception as e:
+            self._ddg_fails += 1
             logger.log_error(f"DuckDuckGo fallback failed for {query}: {e}")
             return []
 
@@ -136,9 +151,11 @@ class ScraperService:
             response = self.session.get(search_url, timeout=15)
 
             if response.status_code != 200:
+                self._bing_fails += 1
                 logger.log_warning(f"Bing returned status {response.status_code}")
                 return []
 
+            self._bing_fails = 0
             soup = BeautifulSoup(response.text, 'html.parser')
             results = []
 
@@ -175,106 +192,109 @@ class ScraperService:
             return results
 
         except Exception as e:
+            self._bing_fails += 1
             logger.log_error(f"Bing fallback failed for {query}: {e}")
             return []
 
     def _extract_urls_from_yahoo(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
-        """Helper to search Yahoo and extract domain URLs with snippets/bios.
-        Falls back to DuckDuckGo if Yahoo returns no results."""
-        results = []
-        try:
-            self._rotate_user_agent()
-            logger.log_action("Scanning global networks for targeted node", target=query)
-            search_url = f"https://search.yahoo.com/search?p={urllib.parse.quote(query)}"
+        """Search Yahoo → DuckDuckGo → Bing with circuit-breaker.
+        Engines that have failed consecutively are skipped automatically."""
+        results: list = []
 
-            response = self.session.get(search_url, timeout=15)
+        # --- Yahoo --------------------------------------------------------
+        if self._yahoo_fails < self._CB_THRESHOLD:
+            try:
+                self._rotate_user_agent()
+                logger.log_action("Scanning global networks for targeted node", target=query)
+                search_url = f"https://search.yahoo.com/search?p={urllib.parse.quote(query)}"
 
-            if response.status_code != 200:
-                logger.log_warning(f"Yahoo returned status {response.status_code} for query: {query}")
-                return self._extract_urls_from_duckduckgo(query, domain_pattern, max_results)
+                response = self.session.get(search_url, timeout=15)
 
-            soup = BeautifulSoup(response.text, 'html.parser')
+                if response.status_code != 200:
+                    self._yahoo_fails += 1
+                    logger.log_warning(f"Yahoo returned status {response.status_code} for query: {query}")
+                    # fall through to DDG/Bing below
+                else:
+                    self._yahoo_fails = 0
+                    soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Attempt 1: Primary selector
-            items = soup.find_all('div', class_='algo')
+                    # Attempt 1: Primary selector
+                    items = soup.find_all('div', class_='algo')
 
-            # Attempt 2: Class contains 'algo'
-            if not items:
-                items = soup.find_all('div', class_=lambda c: c and 'algo' in c)
+                    # Attempt 2: Class contains 'algo'
+                    if not items:
+                        items = soup.find_all('div', class_=lambda c: c and 'algo' in c)
 
-            # Attempt 3: Any result-like container with data-bk attribute
-            if not items:
-                items = soup.find_all(['li', 'div'], attrs={'data-bk': True})
+                    # Attempt 3: Any result-like container with data-bk attribute
+                    if not items:
+                        items = soup.find_all(['li', 'div'], attrs={'data-bk': True})
 
-            # Attempt 4: Search result containers (Sr class)
-            if not items:
-                items = soup.find_all('div', class_=lambda c: c and ('Sr' in c or 'dd' in c or 'searchCenterMiddle' in c))
+                    # Attempt 4: Search result containers (Sr class)
+                    if not items:
+                        items = soup.find_all('div', class_=lambda c: c and ('Sr' in c or 'dd' in c or 'searchCenterMiddle' in c))
 
-            if items:
-                for item in items:
-                    link_elem = item.find('a', href=True)
-                    snippet_elem = item.find('div', class_='compTitle')
+                    if items:
+                        for item in items:
+                            link_elem = item.find('a', href=True)
+                            snippet_elem = item.find('div', class_='compTitle')
 
-                    if not link_elem:
-                        continue
+                            if not link_elem:
+                                continue
 
-                    href = link_elem.get('href', '')
-                    try:
-                        actual_url = None
-                        if 'RU=' in href:
-                            actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
-                        elif href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
-                            actual_url = href
+                            href = link_elem.get('href', '')
+                            try:
+                                actual_url = None
+                                if 'RU=' in href:
+                                    actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
+                                elif href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
+                                    actual_url = href
 
-                        if actual_url and re.search(domain_pattern, actual_url, re.IGNORECASE):
-                            if not any(r['url'] == actual_url for r in results):
-                                snippet = ""
-                                sibling = snippet_elem.find_next_sibling('div') if snippet_elem else None
-                                if sibling:
-                                    snippet = sibling.text.strip()
-                                results.append({"url": actual_url, "bio": snippet})
-                            if len(results) >= max_results:
-                                break
-                    except IndexError:
-                        pass
+                                if actual_url and re.search(domain_pattern, actual_url, re.IGNORECASE):
+                                    if not any(r['url'] == actual_url for r in results):
+                                        snippet = ""
+                                        sibling = snippet_elem.find_next_sibling('div') if snippet_elem else None
+                                        if sibling:
+                                            snippet = sibling.text.strip()
+                                        results.append({"url": actual_url, "bio": snippet})
+                                    if len(results) >= max_results:
+                                        break
+                            except IndexError:
+                                pass
 
-            # Fallback: Extract ALL <a> tags and filter by domain pattern
-            if not results:
-                all_links = soup.find_all('a', href=True)
-                for link in all_links:
-                    href = link.get('href', '')
-                    actual_url = None
-                    if 'RU=' in href:
-                        with contextlib.suppress(IndexError):
-                            actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
-                    elif href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
-                        actual_url = href
+                    # Fallback: Extract ALL <a> tags and filter by domain pattern
+                    if not results:
+                        all_links = soup.find_all('a', href=True)
+                        for link in all_links:
+                            href = link.get('href', '')
+                            actual_url = None
+                            if 'RU=' in href:
+                                with contextlib.suppress(IndexError):
+                                    actual_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
+                            elif href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
+                                actual_url = href
 
-                    if actual_url and re.search(domain_pattern, actual_url, re.IGNORECASE):
-                        if not any(r['url'] == actual_url for r in results):
-                            results.append({"url": actual_url, "bio": ""})
-                        if len(results) >= max_results:
-                            break
+                            if actual_url and re.search(domain_pattern, actual_url, re.IGNORECASE):
+                                if not any(r['url'] == actual_url for r in results):
+                                    results.append({"url": actual_url, "bio": ""})
+                                if len(results) >= max_results:
+                                    break
 
-            # If Yahoo found nothing, try DuckDuckGo → Bing
-            if not results:
-                logger.log_warning(f"Yahoo returned 0 results for: {query} — trying DuckDuckGo fallback")
-                results = self._extract_urls_from_duckduckgo(query, domain_pattern, max_results)
-            if not results:
-                logger.log_warning("DuckDuckGo also returned 0 — trying Bing fallback")
-                results = self._extract_urls_from_bing(query, domain_pattern, max_results)
-            if results:
-                logger.log_success(f"Search found {len(results)} result(s) for: {query}")
+            except Exception as e:
+                self._yahoo_fails += 1
+                logger.log_error(f"Network scan failed during {query} extraction: {e}")
 
-            return results
-
-        except Exception as e:
-            logger.log_error(f"Network scan failed during {query} extraction: {e}")
-            # Try DuckDuckGo → Bing as last resort
+        # --- DuckDuckGo fallback ------------------------------------------
+        if not results and self._ddg_fails < self._CB_THRESHOLD:
             results = self._extract_urls_from_duckduckgo(query, domain_pattern, max_results)
-            if not results:
-                results = self._extract_urls_from_bing(query, domain_pattern, max_results)
-            return results
+
+        # --- Bing fallback ------------------------------------------------
+        if not results and self._bing_fails < self._CB_THRESHOLD:
+            results = self._extract_urls_from_bing(query, domain_pattern, max_results)
+
+        if results:
+            logger.log_success(f"Search found {len(results)} result(s) for: {query}")
+
+        return results
 
     INSTAGRAM_RESERVED_PATHS = {
         'p', 'reel', 'reels', 'explore', 'tags', 'accounts',
@@ -843,7 +863,7 @@ class ScraperService:
         # This runs BEFORE the standard username cross-check so that discovered usernames
         # feed into Phase 2 collection below.
         SEARCH_PLATFORMS = ('instagram', 'twitter', 'tiktok', 'youtube', 'reddit', 'linkedin', 'threads', 'medium', 'snapchat', 'tumblr', 'pinterest', 'steam')
-        if not input_is_username:
+        if not input_is_username and not self._all_engines_broken():
             name_unames = self.generate_name_username_variations(name)
             logger.log_action(f"Generated {len(name_unames)} name-based username candidate(s)")
             for uname in name_unames[:8]:
@@ -917,7 +937,7 @@ class ScraperService:
                     logger.log_success(f"{platform.capitalize()} cross-matched via username @{uname}")
 
         # Variation checks — only for platforms still without results
-        if all_variations:
+        if all_variations and not self._all_engines_broken():
             logger.log_action(f"Scanning {len(all_variations)} username variation(s) across uncovered platforms")
             for var in all_variations:
                 empty = [p for p in ('instagram','tiktok','twitter','youtube','reddit','snapchat','tumblr','linkedin','pinterest','medium','threads','steam')
@@ -936,7 +956,7 @@ class ScraperService:
         # Last resort: if still nothing found for a real name, search key platforms
         # using the simple ASCII-stripped username — via search functions (NOT blind URL build)
         found_count = sum(1 for v in profiles.values() if v)
-        if found_count == 0 and not input_is_username:
+        if found_count == 0 and not input_is_username and not self._all_engines_broken():
             fallback_username = re.sub(r'[^a-zA-Z0-9]', '', name.strip().lower())
             if len(fallback_username) >= 3:
                 logger.log_action(f"Last resort search for @{fallback_username}")
