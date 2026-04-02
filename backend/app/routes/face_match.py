@@ -33,7 +33,7 @@ async def compare_faces(request: CompareRequest):
         if len(labeled_images) < 2:
             raise HTTPException(status_code=400, detail="At least 2 valid image URLs are required")
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         report = await loop.run_in_executor(None, face_service.analyze_all_images, labeled_images)
 
         if report is None:
