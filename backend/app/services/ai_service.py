@@ -20,6 +20,11 @@ class AIService:
         self.model = settings.ollama_model
         self.client = ollama.AsyncClient()
 
+    @staticmethod
+    def _strip_thinking(text: str) -> str:
+        """Remove Qwen3 <think>...</think> blocks from output."""
+        return re.sub(r"<think>[\s\S]*?</think>", "", text).strip()
+
     async def generate_response(self, prompt: str, context: dict[str, Any] = None) -> str:
         """
         Generate AI response using Ollama
@@ -44,18 +49,27 @@ class AIService:
             )
 
             full_response = ""
+            in_thinking = False
             logger.stream_start()  # Signal frontend: AI tokens incoming
             try:
                 async for chunk in stream:
                     token = chunk.get('response', '')
                     if token:
                         full_response += token
-                        logger.stream_token(token)
+                        # Filter out Qwen3 <think>...</think> blocks from stream
+                        if "<think>" in token:
+                            in_thinking = True
+                        if not in_thinking:
+                            logger.stream_token(token)
+                        if "</think>" in token:
+                            in_thinking = False
             except Exception as stream_err:
                 logger.log_error(f"Stream interrupted: {str(stream_err)}")
             finally:
                 logger.stream_end()  # Signal frontend: AI stream finished
 
+            # Clean any thinking blocks from the final response
+            full_response = self._strip_thinking(full_response)
             logger.log_success("Model response synthesized.")
             return full_response
 
@@ -148,7 +162,7 @@ Return ONLY valid JSON, no other text."""
                 }
             )
 
-            response_text = response['response'].strip()
+            response_text = self._strip_thinking(response['response'])
 
             # Find JSON in response
             start_idx = response_text.find('{')
@@ -295,10 +309,17 @@ CRITICAL RULES:
                 }
             )
 
+            in_thinking = False
             async for chunk in response:
                 if 'message' in chunk and 'content' in chunk['message']:
-                    # Yield raw tokens for SSE reading
-                    yield chunk['message']['content']
+                    token = chunk['message']['content']
+                    # Filter out Qwen3 <think>...</think> blocks
+                    if "<think>" in token:
+                        in_thinking = True
+                    if not in_thinking:
+                        yield token
+                    if "</think>" in token:
+                        in_thinking = False
 
         except Exception as e:
             logger.log_error(f"Chatbot neural link failed: {e}")
@@ -353,7 +374,7 @@ TEXT TO ANALYZE:
                 }
             )
 
-            response_text = response['response'].strip()
+            response_text = self._strip_thinking(response['response'])
 
             # Extract JSON
             start_idx = response_text.find('{')
