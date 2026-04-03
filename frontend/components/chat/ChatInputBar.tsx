@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Send, Loader2, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import React from 'react';
+import { Send, Loader2 } from 'lucide-react';
 import { searchPerson, getSearchHistory } from '@/services/api';
 import { Message } from '@/types/profile';
 import { useChatStore } from '@/store/chatStore';
@@ -12,47 +11,11 @@ const ChatInputBar = () => {
     const setInput = useChatStore(state => state.setInput);
     const isLoading = useChatStore(state => state.isLoading);
     const setIsLoading = useChatStore(state => state.setIsLoading);
-    const isListening = useChatStore(state => state.isListening);
-    const setIsListening = useChatStore(state => state.setIsListening);
-    const voiceEnabled = useChatStore(state => state.voiceEnabled);
-    const setVoiceEnabled = useChatStore(state => state.setVoiceEnabled);
     const setMessages = useChatStore(state => state.setMessages);
     const setRagMessages = useChatStore(state => state.setRagMessages);
     const setRagInput = useChatStore(state => state.setRagInput);
     const setStreamingContent = useChatStore(state => state.setStreamingContent);
     const setHistory = useChatStore(state => state.setHistory);
-
-    const recognitionRef = useRef<any>(null);
-
-    useEffect(() => {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = false;
-            recognitionRef.current.interimResults = false;
-            recognitionRef.current.lang = 'en-US';
-
-            recognitionRef.current.onresult = (event: any) => {
-                const transcript = event.results[0][0].transcript;
-                const currentInput = useChatStore.getState().input;
-                setInput(currentInput + (currentInput ? ' ' : '') + transcript);
-                setIsListening(false);
-            };
-
-            recognitionRef.current.onerror = () => setIsListening(false);
-            recognitionRef.current.onend = () => setIsListening(false);
-        }
-    }, [setInput, setIsListening]);
-
-    const toggleListening = () => {
-        if (isListening) {
-            recognitionRef.current?.stop();
-            setIsListening(false);
-        } else {
-            recognitionRef.current?.start();
-            setIsListening(true);
-        }
-    };
 
     const handleSearch = async () => {
         if (!input.trim() || isLoading) return;
@@ -115,17 +78,6 @@ const ChatInputBar = () => {
             <div className="pointer-events-auto w-full max-w-4xl glass-strong p-4 rounded-3xl flex gap-4 items-center border-2 border-cyan-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-hidden group hover:border-cyan-400/60 transition-all duration-500">
                 <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
 
-                <button
-                    onClick={() => {
-                        if (voiceEnabled) window.speechSynthesis.cancel();
-                        setVoiceEnabled(!voiceEnabled);
-                    }}
-                    className={`p-3 rounded-xl border transition-all ${voiceEnabled ? 'border-cyan-400 bg-cyan-900/40 text-cyan-400 glow-cyan' : 'border-slate-700 bg-slate-900/40 text-slate-500'}`}
-                    title={voiceEnabled ? "Mute JARVIS" : "Enable JARVIS Voice"}
-                >
-                    {voiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-                </button>
-
                 <input
                     type="text"
                     value={input}
@@ -135,20 +87,6 @@ const ChatInputBar = () => {
                     disabled={isLoading}
                     className="flex-1 input-jarvis h-14 rounded-2xl border-none shadow-none bg-black/20 focus:bg-black/40 placeholder:tracking-widest text-xl font-bold px-8 transition-all"
                 />
-
-                <button
-                    onClick={toggleListening}
-                    className={`relative w-14 h-14 rounded-xl flex items-center justify-center transition-all border-2 ${isListening ? 'border-red-500 bg-red-950/40 text-red-500' : 'border-cyan-500/50 bg-cyan-950/40 text-cyan-400 hover:border-cyan-300'}`}
-                >
-                    {isListening && (
-                        <motion.div
-                            animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-                            transition={{ repeat: Infinity, duration: 1.5 }}
-                            className="absolute inset-0 bg-red-500/30 rounded-full"
-                        />
-                    )}
-                    {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-                </button>
 
                 <button
                     onClick={handleSearch}
