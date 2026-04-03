@@ -30,7 +30,7 @@ import HistorySidebar from '@/components/chat/HistorySidebar';
 import RagInteractionPanel from '@/components/chat/RagInteractionPanel';
 import ChatInputBar from '@/components/chat/ChatInputBar';
 import LoadingIndicator from '@/components/chat/LoadingIndicator';
-import VoiceSynthesizer from '@/components/chat/VoiceSynthesizer';
+
 
 // Pure utility function — moved to module level
 const getHash = (str: string) => {
@@ -210,8 +210,6 @@ export default function ChatInterface() {
 
             {/* History Sidebar */}
             <HistorySidebar />
-
-            <VoiceSynthesizer />
 
             {/* Right Sidebar: Network Nodes or Live Status */}
             {(() => {
