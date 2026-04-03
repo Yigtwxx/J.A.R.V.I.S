@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # Ollama
     ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen2.5"
+    ollama_model: str = "qwen3:8b"
 
     # Embedding & Vector Store
     embedding_model: str = "nomic-embed-text"
