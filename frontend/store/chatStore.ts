@@ -9,9 +9,6 @@ interface ChatState {
     history: SearchHistoryItem[];
 
     // UI/UX State
-    isListening: boolean;
-    voiceEnabled: boolean;
-    isSpeaking: boolean;
 
     // Streaming Status
     liveStatus: string[];
@@ -28,10 +25,6 @@ interface ChatState {
     setInput: (input: string) => void;
     setIsLoading: (isLoading: boolean) => void;
     setHistory: (updater: SearchHistoryItem[] | ((prev: SearchHistoryItem[]) => SearchHistoryItem[])) => void;
-
-    setIsListening: (isListening: boolean) => void;
-    setVoiceEnabled: (voiceEnabled: boolean) => void;
-    setIsSpeaking: (isSpeaking: boolean) => void;
 
     setLiveStatus: (updater: string[] | ((prev: string[]) => string[])) => void;
     setStreamingContent: (updater: string | ((prev: string) => string)) => void;
@@ -54,10 +47,6 @@ export const useChatStore = create<ChatState>((set) => ({
     isLoading: false,
     history: [],
 
-    isListening: false,
-    voiceEnabled: false,
-    isSpeaking: false,
-
     liveStatus: [],
     streamingContent: '',
 
@@ -71,10 +60,6 @@ export const useChatStore = create<ChatState>((set) => ({
     setInput: (input) => set({ input }),
     setIsLoading: (isLoading) => set({ isLoading }),
     setHistory: (updater) => set((state) => ({ history: typeof updater === 'function' ? updater(state.history) : updater })),
-
-    setIsListening: (isListening) => set({ isListening }),
-    setVoiceEnabled: (voiceEnabled) => set({ voiceEnabled }),
-    setIsSpeaking: (isSpeaking) => set({ isSpeaking }),
 
     setLiveStatus: (updater) => set((state) => ({ liveStatus: typeof updater === 'function' ? updater(state.liveStatus) : updater })),
     setStreamingContent: (updater) => set((state) => ({ streamingContent: typeof updater === 'function' ? updater(state.streamingContent) : updater })),
