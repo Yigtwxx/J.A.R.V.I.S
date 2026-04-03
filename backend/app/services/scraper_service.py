@@ -140,16 +140,15 @@ class ScraperService:
                         href = urllib.parse.unquote(href.split('/url?q=')[1].split('&')[0])
                     except IndexError:
                         continue
-                if href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE):
-                    if not any(r['url'] == href for r in results):
-                        snippet = ""
-                        # Try multiple known snippet selectors
-                        snippet_elem = (item.find('div', class_='VwiC3b')
-                                        or item.find('span', class_='aCOpRe')
-                                        or item.find('div', attrs={'style': lambda s: s and '-webkit-line-clamp' in str(s)}))
-                        if snippet_elem:
-                            snippet = snippet_elem.get_text(strip=True)[:200]
-                        results.append({"url": href, "bio": snippet})
+                if href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE) and not any(r['url'] == href for r in results):
+                    snippet = ""
+                    # Try multiple known snippet selectors
+                    snippet_elem = (item.find('div', class_='VwiC3b')
+                                    or item.find('span', class_='aCOpRe')
+                                    or item.find('div', attrs={'style': lambda s: s and '-webkit-line-clamp' in str(s)}))
+                    if snippet_elem:
+                        snippet = snippet_elem.get_text(strip=True)[:200]
+                    results.append({"url": href, "bio": snippet})
                 if len(results) >= max_results:
                     break
 
