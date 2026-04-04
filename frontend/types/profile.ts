@@ -205,3 +205,79 @@ export interface SearchHistoryItem {
   query_name: string;
   searched_at: string;
 }
+
+// ─── Agent Types ────────────────────────────────────────────
+
+export interface AgentMessage {
+  role: 'user' | 'assistant' | 'tool';
+  content: string;
+}
+
+export interface AgentToolInfo {
+  type: string;
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
+// ─── Vision Types ───────────────────────────────────────────
+
+export interface VisionAnalysisResponse {
+  analysis: string | Record<string, unknown>;
+  image_url: string;
+}
+
+export interface VisionScreenshotResponse {
+  text: string;
+  image_url: string;
+}
+
+// ─── Memory Types ───────────────────────────────────────────
+
+export interface UserMemory {
+  id: number;
+  category: string;
+  key: string;
+  value: string;
+  context: string | null;
+  importance: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Watch Types ────────────────────────────────────────────
+
+export interface WatchTarget {
+  query: string;
+  interval_minutes: number;
+  is_active: boolean;
+  last_checked: string | null;
+  changes_detected: number;
+  last_diff: Record<string, { old: unknown; new: unknown }> | null;
+}
+
+// ─── Plugin Types ───────────────────────────────────────────
+
+export interface PluginInfo {
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  enabled: boolean;
+}
+
+// ─── System Types ───────────────────────────────────────────
+
+export type ActionStatus = 'pending' | 'approved' | 'denied' | 'executed' | 'failed';
+
+export interface SystemAction {
+  action_id: string;
+  action_type: string;
+  description: string;
+  status: ActionStatus;
+  result: string | null;
+  requested_at: string;
+  resolved_at: string | null;
+}
