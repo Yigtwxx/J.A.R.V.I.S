@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import { Message, SearchHistoryItem, RagMessage } from '@/types/profile';
+import { Message, SearchHistoryItem, RagMessage, AgentMessage, UserMemory, WatchTarget, PluginInfo, SystemAction } from '@/types/profile';
+
+export type SidePanel = 'history' | 'memory' | 'watch' | 'plugins' | 'system' | null;
 
 interface ChatState {
     // Core Data
@@ -20,6 +22,21 @@ interface ChatState {
     isRagLoading: boolean;
     streamingRagContent: string;
 
+    // Agent Mode
+    isAgentMode: boolean;
+    agentMessages: AgentMessage[];
+    isAgentLoading: boolean;
+    streamingAgentContent: string;
+
+    // Side Panels
+    activeSidePanel: SidePanel;
+
+    // Feature State
+    activeWatches: WatchTarget[];
+    userMemories: UserMemory[];
+    plugins: PluginInfo[];
+    pendingActions: SystemAction[];
+
     // Actions
     setMessages: (updater: Message[] | ((prev: Message[]) => Message[])) => void;
     setInput: (input: string) => void;
@@ -35,6 +52,21 @@ interface ChatState {
     setRagInput: (input: string) => void;
     setIsRagLoading: (isLoading: boolean) => void;
     setStreamingRagContent: (content: string) => void;
+
+    // Agent actions
+    setAgentMode: (on: boolean) => void;
+    setAgentMessages: (updater: AgentMessage[] | ((prev: AgentMessage[]) => AgentMessage[])) => void;
+    setIsAgentLoading: (v: boolean) => void;
+    setStreamingAgentContent: (v: string) => void;
+
+    // Panel actions
+    setActiveSidePanel: (panel: SidePanel) => void;
+
+    // Feature actions
+    setActiveWatches: (watches: WatchTarget[]) => void;
+    setUserMemories: (memories: UserMemory[]) => void;
+    setPlugins: (plugins: PluginInfo[]) => void;
+    setPendingActions: (actions: SystemAction[]) => void;
 
     // Reset utility
     resetSearchState: () => void;
@@ -54,6 +86,18 @@ export const useChatStore = create<ChatState>((set) => ({
     ragInput: '',
     isRagLoading: false,
     streamingRagContent: '',
+
+    isAgentMode: false,
+    agentMessages: [],
+    isAgentLoading: false,
+    streamingAgentContent: '',
+
+    activeSidePanel: 'history',
+
+    activeWatches: [],
+    userMemories: [],
+    plugins: [],
+    pendingActions: [],
 
     // Simple Setters (Allows both direct value and callback updates)
     setMessages: (updater) => set((state) => ({ messages: typeof updater === 'function' ? updater(state.messages) : updater })),
@@ -78,6 +122,21 @@ export const useChatStore = create<ChatState>((set) => ({
     setRagInput: (ragInput) => set({ ragInput }),
     setIsRagLoading: (isRagLoading) => set({ isRagLoading }),
     setStreamingRagContent: (streamingRagContent) => set({ streamingRagContent }),
+
+    // Agent
+    setAgentMode: (isAgentMode) => set({ isAgentMode }),
+    setAgentMessages: (updater) => set((state) => ({ agentMessages: typeof updater === 'function' ? updater(state.agentMessages) : updater })),
+    setIsAgentLoading: (isAgentLoading) => set({ isAgentLoading }),
+    setStreamingAgentContent: (streamingAgentContent) => set({ streamingAgentContent }),
+
+    // Panels
+    setActiveSidePanel: (activeSidePanel) => set({ activeSidePanel }),
+
+    // Features
+    setActiveWatches: (activeWatches) => set({ activeWatches }),
+    setUserMemories: (userMemories) => set({ userMemories }),
+    setPlugins: (plugins) => set({ plugins }),
+    setPendingActions: (pendingActions) => set({ pendingActions }),
 
     resetSearchState: () => set({
         ragMessages: [],
