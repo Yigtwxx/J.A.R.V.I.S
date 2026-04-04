@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "qwen3:8b"
 
+    # Vision (multimodal)
+    vision_model: str = "llama3.2-vision"
+
     # Embedding & Vector Store
     embedding_model: str = "nomic-embed-text"
     chroma_db_path: str = "data/chroma_db"
@@ -31,6 +34,12 @@ class Settings(BaseSettings):
     # Rate Limiting (sliding window per IP)
     rate_limit_requests: int = 30      # max requests per window
     rate_limit_window_seconds: int = 60  # window size in seconds
+
+    # Computer Control (disabled by default for security)
+    enable_computer_control: bool = False
+
+    # Plugins
+    plugins_dir: str = "app/plugins"
 
     class Config:
         env_file = ".env"
