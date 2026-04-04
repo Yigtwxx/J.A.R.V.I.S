@@ -145,6 +145,8 @@ class SearchOrchestrationService:
         vector_store_service: Any,
         version_history_service: Any,
         breach_orchestrator: Any,
+        darkweb_service: Any = None,
+        geoint_service: Any = None,
     ) -> None:
         self._ai = ai_service
         self._search = search_service
@@ -157,6 +159,8 @@ class SearchOrchestrationService:
         self._vector = vector_store_service
         self._version = version_history_service
         self._breach_orch = breach_orchestrator
+        self._darkweb = darkweb_service
+        self._geoint = geoint_service
 
     # -- Step 1: Parse query ------------------------------------------------
 
@@ -420,6 +424,55 @@ class SearchOrchestrationService:
             web_results=web_results or '',
         )
 
+        # Dark web / paste site intelligence
+        darkweb_intel = {}
+        if self._darkweb:
+            try:
+                logger.log_action("Scanning dark web and paste site databases...")
+                darkweb_intel = await self._darkweb.aggregate_deep_intel(
+                    emails=structured_data.get('email_addresses', []),
+                    username=username,
+                    real_name=real_name,
+                )
+                paste_count = len(darkweb_intel.get('paste_exposures', []))
+                leak_count = len(darkweb_intel.get('leak_results', []))
+                if paste_count or leak_count:
+                    logger.log_warning(f"DARK WEB INTEL: {paste_count} paste(s), {leak_count} leak(s) detected")
+                else:
+                    logger.log_success("Dark web scan: No additional exposures detected")
+            except Exception as e:
+                logger.log_warning(f"Dark web scan failed (non-critical): {e}")
+
+        # Merge paste exposures into data_breaches
+        for paste in darkweb_intel.get('paste_exposures', []):
+            data_breaches.append(paste)
+
+        # GEOINT — aggregate geographic intelligence
+        geoint_data = []
+        timezone_analysis = None
+        if self._geoint:
+            try:
+                logger.log_action("Aggregating geographic intelligence (GEOINT)...")
+                geoint_data = await self._geoint.aggregate_locations(
+                    location_country=structured_data.get('estimated_location'),
+                    location_city=structured_data.get('capital_city'),
+                    company_records=orch_result.company_records,
+                )
+                # Timezone analysis from GitHub commit timestamps
+                commit_timestamps = []
+                if github_data and github_data.get('recent_commits'):
+                    commit_timestamps = [
+                        c.get('date', '') for c in github_data['recent_commits']
+                        if c.get('date')
+                    ]
+                if commit_timestamps:
+                    timezone_analysis = self._geoint.analyze_activity_times(commit_timestamps)
+                    logger.log_action(f"Timezone analysis: {timezone_analysis.get('inferred_timezone', 'N/A')}")
+                if geoint_data:
+                    logger.log_success(f"GEOINT: {len(geoint_data)} location(s) mapped")
+            except Exception as e:
+                logger.log_warning(f"GEOINT aggregation failed (non-critical): {e}")
+
         # Phone numbers & platform activity
         phone_numbers = orch_result.phone_numbers
         platform_activity = orch_result.platform_activity or SocialMediaAgent._compute_platform_activity(github_data, social_profiles)
@@ -432,6 +485,9 @@ class SearchOrchestrationService:
             'score_result': score_result,
             'phone_numbers': phone_numbers,
             'platform_activity': platform_activity,
+            'darkweb_intel': darkweb_intel,
+            'geoint_data': geoint_data,
+            'timezone_analysis': timezone_analysis,
         }
 
     # -- Step 9: Build response ---------------------------------------------
@@ -502,6 +558,8 @@ class SearchOrchestrationService:
             sources=raw_sources,
             ai_response=ai_response,
             company_records=orch_result.company_records if orch_result.company_records else None,
+            geoint_data=post.get('geoint_data') or None,
+            timezone_analysis=post.get('timezone_analysis') or None,
         )
 
         if face_match_report:
