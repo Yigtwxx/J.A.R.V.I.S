@@ -59,6 +59,25 @@ class ProfileResponse(ProfileDataMixin):
         from_attributes = True
 
 
+class GeoLocationData(BaseModel):
+    """A single geographic intelligence point."""
+    lat: float
+    lng: float
+    label: str
+    type: str  # primary, company, exif, ip
+    source: str
+    confidence: float = 0.5
+    timestamp: str | None = None
+
+
+class TimezoneAnalysis(BaseModel):
+    """Activity-based timezone and pattern analysis."""
+    inferred_timezone: str = "UNKNOWN"
+    peak_hours: list[int] = []
+    activity_pattern: str = "Insufficient data"
+    hourly_distribution: dict[str, int] = {}
+
+
 class SearchResponse(ProfileDataMixin):
     """AI search response with gathered information"""
     name: str
@@ -75,3 +94,5 @@ class SearchResponse(ProfileDataMixin):
     face_match_results: dict[str, Any] | None = None
     sentiment_analysis: dict[str, Any] | None = None
     company_records: list[dict[str, Any]] | None = None
+    geoint_data: list[GeoLocationData] | None = None
+    timezone_analysis: TimezoneAnalysis | None = None
