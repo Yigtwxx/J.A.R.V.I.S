@@ -9,13 +9,21 @@ from fastapi.responses import StreamingResponse
 from app.config import get_settings
 from app.database import init_db
 from app.middleware.security import RateLimitMiddleware
+from app.plugins import plugin_manager
 from app.routes import (
+    agent_router,
     chat_router,
+    export_router,
     face_match_router,
     history_router,
+    memory_router,
+    plugins_router,
     profiles_router,
     search_router,
     version_history_router,
+    system_router,
+    vision_router,
+    watch_router,
 )
 from app.utils.logger import logger
 
@@ -38,6 +46,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.log_error(f"Memory matrix initialization failed: {e}")
         logger.log_thought("Check active database connections.")
+
+    plugin_manager.discover()
 
     logger.log_success("All systems online. Awaiting coordinates.")
     yield
@@ -107,6 +117,13 @@ app.include_router(history_router)
 app.include_router(version_history_router)
 app.include_router(face_match_router)
 app.include_router(chat_router)
+app.include_router(export_router)
+app.include_router(memory_router)
+app.include_router(watch_router)
+app.include_router(plugins_router)
+app.include_router(agent_router)
+app.include_router(vision_router)
+app.include_router(system_router)
 
 
 @app.get("/")
