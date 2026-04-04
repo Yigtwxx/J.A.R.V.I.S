@@ -222,26 +222,72 @@ export default function ChatInterface() {
 
                 if (!lastProfile) return null;
 
-                // Search fallback URL generator for platforms without found profiles
+                // Generate username variations from the name for better search coverage
                 const searchName = lastProfile.name || '';
-                const encoded = encodeURIComponent(searchName);
-                const searchUrls: Record<string, string> = {
-                    'GitHub': `https://github.com/search?q=${encoded}&type=users`,
-                    'Instagram': `https://www.google.com/search?q=site:instagram.com+${encoded}`,
-                    'X (Twitter)': `https://x.com/search?q=${encoded}&f=user`,
-                    'LinkedIn': `https://www.linkedin.com/search/results/people/?keywords=${encoded}`,
-                    'Spotify': `https://open.spotify.com/search/${encoded}`,
-                    'TikTok': `https://www.tiktok.com/search/user?q=${encoded}`,
-                    'Snapchat': `https://www.snapchat.com/add/${encoded}`,
-                    'Tumblr': `https://www.tumblr.com/search/${encoded}`,
-                    'YouTube': `https://www.youtube.com/results?search_query=${encoded}`,
-                    'Reddit': `https://www.reddit.com/search/?q=${encoded}&type=user`,
-                    'Facebook': `https://www.facebook.com/search/people/?q=${encoded}`,
-                    'Pinterest': `https://www.pinterest.com/search/users/?q=${encoded}`,
-                    'Medium': `https://medium.com/search?q=${encoded}`,
-                    'Threads': `https://www.threads.net/search?q=${encoded}&serp_type=default`,
-                    'Steam': `https://steamcommunity.com/search/users/#text=${encoded}`,
+                const generateNameVariations = (name: string): string[] => {
+                    const variations: string[] = [];
+                    const seen = new Set<string>();
+                    const addVar = (v: string) => {
+                        const lower = v.toLowerCase().trim();
+                        if (lower.length >= 3 && !seen.has(lower)) {
+                            seen.add(lower);
+                            variations.push(lower);
+                        }
+                    };
+
+                    // Turkish/diacritics → ASCII normalization
+                    const asciiName = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i').replace(/İ/g, 'I');
+                    const parts = asciiName.trim().split(/\s+/).map(p => p.toLowerCase());
+
+                    if (parts.length >= 2) {
+                        const first = parts[0];
+                        const last = parts[parts.length - 1];
+                        addVar(first + last);           // yagmurozgan
+                        addVar(first + '.' + last);     // yagmur.ozgan
+                        addVar(first + '_' + last);     // yagmur_ozgan
+                        addVar(last + first);           // ozganyagmur
+                        addVar(first + last[0]);        // yagmuro
+                        addVar(first[0] + last);        // yozgan
+                        addVar(first + last + '1');     // yagmurozgan1
+                    } else if (parts.length === 1) {
+                        addVar(parts[0]);
+                    }
+
+                    // Also add the raw stripped form (remove all non-alphanumeric)
+                    const raw = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    addVar(raw);
+
+                    return variations;
                 };
+
+                const nameVariations = generateNameVariations(searchName);
+                const encoded = encodeURIComponent(searchName);
+
+                // Platform search configs — use Google site: search for reliable top-3 results
+                const platformSearchConfigs: Record<string, { sitePattern: string; nativeUrl?: string }> = {
+                    'GitHub':       { sitePattern: 'github.com', nativeUrl: `https://github.com/search?q=${encoded}&type=users` },
+                    'Instagram':    { sitePattern: 'instagram.com' },
+                    'X (Twitter)':  { sitePattern: 'x.com OR twitter.com', nativeUrl: `https://x.com/search?q=${encoded}&f=user` },
+                    'LinkedIn':     { sitePattern: 'linkedin.com/in', nativeUrl: `https://www.linkedin.com/search/results/people/?keywords=${encoded}` },
+                    'Spotify':      { sitePattern: 'open.spotify.com', nativeUrl: `https://open.spotify.com/search/${encoded}` },
+                    'TikTok':       { sitePattern: 'tiktok.com', nativeUrl: `https://www.tiktok.com/search/user?q=${encoded}` },
+                    'Snapchat':     { sitePattern: 'snapchat.com' },
+                    'Tumblr':       { sitePattern: 'tumblr.com' },
+                    'YouTube':      { sitePattern: 'youtube.com', nativeUrl: `https://www.youtube.com/results?search_query=${encoded}` },
+                    'Reddit':       { sitePattern: 'reddit.com/user', nativeUrl: `https://www.reddit.com/search/?q=${encoded}&type=user` },
+                    'Facebook':     { sitePattern: 'facebook.com', nativeUrl: `https://www.facebook.com/search/people/?q=${encoded}` },
+                    'Pinterest':    { sitePattern: 'pinterest.com', nativeUrl: `https://www.pinterest.com/search/users/?q=${encoded}` },
+                    'Medium':       { sitePattern: 'medium.com/@', nativeUrl: `https://medium.com/search?q=${encoded}` },
+                    'Threads':      { sitePattern: 'threads.net', nativeUrl: `https://www.threads.net/search?q=${encoded}&serp_type=default` },
+                    'Steam':        { sitePattern: 'steamcommunity.com', nativeUrl: `https://steamcommunity.com/search/users/#text=${encoded}` },
+                };
+
+                // Build search URLs using Google site: + name variations for top 3 results
+                const searchUrls: Record<string, string> = {};
+                for (const [label, config] of Object.entries(platformSearchConfigs)) {
+                    const googleQuery = `site:${config.sitePattern} ${searchName} ${nameVariations.slice(0, 3).join(' OR ')}`;
+                    searchUrls[label] = config.nativeUrl || `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}&num=3`;
+                }
 
                 const allPlatforms = [
                     { icon: Github, urls: lastProfile.github_url, label: 'GitHub', brandStyles: 'border-gray-500/40 bg-gray-900/50 hover:bg-gray-800/80 hover:border-gray-400 text-gray-300 shadow-[0_4px_15px_rgba(156,163,175,0.15)]' },
@@ -378,6 +424,13 @@ export default function ChatInterface() {
                                                 <Search className="w-3 h-3 text-cyan-500/50" />
                                                 <span className="text-[8px] font-bold font-mono tracking-widest text-cyan-500/50 uppercase">Search on Platform</span>
                                             </div>
+                                            {nameVariations.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 px-1 mt-1">
+                                                    {nameVariations.slice(0, 3).map((v, i) => (
+                                                        <span key={i} className="text-[7px] font-mono bg-cyan-500/10 text-cyan-400/60 px-1 py-0.5 rounded border border-cyan-500/10">@{v}</span>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                         {searchEntries.map(({ icon: Icon, label, brandStyles }: any, idx: number) => (
                                             <motion.a
