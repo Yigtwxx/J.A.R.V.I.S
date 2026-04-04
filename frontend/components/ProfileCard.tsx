@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { SearchResponse } from '@/types/profile';
-import { User, Users, ChevronRight, Activity, AlertTriangle } from 'lucide-react';
+import { User, Users, ChevronRight, Activity, AlertTriangle, FileText, FileJson, FileSpreadsheet, Download } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import GlitchText from '@/components/ui/GlitchText';
+import { exportPdfFromData, exportJsonFromData, exportCsvFromData } from '@/services/api';
 
 function extractUsername(url: string): string {
     try {
@@ -17,15 +18,41 @@ function extractUsername(url: string): string {
     }
 }
 
-// ForceGraph MUST be loaded dynamically to avoid SSR 'window is not defined' error
+// ForceGraph and Map MUST be loaded dynamically to avoid SSR 'window is not defined' error
 const NetworkGraph = dynamic(() => import('@/components/NetworkGraph'), { ssr: false });
 const SecurityScanWidget = dynamic(() => import('@/components/SecurityScanWidget'), { ssr: false });
+const GeoIntMap = dynamic(() => import('@/components/GeoIntMap'), { ssr: false });
 
 interface ProfileCardProps {
     profile: SearchResponse;
 }
 
 function ProfileCard({ profile }: ProfileCardProps) {
+    const [exporting, setExporting] = useState<string | null>(null);
+    const [showExport, setShowExport] = useState(false);
+
+    const handleExport = async (format: 'pdf' | 'json' | 'csv') => {
+        setExporting(format);
+        try {
+            const exportFn = { pdf: exportPdfFromData, json: exportJsonFromData, csv: exportCsvFromData }[format];
+            const blob = await exportFn(profile);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const safeName = profile.name.replace(/\s+/g, '_');
+            const ext = format === 'pdf' ? 'pdf' : format === 'json' ? 'json' : 'csv';
+            a.download = `JARVIS_Dossier_${safeName}.${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error(`Export ${format} failed:`, err);
+        } finally {
+            setExporting(null);
+        }
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0 }}
@@ -62,6 +89,40 @@ function ProfileCard({ profile }: ProfileCardProps) {
                             <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse box-shadow-[0_0_10px_cyan]" />
                             Target Profile Identified
                         </div>
+                    </div>
+
+                    {/* Export Buttons */}
+                    <div className="ml-auto relative">
+                        <button
+                            onClick={() => setShowExport(!showExport)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-400/10 border border-cyan-400/30 text-cyan-300 text-xs font-mono uppercase tracking-wider hover:bg-cyan-400/20 transition-all"
+                        >
+                            <Download className="w-4 h-4" />
+                            Export
+                        </button>
+                        {showExport && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="absolute right-0 top-full mt-2 z-50 flex flex-col gap-1 p-2 rounded-lg bg-slate-900/95 border border-cyan-400/30 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.15)] min-w-[160px]"
+                            >
+                                {([
+                                    { fmt: 'pdf' as const, icon: FileText, label: 'PDF Dossier', color: 'text-red-400' },
+                                    { fmt: 'json' as const, icon: FileJson, label: 'JSON Intel', color: 'text-yellow-400' },
+                                    { fmt: 'csv' as const, icon: FileSpreadsheet, label: 'CSV Data', color: 'text-green-400' },
+                                ]).map(({ fmt, icon: Icon, label, color }) => (
+                                    <button
+                                        key={fmt}
+                                        onClick={() => { handleExport(fmt); setShowExport(false); }}
+                                        disabled={exporting === fmt}
+                                        className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-mono uppercase tracking-wider text-slate-200 hover:bg-cyan-400/10 transition-all disabled:opacity-50"
+                                    >
+                                        <Icon className={`w-4 h-4 ${color}`} />
+                                        {exporting === fmt ? 'Generating...' : label}
+                                    </button>
+                                ))}
+                            </motion.div>
+                        )}
                     </div>
                 </div>
 
@@ -173,6 +234,15 @@ function ProfileCard({ profile }: ProfileCardProps) {
                             </div>
                         );
                     })()}
+
+                    {/* GEOINT — Geographic Intelligence Map */}
+                    <GeoIntMap
+                        locationCountry={profile.location_country}
+                        locationCity={profile.location_city}
+                        companyRecords={profile.company_records}
+                        geointData={profile.geoint_data}
+                        timezoneAnalysis={profile.timezone_analysis}
+                    />
 
                     {/* Threat Intelligence / Dark Web Monitoring */}
                     <SecurityScanWidget
