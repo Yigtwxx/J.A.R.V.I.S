@@ -126,6 +126,23 @@ export interface ProfileData extends SharedProfileFields {
   updated_at?: string;
 }
 
+export interface GeoLocationData {
+  lat: number;
+  lng: number;
+  label: string;
+  type: 'primary' | 'company' | 'exif' | 'ip';
+  source: string;
+  confidence: number;
+  timestamp?: string;
+}
+
+export interface TimezoneAnalysis {
+  inferred_timezone: string;
+  peak_hours: number[];
+  activity_pattern: string;
+  hourly_distribution: Record<string, number>;
+}
+
 export interface SearchResponse extends SharedProfileFields {
   sources?: { title: string; url: string; snippet: string }[];
   ai_response: string;
@@ -138,6 +155,8 @@ export interface SearchResponse extends SharedProfileFields {
     dominant_emotion: string;
     summary: string;
   };
+  geoint_data?: GeoLocationData[];
+  timezone_analysis?: TimezoneAnalysis;
 }
 
 export interface FieldChange {
