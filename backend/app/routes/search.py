@@ -17,6 +17,8 @@ from app.services import (
 from app.services.breach_service import breach_service
 from app.services.company_service import company_service
 from app.services.face_matching_service import FaceMatchingService
+from app.services.darkweb_service import darkweb_service
+from app.services.geoint_service import geoint_service
 from app.services.search_orchestration_service import SearchOrchestrationService
 from app.services.vector_store_service import vector_store_service
 from app.utils.logger import logger
@@ -52,6 +54,8 @@ orchestration = SearchOrchestrationService(
     vector_store_service=vector_store_service,
     version_history_service=version_history_service,
     breach_orchestrator=search_orchestrator,
+    darkweb_service=darkweb_service,
+    geoint_service=geoint_service,
 )
 
 
