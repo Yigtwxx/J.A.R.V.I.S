@@ -196,9 +196,10 @@ Return ONLY valid JSON, no other text."""
                 "email_addresses": []
             }
 
-    async def chat_with_context(self, query_name: str, messages: list):
+    async def chat_with_context(self, query_name: str, messages: list, user_context: str = ""):
         """
         RAG Chat generator — ChromaDB semantic search primary, JSON fallback supported.
+        Injects user memory context for personalized responses.
         Yields tokens for StreamingResponse.
         """
         # Use the most recent user message as the embedding query
@@ -272,6 +273,16 @@ Return ONLY valid JSON, no other text."""
         )
 
         # 2. Sistem prompt
+        user_memory_block = ""
+        if user_context:
+            user_memory_block = f"""
+
+=== USER MEMORY (Personalization) ===
+You remember the following about the user you are speaking with:
+{user_context}
+Use this knowledge to personalize your responses, address them by name if known, and adapt your communication style.
+====================================="""
+
         system_prompt = f"""You are J.A.R.V.I.S., an advanced AI interacting with the user about a target entity named '{query_name}'.
 You must answer the user's questions based EXCLUSIVELY on the gathered intelligence context below.
 Context was retrieved via: {source_label}
@@ -279,7 +290,7 @@ CRITICAL RULES:
 1. DO NOT HALLUCINATE OR GUESS. If the context does not contain the answer, say "I do not have sufficient data in the current intelligence context to answer this."
 2. DO NOT USE EXTERNAL KNOWLEDGE. Only use the text provided.
 3. Keep answers concise, highly analytical, and direct. Use J.A.R.V.I.S. persona (professional, objective).
-
+{user_memory_block}
 === J.A.R.V.I.S INTELLIGENCE CONTEXT ===
 {context_text}
 ========================================"""
