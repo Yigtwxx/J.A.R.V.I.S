@@ -54,4 +54,36 @@ export const getVersionHistory = async (queryName: string): Promise<ChangeReport
     return response.data;
 };
 
+// --- Export endpoints ---
+
+export const exportPdfFromData = async (profileData: SearchResponse): Promise<Blob> => {
+    const response = await api.post('/api/export/pdf', profileData, { responseType: 'blob' });
+    return response.data;
+};
+
+export const exportJsonFromData = async (profileData: SearchResponse): Promise<Blob> => {
+    const response = await api.post('/api/export/json', profileData, { responseType: 'blob' });
+    return response.data;
+};
+
+export const exportCsvFromData = async (profileData: SearchResponse): Promise<Blob> => {
+    const response = await api.post('/api/export/csv', profileData, { responseType: 'blob' });
+    return response.data;
+};
+
+export const exportPdf = async (profileId: number): Promise<Blob> => {
+    const response = await api.get(`/api/export/pdf/${profileId}`, { responseType: 'blob' });
+    return response.data;
+};
+
+export const exportJson = async (profileId: number): Promise<Blob> => {
+    const response = await api.get(`/api/export/json/${profileId}`, { responseType: 'blob' });
+    return response.data;
+};
+
+export const exportCsv = async (profileId: number): Promise<Blob> => {
+    const response = await api.get(`/api/export/csv/${profileId}`, { responseType: 'blob' });
+    return response.data;
+};
+
 export default api;
