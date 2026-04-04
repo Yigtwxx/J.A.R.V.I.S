@@ -112,9 +112,13 @@ def _format_last_activity(
 
 
 def _join_urls(profiles: dict, platform: str) -> str | None:
-    """Join URLs from social_profiles[platform] into a comma-separated string."""
+    """Join URLs from social_profiles[platform] into a comma-separated string.
+    Excludes search-fallback entries (bio == '[SEARCH]') that are not real profiles."""
     items = profiles.get(platform, [])
-    result = ", ".join(p['url'] for p in items if p.get('url'))
+    result = ", ".join(
+        p['url'] for p in items
+        if p.get('url') and p.get('bio') != '[SEARCH]'
+    )
     return result or None
 
 
