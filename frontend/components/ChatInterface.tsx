@@ -17,6 +17,7 @@ const VersionHistory = dynamic(() => import('./VersionHistory'), { ssr: false })
 const FaceMatch = dynamic(() => import('./FaceMatch'), { ssr: false });
 const SocialGauge = dynamic(() => import('./SocialGauge'), { ssr: false });
 const SentimentGauge = dynamic(() => import('./SentimentGauge'), { ssr: false });
+const AgentChatMode = dynamic(() => import('./chat/AgentChatMode'), { ssr: false });
 
 // Custom Brand Icons
 import { SpotifyIcon, TikTokIcon, SnapchatIcon, TumblrIcon, TinderIcon,
@@ -43,6 +44,7 @@ export default function ChatInterface() {
     const messages = useChatStore(state => state.messages);
     const setMessages = useChatStore(state => state.setMessages);
     const isLoading = useChatStore(state => state.isLoading);
+    const isAgentMode = useChatStore(state => state.isAgentMode);
 
     const addLiveStatus = useChatStore(state => state.addLiveStatus);
     const setStreamingContent = useChatStore(state => state.setStreamingContent);
@@ -550,7 +552,6 @@ export default function ChatInterface() {
             {(() => {
                 if (!lastProfile || !lastProfile.sentiment_analysis) return null;
 
-                // Adjust positioning dynamically (assuming SocialGauge takes up some space, we place this right below it)
                 return (
                     <motion.div
                         initial={{ opacity: 0, x: -50 }}
@@ -562,6 +563,21 @@ export default function ChatInterface() {
                     </motion.div>
                 );
             })()}
+
+            {/* Agent Chat Mode (right panel overlay) */}
+            <AnimatePresence>
+                {isAgentMode && (
+                    <motion.div
+                        initial={{ opacity: 0, x: 50 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 50 }}
+                        transition={{ duration: 0.4, ease: 'easeOut' }}
+                        className="fixed z-50 right-6 top-32 bottom-32 w-[28rem] glass-strong rounded-[1.5rem] border border-purple-500/30 bg-gray-950/90 backdrop-blur-md shadow-[0_0_30px_rgba(168,85,247,0.1)] overflow-hidden"
+                    >
+                        <AgentChatMode />
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Messages Area */}
             <motion.div
