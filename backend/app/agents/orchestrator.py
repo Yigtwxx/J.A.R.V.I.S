@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .base_agent import AgentResult
+from .deep_search_agent import DeepSearchAgent
 from .legal_records_agent import LegalRecordsAgent
 from .security_agent import SecurityAgent
 from .social_media_agent import SocialMediaAgent
@@ -45,10 +46,12 @@ class SearchOrchestrator:
         real_name: str,
         github_future,
         search_future,
+        depth_config=None,
     ) -> tuple[OrchestratorResult, dict | None, tuple]:
         """
         Phase 1: SocialMediaAgent + LegalRecordsAgent + github_future + search_future
-        run concurrently via asyncio.gather().
+        run concurrently via asyncio.gather().  When depth_config.multi_agent is True,
+        a DeepSearchAgent is also spawned in parallel.
 
         After gather: GitHub correlation and platform_activity computation are applied.
         Returns: (orch_result, github_data, search_results)
@@ -70,12 +73,31 @@ class SearchOrchestrator:
             loop=loop,
         )
 
-        social_result, legal_result, github_data, search_results = await asyncio.gather(
-            social_agent.run(),
-            legal_agent.run(),
-            github_future,
-            search_future,
-        )
+        # Optionally spawn DeepSearchAgent for depth >= 7
+        use_deep = depth_config and depth_config.multi_agent
+        if use_deep:
+            deep_agent = DeepSearchAgent(
+                search_service=self._search,
+                name=real_name,
+                depth=depth_config.depth,
+                status_callback=self._status,
+                loop=loop,
+            )
+            social_result, legal_result, deep_result, github_data, search_results = await asyncio.gather(
+                social_agent.run(),
+                legal_agent.run(),
+                deep_agent.run(),
+                github_future,
+                search_future,
+            )
+        else:
+            deep_result = None
+            social_result, legal_result, github_data, search_results = await asyncio.gather(
+                social_agent.run(),
+                legal_agent.run(),
+                github_future,
+                search_future,
+            )
 
         social_profiles = social_result.social_profiles
 
@@ -107,16 +129,28 @@ class SearchOrchestrator:
         found = [k for k, v in social_profiles.items() if v]
         self._status(f"[DIAG] Orchestrator: {len(found)} platform(s) in final result: {found[:5]}")
 
+        # Merge deep-search extra context if available
+        extra_academic = legal_result.academic_context
+        extra_registry = legal_result.registry_context
+        agent_list = [social_result, legal_result]
+
+        if deep_result and deep_result.success:
+            if deep_result.academic_context:
+                extra_academic += "\n" + deep_result.academic_context
+            if deep_result.registry_context:
+                extra_registry += "\n" + deep_result.registry_context
+            agent_list.append(deep_result)
+
         orch_result = OrchestratorResult(
             social_profiles=social_profiles,
             phone_numbers=phone_numbers or [],
             platform_activity=platform_activity,
             company_records=legal_result.company_records,
-            academic_context=legal_result.academic_context,
+            academic_context=extra_academic,
             patent_context=legal_result.patent_context,
-            registry_context=legal_result.registry_context,
+            registry_context=extra_registry,
             data_breaches=[],
-            agent_results=[social_result, legal_result],
+            agent_results=agent_list,
         )
 
         return orch_result, github_data, search_results
