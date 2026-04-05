@@ -137,10 +137,11 @@ class SearchService:
             logger.log_error(f"Global grid access denied or timed out: {e}")
             return []
 
-    def _is_relevant(self, title: str, snippet: str, query: str) -> bool:
+    def _is_relevant(self, title: str, snippet: str, query: str, threshold: float = 0.85) -> bool:
         """
         Check if a search result is actually relevant to the target name.
         Uses stricter matching to avoid famous-name hallucinations.
+        ``threshold`` controls the fuzzy cutoff (higher = stricter, used by deep search).
         """
         text = f"{title} {snippet}".lower()
         query = query.lower().strip()
@@ -170,7 +171,7 @@ class SearchService:
         text_words = text_norm.split()
         matches_found = 0
         for word in query_words_norm:
-            if word in text_norm or (len(word) >= 4 and difflib.get_close_matches(word, text_words, n=1, cutoff=0.85)):
+            if word in text_norm or (len(word) >= 4 and difflib.get_close_matches(word, text_words, n=1, cutoff=threshold)):
                 matches_found += 1
 
         # Require at least 80% of query words to match if they are not all present
@@ -337,23 +338,54 @@ class SearchService:
             logger.log_warning(f"Corporate registry sweep failed: {e}")
             return ""
 
-    def search_person(self, name: str) -> tuple[str, str, str, list[dict[str, str]]]:
+    def search_person(self, name: str, depth_config=None) -> tuple[str, str, str, list[dict[str, str]]]:
         """
-        Search for a person and return (wiki_image_url, formatted_results, deep_context, raw_results)
+        Search for a person and return (wiki_image_url, formatted_results, deep_context, raw_results).
+        ``depth_config`` (DepthConfig | None) scales query count, scrape budget, and relevance strictness.
         """
         logger.log_thought(f"Initiating cross-reference protocol for entity: {name}")
+
+        # Resolve depth parameters
+        if depth_config:
+            num_queries = depth_config.num_query_variations
+            max_scrapes = depth_config.max_deep_scrapes
+            relevance_threshold = depth_config.relevance_threshold
+            query_delay = depth_config.query_delay_seconds
+            tier = depth_config.tier
+        else:
+            num_queries = 5
+            max_scrapes = 4
+            relevance_threshold = 0.85
+            query_delay = 1.0
+            tier = "medium"
 
         # 1. Fetch visual identity from Wikipedia first
         wiki_image = self.search_wikipedia_image(name)
 
-        # 2. Search with multiple diverse queries for comprehensive results
-        queries = [
+        # 2. Search with diverse queries — count scales with depth
+        base_queries = [
             f"{name} biography OR education",
             f"{name} career OR profession",
             f"{name} interview OR news",
             f"{name} profile",
             f"{name}",
         ]
+        deep_queries = [
+            f'"{name}" university OR degree OR school',
+            f'"{name}" award OR achievement OR recognition',
+            f'"{name}" CEO OR founder OR director',
+            f'"{name}" controversy OR criticism',
+            f'"{name}" blog OR personal site OR portfolio',
+            f'"{name}" conference OR speaker OR panel',
+            f'"{name}" publication OR paper OR research',
+        ]
+
+        # Select queries based on depth
+        queries = base_queries[:num_queries]
+        if num_queries > len(base_queries):
+            queries.extend(deep_queries[:num_queries - len(base_queries)])
+
+        logger.log_thought(f"Search tier: {tier} — firing {len(queries)} query variation(s)")
 
         all_results = []
         seen_urls = set()
@@ -362,21 +394,28 @@ class SearchService:
             results = self.search_yahoo(query, num_results=5)
             # Deduplicate results by URL and filter irrelevant ones
             for r in results:
-                if r['url'] not in seen_urls and self._is_relevant(r.get('title', ''), r.get('snippet', ''), name):
-                        seen_urls.add(r['url'])
-                        all_results.append(r)
+                if r['url'] not in seen_urls and self._is_relevant(
+                    r.get('title', ''), r.get('snippet', ''), name,
+                    threshold=relevance_threshold,
+                ):
+                    seen_urls.add(r['url'])
+                    all_results.append(r)
             logger.log_thought(f"Extracted {len(all_results)} verified data nodes so far.")
-            time.sleep(1)
+            time.sleep(query_delay)
 
         # 3. Deep-Scraping Protocol: Extract full content from top relevant links
         logger.log_action("Executing deep-packet inspection on primary sources...")
-        logger.log_thought("Filtering nodes for high-density information...")
+        logger.log_thought(f"Filtering nodes for high-density information (budget: {max_scrapes})...")
         deep_context = ""
-        # Find top 4 non-social results for deep scraping (increased from 2)
-        scrapable_results = [r for r in all_results if not any(d in r['url'].lower() for d in ['instagram.com', 'twitter.com', 'x.com', 'linkedin.com', 'facebook.com', 'youtube.com'])][:4]
+        scrapable_results = [
+            r for r in all_results
+            if not any(d in r['url'].lower() for d in [
+                'instagram.com', 'twitter.com', 'x.com',
+                'linkedin.com', 'facebook.com', 'youtube.com',
+            ])
+        ][:max_scrapes]
 
         for res in scrapable_results:
-            # Use urllib.parse.urlparse to get the hostname safely
             parsed_url = urllib.parse.urlparse(res['url'])
             hostname = parsed_url.hostname if parsed_url.scheme and parsed_url.netloc else res['url']
             logger.log_action(f"Infiltrating NODE: {hostname}")
