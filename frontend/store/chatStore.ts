@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Message, SearchHistoryItem, RagMessage, AgentMessage, UserMemory, WatchTarget, PluginInfo, SystemAction } from '@/types/profile';
 
-export type SidePanel = 'history' | 'memory' | 'watch' | 'plugins' | 'system' | null;
+export type SidePanel = 'history' | 'memory' | 'watch' | 'plugins' | 'system' | 'health' | null;
 
 interface ChatState {
     // Core Data
@@ -31,6 +31,9 @@ interface ChatState {
     // Side Panels
     activeSidePanel: SidePanel;
 
+    // Search Depth
+    searchDepth: number;
+
     // Feature State
     activeWatches: WatchTarget[];
     userMemories: UserMemory[];
@@ -58,6 +61,9 @@ interface ChatState {
     setAgentMessages: (updater: AgentMessage[] | ((prev: AgentMessage[]) => AgentMessage[])) => void;
     setIsAgentLoading: (v: boolean) => void;
     setStreamingAgentContent: (v: string) => void;
+
+    // Search Depth
+    setSearchDepth: (depth: number) => void;
 
     // Panel actions
     setActiveSidePanel: (panel: SidePanel) => void;
@@ -94,6 +100,8 @@ export const useChatStore = create<ChatState>((set) => ({
 
     activeSidePanel: 'history',
 
+    searchDepth: 5,
+
     activeWatches: [],
     userMemories: [],
     plugins: [],
@@ -128,6 +136,9 @@ export const useChatStore = create<ChatState>((set) => ({
     setAgentMessages: (updater) => set((state) => ({ agentMessages: typeof updater === 'function' ? updater(state.agentMessages) : updater })),
     setIsAgentLoading: (isAgentLoading) => set({ isAgentLoading }),
     setStreamingAgentContent: (streamingAgentContent) => set({ streamingAgentContent }),
+
+    // Search Depth
+    setSearchDepth: (searchDepth) => set({ searchDepth }),
 
     // Panels
     setActiveSidePanel: (activeSidePanel) => set({ activeSidePanel }),
