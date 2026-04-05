@@ -1,5 +1,7 @@
 import contextlib
+import random
 import re
+import time
 import unicodedata
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -22,7 +24,7 @@ class ScraperService:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
     ]
 
-    _CB_THRESHOLD = 3  # Skip a search engine after this many consecutive failures
+    _CB_THRESHOLD = 5  # Skip a search engine after this many consecutive failures
 
     def __init__(self):
         self.session = requests.Session()
@@ -37,6 +39,9 @@ class ScraperService:
         self._yahoo_fails = 0
         self._ddg_fails = 0
         self._bing_fails = 0
+        self._brave_fails = 0
+        self._last_request_time = 0.0
+        self._search_count = 0  # Total searches in current session
 
     def _is_url_active(self, url: str) -> bool:
         """Check if a URL is active (returns 200 OK and isn't a known error/login page)"""
@@ -103,7 +108,8 @@ class ScraperService:
         return (self._google_fails >= self._CB_THRESHOLD
                 and self._yahoo_fails >= self._CB_THRESHOLD
                 and self._ddg_fails >= self._CB_THRESHOLD
-                and self._bing_fails >= self._CB_THRESHOLD)
+                and self._bing_fails >= self._CB_THRESHOLD
+                and self._brave_fails >= self._CB_THRESHOLD)
 
     def _extract_urls_from_google(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
         """Search via Google HTML results."""
@@ -121,7 +127,22 @@ class ScraperService:
             # Detect consent/captcha page
             if 'consent.google.com' in response.url or 'sorry/index' in response.url:
                 self._google_fails += 1
-                logger.log_warning("Google consent/captcha page detected")
+                logger.log_warning("Google consent/captcha page detected (URL redirect)")
+                return []
+
+            # Also detect in-page blocking (captcha/cookie notice in body)
+            body_lower = response.text[:3000].lower()
+            blocking_signals = [
+                'our systems have detected unusual traffic',
+                'please show you',
+                'recaptcha',
+                'g-recaptcha',
+                'before you continue to google',
+                'consent.google',
+            ]
+            if any(sig in body_lower for sig in blocking_signals):
+                self._google_fails += 1
+                logger.log_warning("Google blocking detected (in-page signal)")
                 return []
 
             self._google_fails = 0
@@ -296,26 +317,118 @@ class ScraperService:
             logger.log_error(f"Bing fallback failed for {query}: {e}")
             return []
 
+    def _extract_urls_from_brave(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
+        """Search via Brave Search HTML results. Brave is less aggressive with blocking."""
+        try:
+            self._rotate_user_agent()
+            self.session.headers['Referer'] = 'https://search.brave.com/'
+            search_url = f"https://search.brave.com/search?q={urllib.parse.quote(query)}&source=web"
+            response = self.session.get(search_url, timeout=15)
+
+            if response.status_code != 200:
+                self._brave_fails += 1
+                logger.log_warning(f"Brave returned status {response.status_code}")
+                return []
+
+            self._brave_fails = 0
+            soup = BeautifulSoup(response.text, 'html.parser')
+            results = []
+
+            # Primary: Brave uses <div class="snippet"> for result containers
+            for item in soup.find_all('div', class_=lambda c: c and ('snippet' in c if isinstance(c, str) else any('snippet' in cls for cls in c))):
+                link = item.find('a', href=True)
+                if not link:
+                    continue
+                href = link.get('href', '')
+                if href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE) and not any(r['url'] == href for r in results):
+                    snippet = ""
+                    snippet_elem = item.find('div', class_=lambda c: c and ('snippet-description' in str(c) or 'description' in str(c)))
+                    if not snippet_elem:
+                        snippet_elem = item.find('p')
+                    if snippet_elem:
+                        snippet = snippet_elem.get_text(strip=True)[:200]
+                    results.append({"url": href, "bio": snippet})
+                if len(results) >= max_results:
+                    break
+
+            # Fallback: scan all <a> tags
+            if not results:
+                for link in soup.find_all('a', href=True):
+                    href = link.get('href', '')
+                    if (href.startswith('http')
+                            and re.search(domain_pattern, href, re.IGNORECASE)
+                            and 'brave.com' not in href
+                            and not any(r['url'] == href for r in results)):
+                        results.append({"url": href, "bio": ""})
+                    if len(results) >= max_results:
+                        break
+
+            if results:
+                logger.log_success(f"Brave found {len(results)} result(s) for: {query}")
+            return results
+
+        except Exception as e:
+            self._brave_fails += 1
+            logger.log_error(f"Brave search failed for {query}: {e}")
+            return []
+
+    def _throttle_request(self) -> None:
+        """Add a small random delay between search requests to avoid rate limiting."""
+        self._search_count += 1
+        now = time.time()
+        elapsed = now - self._last_request_time
+        # Adaptive delay: increases slightly as more searches are made
+        base_delay = 0.8 + (self._search_count * 0.05)  # 0.8s → 1.3s over 10 searches
+        min_delay = max(0.5, base_delay - 0.3)
+        max_delay = min(3.0, base_delay + 0.5)
+        target_delay = random.uniform(min_delay, max_delay)
+        if elapsed < target_delay:
+            time.sleep(target_delay - elapsed)
+        self._last_request_time = time.time()
+
+    def _reset_circuit_breakers(self) -> None:
+        """Reset all circuit breaker counters for a fresh search session.
+        Also clears cookies and rotates UA to reduce tracking-based blocking."""
+        self._google_fails = 0
+        self._yahoo_fails = 0
+        self._ddg_fails = 0
+        self._bing_fails = 0
+        self._brave_fails = 0
+        self._search_count = 0
+        self.session.cookies.clear()
+        self._rotate_user_agent()
+
     def _search_all_engines(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
-        """Search Google → Bing → DuckDuckGo → Yahoo with circuit-breaker.
-        Engines that have failed consecutively are skipped automatically."""
+        """Search Google → DuckDuckGo → Brave → Bing → Yahoo with circuit-breaker.
+        Engines that have failed consecutively are skipped automatically.
+        Order prioritizes less-aggressive-blocking engines as fallbacks."""
         logger.log_action("Scanning global networks for targeted node", target=query)
         results: list = []
+
+        self._throttle_request()
 
         # --- Google (primary) ---------------------------------------------
         if not results and self._google_fails < self._CB_THRESHOLD:
             results = self._extract_urls_from_google(query, domain_pattern, max_results)
 
+        # --- DuckDuckGo fallback (lenient, scraper-friendly) ---------------
+        if not results and self._ddg_fails < self._CB_THRESHOLD:
+            time.sleep(random.uniform(0.3, 0.8))
+            results = self._extract_urls_from_duckduckgo(query, domain_pattern, max_results)
+
+        # --- Brave fallback (privacy-focused, less blocking) ---------------
+        if not results and self._brave_fails < self._CB_THRESHOLD:
+            time.sleep(random.uniform(0.3, 0.8))
+            results = self._extract_urls_from_brave(query, domain_pattern, max_results)
+
         # --- Bing fallback ------------------------------------------------
         if not results and self._bing_fails < self._CB_THRESHOLD:
+            time.sleep(random.uniform(0.3, 0.8))
             results = self._extract_urls_from_bing(query, domain_pattern, max_results)
-
-        # --- DuckDuckGo fallback ------------------------------------------
-        if not results and self._ddg_fails < self._CB_THRESHOLD:
-            results = self._extract_urls_from_duckduckgo(query, domain_pattern, max_results)
 
         # --- Yahoo fallback -----------------------------------------------
         if not results and self._yahoo_fails < self._CB_THRESHOLD:
+            time.sleep(random.uniform(0.3, 0.8))
             results = self._extract_urls_from_yahoo(query, domain_pattern, max_results)
 
         if results:
@@ -910,6 +1023,9 @@ class ScraperService:
         logger.log_thought(f"Initiating deep-web scraping protocol for entity: {name}")
         logger.log_action(f"[DIAG] find_all_profiles v3 — name={name}")
 
+        # Reset circuit breakers for each new search session
+        self._reset_circuit_breakers()
+
         # Determine if input looks like a username (no spaces)
         input_is_username = ' ' not in name.strip() and len(name.strip()) >= 3
 
@@ -935,9 +1051,10 @@ class ScraperService:
 
         profiles: dict[str, list] = {k: [] for k in platform_fns}
 
-        # Phase 1: Yahoo searches + direct username probe run in parallel
+        # Phase 1: Search-based discovery + direct username probe run in parallel
+        # Use limited workers (6) to prevent bursts that trigger rate limiting
         DIRECT_TAG = '__direct_username_probe__'
-        with ThreadPoolExecutor(max_workers=18) as executor:
+        with ThreadPoolExecutor(max_workers=6) as executor:
             futures = {executor.submit(fn, name): platform for platform, fn in platform_fns.items()}
 
             # If input looks like a username, also probe it directly on every platform
@@ -975,6 +1092,13 @@ class ScraperService:
                     logger.log_success(f"{platform.capitalize()} direct-hit confirmed: @{name.strip()}")
 
         # Phase 1.5: For real names, probe name-derived username variations via platform search fns.
+        # Reset circuit breakers after Phase 1 — engines may have recovered
+        found_count_p1 = sum(1 for v in profiles.values() if v)
+        if found_count_p1 < 3:
+            logger.log_action("Resetting search engine circuits for Phase 1.5 discovery...")
+            self._reset_circuit_breakers()
+            time.sleep(random.uniform(1.0, 2.0))  # Brief cooldown before next wave
+
         # This runs BEFORE the standard username cross-check so that discovered usernames
         # feed into Phase 2 collection below.
         SEARCH_PLATFORMS = ('instagram', 'twitter', 'tiktok', 'youtube', 'reddit', 'linkedin', 'threads', 'medium', 'snapchat', 'tumblr', 'pinterest', 'steam')
