@@ -15,8 +15,8 @@ const api = axios.create({
     },
 });
 
-export const searchPerson = async (query: string): Promise<SearchResponse> => {
-    const response = await api.post<SearchResponse>('/api/search/', { query });
+export const searchPerson = async (query: string, depth: number = 5): Promise<SearchResponse> => {
+    const response = await api.post<SearchResponse>('/api/search/', { query, depth });
     return response.data;
 };
 
