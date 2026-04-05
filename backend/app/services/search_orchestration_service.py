@@ -182,20 +182,24 @@ class SearchOrchestrationService:
 
     # -- Step 2: Parallel data fetching -------------------------------------
 
-    async def fetch_parallel_data(self, real_name: str, username: str):
+    async def fetch_parallel_data(self, real_name: str, username: str, depth_config=None):
         """Run orchestrator + GitHub + search concurrently. Returns raw tuple."""
         loop = asyncio.get_running_loop()
 
-        logger.log_action("Launching parallel intelligence gathering...")
+        tier_label = depth_config.tier if depth_config else "medium"
+        logger.log_action(f"Launching parallel intelligence gathering (tier: {tier_label})...")
 
         github_future = loop.run_in_executor(None, self._github.search_user, username)
-        search_future = loop.run_in_executor(None, self._search.search_person, real_name)
+        search_future = loop.run_in_executor(
+            None, self._search.search_person, real_name, depth_config,
+        )
 
         orch_result, github_data, search_results = await self._orchestrator.run_parallel(
             username=username,
             real_name=real_name,
             github_future=github_future,
             search_future=search_future,
+            depth_config=depth_config,
         )
         return orch_result, github_data, search_results
 
@@ -275,35 +279,61 @@ class SearchOrchestrationService:
     def collect_images(
         self, social_profiles: dict, github_data: dict | None, wiki_image: str | None, real_name: str
     ) -> list[str]:
-        """Build a deduplicated list of avatar/profile images."""
+        """Build a deduplicated list of avatar/profile images.
+        IMPORTANT: Only uses real profile URLs — skips [SEARCH] fallback entries
+        which are Google search page URLs and would return wrong images."""
         images: list[str] = []
         if wiki_image:
             images.append(wiki_image)
         if github_data and github_data.get('avatar_url'):
             images.append(github_data['avatar_url'])
 
+        def _is_real_profile(items: list, platform_domain: str) -> bool:
+            """Check if items contain a real profile URL (not a [SEARCH] fallback)."""
+            if not items:
+                return False
+            first = items[0]
+            # Skip [SEARCH] fallback entries (these are Google/platform search page URLs)
+            if first.get('bio') == '[SEARCH]':
+                return False
+            url = first.get('url', '')
+            # Verify the URL is actually from the expected platform domain
+            if platform_domain not in url.lower():
+                return False
+            return True
+
         # Instagram
         instagram_items = social_profiles.get('instagram', [])
-        if instagram_items:
+        if _is_real_profile(instagram_items, 'instagram.com'):
             ig_url = instagram_items[0]['url'].split(',')[0].strip()
             ig_username = ig_url.rstrip('/').split('/')[-1]
-            direct_ig = self._scraper.fetch_avatar_from_url(ig_url)
-            images.append(direct_ig if direct_ig else f"https://unavatar.io/instagram/{ig_username}?fallback=false")
+            if ig_username and len(ig_username) >= 2:
+                direct_ig = self._scraper.fetch_avatar_from_url(ig_url)
+                images.append(direct_ig if direct_ig else f"https://unavatar.io/instagram/{ig_username}?fallback=false")
 
         # Twitter/X
         twitter_items = social_profiles.get('twitter', [])
-        if twitter_items:
+        if _is_real_profile(twitter_items, 'x.com') or _is_real_profile(twitter_items, 'twitter.com'):
             tw_url = twitter_items[0]['url'].split(',')[0].strip()
-            tw_username = tw_url.rstrip('/').split('/')[-1]
-            images.append(f"https://unavatar.io/x/{tw_username}?fallback=false")
+            tw_username = tw_url.rstrip('/').split('/')[-1].lstrip('@')
+            if tw_username and len(tw_username) >= 2:
+                images.append(f"https://unavatar.io/x/{tw_username}?fallback=false")
 
         # Other platforms
-        for platform in ['linkedin', 'spotify', 'tiktok', 'snapchat', 'tumblr']:
+        platform_domains = {
+            'linkedin': 'linkedin.com',
+            'spotify': 'spotify.com',
+            'tiktok': 'tiktok.com',
+            'snapchat': 'snapchat.com',
+            'tumblr': 'tumblr.com',
+        }
+        for platform, domain in platform_domains.items():
             items = social_profiles.get(platform, [])
-            if items:
+            if _is_real_profile(items, domain):
                 profile_url = items[0]['url'].split(',')[0].strip()
                 social_username = profile_url.rstrip('/').split('/')[-1]
-                images.append(f"https://unavatar.io/{platform}/{social_username}?fallback=false")
+                if social_username and len(social_username) >= 2:
+                    images.append(f"https://unavatar.io/{platform}/{social_username}?fallback=false")
 
         # Deduplicate while preserving order
         unique: list[str] = []
@@ -317,32 +347,51 @@ class SearchOrchestrationService:
     def collect_face_images(
         self, social_profiles: dict, github_data: dict | None, wiki_image: str | None
     ) -> list[tuple[str, str]]:
-        """Build labeled (platform, url) pairs for face matching."""
+        """Build labeled (platform, url) pairs for face matching.
+        Only uses real profile URLs — skips [SEARCH] fallback entries."""
         face_images: list[tuple[str, str]] = []
         if wiki_image:
             face_images.append(("Wikipedia", wiki_image))
         if github_data and github_data.get('avatar_url'):
             face_images.append(("GitHub", github_data['avatar_url']))
 
+        def _is_real(items: list, domain: str) -> bool:
+            if not items:
+                return False
+            first = items[0]
+            if first.get('bio') == '[SEARCH]':
+                return False
+            return domain in first.get('url', '').lower()
+
         instagram_items = social_profiles.get('instagram', [])
-        if instagram_items:
+        if _is_real(instagram_items, 'instagram.com'):
             ig_url = instagram_items[0]['url'].split(',')[0].strip()
             ig_username = ig_url.rstrip('/').split('/')[-1]
-            direct_ig = self._scraper.fetch_avatar_from_url(ig_url)
-            face_images.append(("Instagram", direct_ig if direct_ig else f"https://unavatar.io/instagram/{ig_username}?fallback=false"))
+            if ig_username and len(ig_username) >= 2:
+                direct_ig = self._scraper.fetch_avatar_from_url(ig_url)
+                face_images.append(("Instagram", direct_ig if direct_ig else f"https://unavatar.io/instagram/{ig_username}?fallback=false"))
 
         twitter_items = social_profiles.get('twitter', [])
-        if twitter_items:
+        if _is_real(twitter_items, 'x.com') or _is_real(twitter_items, 'twitter.com'):
             tw_url = twitter_items[0]['url'].split(',')[0].strip()
-            tw_username = tw_url.rstrip('/').split('/')[-1]
-            face_images.append(("Twitter", f"https://unavatar.io/x/{tw_username}?fallback=false"))
+            tw_username = tw_url.rstrip('/').split('/')[-1].lstrip('@')
+            if tw_username and len(tw_username) >= 2:
+                face_images.append(("Twitter", f"https://unavatar.io/x/{tw_username}?fallback=false"))
 
-        for platform in ['linkedin', 'spotify', 'tiktok', 'snapchat', 'tumblr']:
+        platform_domains = {
+            'linkedin': 'linkedin.com',
+            'spotify': 'spotify.com',
+            'tiktok': 'tiktok.com',
+            'snapchat': 'snapchat.com',
+            'tumblr': 'tumblr.com',
+        }
+        for platform, domain in platform_domains.items():
             items = social_profiles.get(platform, [])
-            if items:
+            if _is_real(items, domain):
                 first_url = items[0]['url'].split(',')[0].strip()
                 social_username = first_url.rstrip('/').split('/')[-1]
-                face_images.append((platform.capitalize(), f"https://unavatar.io/{platform}/{social_username}?fallback=false"))
+                if social_username and len(social_username) >= 2:
+                    face_images.append((platform.capitalize(), f"https://unavatar.io/{platform}/{social_username}?fallback=false"))
 
         return face_images
 
@@ -509,6 +558,7 @@ class SearchOrchestrationService:
         orch_result,
         face_match_report,
         sentiment_report,
+        depth_config=None,
     ) -> SearchResponse:
         """Assemble the final SearchResponse."""
         structured_data = post['structured_data']
@@ -571,6 +621,19 @@ class SearchOrchestrationService:
         if sentiment_report:
             response.sentiment_analysis = sentiment_report
             logger.log_success(f"Sentiment matrix locked: {sentiment_report.get('dominant_emotion', 'N/A')}")
+
+        # Depth metadata
+        if depth_config:
+            response.search_depth = depth_config.depth
+            response.search_tier = depth_config.tier
+
+        # Tactical analysis
+        if post.get('tactical_analysis'):
+            response.tactical_analysis = post['tactical_analysis']
+
+        # Prediction data
+        if post.get('prediction_data'):
+            response.prediction_data = post['prediction_data']
 
         return response
 
