@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 class SearchQuery(BaseModel):
     """Search query from user"""
     query: str = Field(..., description="Search query (e.g., person's name)")
+    depth: int = Field(default=5, ge=1, le=10, description="Search depth 1-10 (surface/medium/deep)")
 
 
 class SocialUrlsMixin(BaseModel):
@@ -96,3 +97,7 @@ class SearchResponse(ProfileDataMixin):
     company_records: list[dict[str, Any]] | None = None
     geoint_data: list[GeoLocationData] | None = None
     timezone_analysis: TimezoneAnalysis | None = None
+    tactical_analysis: dict[str, Any] | None = None
+    prediction_data: dict[str, Any] | None = None
+    search_depth: int | None = None
+    search_tier: str | None = None
