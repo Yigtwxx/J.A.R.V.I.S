@@ -5,6 +5,7 @@ from app.agents.orchestrator import SearchOrchestrator
 from app.database import get_db
 from app.middleware.security import verify_api_key
 from app.schemas import SearchQuery, SearchResponse
+from app.services.depth_config import DepthConfig
 from app.services import (
     AIService,
     GitHubService,
@@ -75,13 +76,17 @@ async def search_person(
         if not raw_query:
             raise HTTPException(status_code=400, detail="Query cannot be empty")
 
+        depth_config = DepthConfig(query.depth)
         logger.log_thought(f"Incoming connection detected on secure channel: {raw_query}")
+        logger.log_action(f"Search depth: {depth_config.depth} ({depth_config.tier})")
 
         # 1. Parse query
         real_name, username = orchestration.parse_query(raw_query)
 
         # 2. Parallel data fetching
-        orch_result, github_data, search_results = await orchestration.fetch_parallel_data(real_name, username)
+        orch_result, github_data, search_results = await orchestration.fetch_parallel_data(
+            real_name, username, depth_config=depth_config,
+        )
         social_profiles = orch_result.social_profiles
         wiki_image = search_results[0]
 
@@ -112,7 +117,7 @@ async def search_person(
         response = orchestration.build_response(
             ai_response, real_name, github_url, social_profiles,
             images, post, raw_sources, github_data, orch_result,
-            face_match_report, sentiment_report,
+            face_match_report, sentiment_report, depth_config=depth_config,
         )
 
         # 9. Save history
