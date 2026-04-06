@@ -79,6 +79,41 @@ class TimezoneAnalysis(BaseModel):
     hourly_distribution: dict[str, int] = {}
 
 
+class SocialEngineeringVector(BaseModel):
+    """A single social engineering attack vector."""
+    vector: str
+    approach: str
+    risk_level: str = "medium"  # low, medium, high
+
+
+class PsychologicalAnalysis(BaseModel):
+    """Psychological warfare and vulnerability analysis output."""
+    psychological_profile: str
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    tactical_recommendations: list[str] = []
+    social_engineering_vectors: list[SocialEngineeringVector] = []
+    manipulation_resistance_score: int = Field(default=50, ge=1, le=100)
+    confidence_level: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class PredictionEntry(BaseModel):
+    """A single predictive forecast."""
+    category: str  # activity, behavioral, security, financial
+    prediction: str
+    probability: float = Field(default=0.5, ge=0.0, le=1.0)
+    timeframe: str  # 24h, 7d, 30d, 90d
+    supporting_evidence: list[str] = []
+
+
+class PredictiveAnalysis(BaseModel):
+    """Predictive analytics and forecasting output."""
+    predictions: list[PredictionEntry] = []
+    activity_pattern: dict[str, Any] | None = None
+    trend_direction: str = "stable"  # increasing, stable, decreasing, erratic
+    data_sufficiency: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
 class SearchResponse(ProfileDataMixin):
     """AI search response with gathered information"""
     name: str
@@ -98,6 +133,7 @@ class SearchResponse(ProfileDataMixin):
     geoint_data: list[GeoLocationData] | None = None
     timezone_analysis: TimezoneAnalysis | None = None
     tactical_analysis: dict[str, Any] | None = None
-    prediction_data: dict[str, Any] | None = None
+    psychological_analysis: PsychologicalAnalysis | None = None
+    prediction_data: PredictiveAnalysis | None = None
     search_depth: int | None = None
     search_tier: str | None = None
