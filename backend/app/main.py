@@ -10,11 +10,13 @@ from app.config import get_settings
 from app.database import init_db
 from app.middleware.security import RateLimitMiddleware
 from app.plugins import plugin_manager
+from app.services.self_healing_service import self_healing_service
 from app.routes import (
     agent_router,
     chat_router,
     export_router,
     face_match_router,
+    health_router,
     history_router,
     memory_router,
     plugins_router,
@@ -49,9 +51,14 @@ async def lifespan(app: FastAPI):
 
     plugin_manager.discover()
 
+    # Start self-healing background monitor
+    monitor_task = asyncio.create_task(self_healing_service.start_monitoring(interval_seconds=30))
+
     logger.log_success("All systems online. Awaiting coordinates.")
     yield
     # --- Shutdown ---
+    self_healing_service.stop()
+    monitor_task.cancel()
 
 
 # Create FastAPI app
@@ -124,6 +131,7 @@ app.include_router(plugins_router)
 app.include_router(agent_router)
 app.include_router(vision_router)
 app.include_router(system_router)
+app.include_router(health_router)
 
 
 @app.get("/")
@@ -174,12 +182,8 @@ async def stream_status():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "ai_service": "Ollama",
-        "database": "SQLite"
-    }
+    """Comprehensive health check — returns status of all dependent services."""
+    return self_healing_service.get_full_health_check()
 
 
 if __name__ == "__main__":
