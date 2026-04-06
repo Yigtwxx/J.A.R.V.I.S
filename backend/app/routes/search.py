@@ -20,6 +20,8 @@ from app.services.company_service import company_service
 from app.services.face_matching_service import FaceMatchingService
 from app.services.darkweb_service import darkweb_service
 from app.services.geoint_service import geoint_service
+from app.services.psychological_analysis_service import psychological_analysis_service
+from app.services.predictive_analysis_service import predictive_analysis_service
 from app.services.search_orchestration_service import SearchOrchestrationService
 from app.services.vector_store_service import vector_store_service
 from app.utils.logger import logger
@@ -57,6 +59,8 @@ orchestration = SearchOrchestrationService(
     breach_orchestrator=search_orchestrator,
     darkweb_service=darkweb_service,
     geoint_service=geoint_service,
+    psychological_service=psychological_analysis_service,
+    predictive_service=predictive_analysis_service,
 )
 
 
@@ -107,10 +111,11 @@ async def search_person(
             raw_query, context, deep_context, face_images
         )
 
-        # 7. Post-analysis (structured data, breach, cross-validation, score)
+        # 7. Post-analysis (structured data, breach, cross-validation, score, psych, prediction)
         post = await orchestration.run_post_analysis(
             ai_response, real_name, username, github_data,
             social_profiles, search_results[1], raw_sources, orch_result,
+            context=context, deep_context=deep_context, sentiment_report=sentiment_report,
         )
 
         # 8. Build response
