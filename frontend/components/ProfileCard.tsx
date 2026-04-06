@@ -22,6 +22,8 @@ function extractUsername(url: string): string {
 const NetworkGraph = dynamic(() => import('@/components/NetworkGraph'), { ssr: false });
 const SecurityScanWidget = dynamic(() => import('@/components/SecurityScanWidget'), { ssr: false });
 const GeoIntMap = dynamic(() => import('@/components/GeoIntMap'), { ssr: false });
+const PsychologicalAnalysisWidget = dynamic(() => import('@/components/PsychologicalAnalysisWidget'), { ssr: false });
+const PredictiveAnalysisWidget = dynamic(() => import('@/components/PredictiveAnalysisWidget'), { ssr: false });
 
 interface ProfileCardProps {
     profile: SearchResponse;
@@ -249,6 +251,16 @@ function ProfileCard({ profile }: ProfileCardProps) {
                         emails={profile.email_addresses}
                         dataBreaches={profile.data_breaches}
                     />
+
+                    {/* Psychological Warfare Analysis */}
+                    {profile.psychological_analysis && (
+                        <PsychologicalAnalysisWidget analysis={profile.psychological_analysis} />
+                    )}
+
+                    {/* Predictive Analytics Matrix */}
+                    {profile.prediction_data && (
+                        <PredictiveAnalysisWidget analysis={profile.prediction_data} />
+                    )}
                 </div>
             </div>
         </motion.div>
