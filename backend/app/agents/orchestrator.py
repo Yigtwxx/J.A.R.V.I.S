@@ -64,6 +64,7 @@ class SearchOrchestrator:
             real_name=real_name,
             status_callback=self._status,
             loop=loop,
+            depth_config=depth_config,
         )
         legal_agent = LegalRecordsAgent(
             company_service=self._company,
