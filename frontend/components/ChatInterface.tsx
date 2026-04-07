@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TerminalSquare, Save, CheckCircle, Github, Instagram, Twitter, Linkedin, Globe, MapPin, Thermometer, Cloud, Sun, Wind, Search } from 'lucide-react';
+import { TerminalSquare, Save, CheckCircle, Github, Instagram, Twitter, Linkedin, Globe, MapPin, Thermometer, Cloud, Sun, Wind, Search, AlertTriangle } from 'lucide-react';
 import { saveProfile, API_BASE_URL } from '@/services/api';
 import { Message, SearchResponse } from '@/types/profile';
 import ReactMarkdown from 'react-markdown';
@@ -341,7 +341,7 @@ export default function ChatInterface() {
                         initial={{ opacity: 0, x: 50 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
-                        className="fixed z-40 right-6 top-6 w-60 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden"
+                        className="fixed z-40 right-6 top-6 w-64 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden"
                     >
                         <div className="p-2.5 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full animate-[shimmer_5s_infinite]" />
@@ -349,10 +349,24 @@ export default function ChatInterface() {
                             <ScrambleText text="Network Nodes" className="text-[10px] font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan" />
                             <span className="ml-auto text-[8px] font-mono bg-cyan-400/10 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30">{socialEntries.length + searchEntries.length}</span>
                         </div>
-                        <div className="p-2 space-y-1.5 overflow-y-auto max-h-[80vh] custom-scrollbar">
+                        <div className="p-2.5 space-y-2 overflow-y-auto max-h-[80vh] custom-scrollbar">
                             <AnimatePresence>
                                 {/* Empty state when no social profiles found */}
-                                {socialEntries.length === 0 && (
+                                {socialEntries.length === 0 && searchEntries.length > 0 && (
+                                    <motion.div
+                                        key="no-verified"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="flex flex-col items-center gap-2 py-3 opacity-70"
+                                    >
+                                        <Search className="w-4 h-4 text-amber-400" />
+                                        <span className="text-[9px] font-mono text-amber-400/80 text-center leading-tight">
+                                            No verified profiles found.<br/>
+                                            Use search links below to investigate.
+                                        </span>
+                                    </motion.div>
+                                )}
+                                {socialEntries.length === 0 && searchEntries.length === 0 && (
                                     <motion.div
                                         key="no-profiles"
                                         initial={{ opacity: 0 }}
@@ -412,6 +426,7 @@ export default function ChatInterface() {
                                             >
                                                 <Icon className="w-4 h-4 transition-colors group-hover/link:text-white shrink-0" />
                                                 <span className="text-[11px] text-white font-bold font-mono tracking-wider drop-shadow-sm truncate">{displayLabel}</span>
+                                                <span className="text-[6px] font-mono bg-green-500/20 text-green-400 px-1 py-0.5 rounded ml-auto shrink-0 border border-green-500/30">FOUND</span>
                                             </motion.a>
                                         );
                                     });
@@ -425,7 +440,7 @@ export default function ChatInterface() {
                                         animate={{ opacity: 1 }}
                                         className="flex flex-col gap-1.5"
                                     >
-                                        <div className="pt-2 pb-1 border-t border-cyan-500/10 mt-1">
+                                        <div className="pt-3 pb-1.5 border-t border-cyan-500/15 mt-2">
                                             <div className="flex items-center gap-2 px-1">
                                                 <Search className="w-3 h-3 text-cyan-500/50" />
                                                 <span className="text-[8px] font-bold font-mono tracking-widest text-cyan-500/50 uppercase">Search on Platform</span>
@@ -665,6 +680,16 @@ export default function ChatInterface() {
                                 {message.role === 'user' ? (
                                     <div className="message-bubble message-user max-w-xl text-white font-medium shadow-[0_4px_15px_rgba(0,0,0,0.5)] border-white/20">
                                         {message.content}
+                                    </div>
+                                ) : message.content.startsWith('[ERROR]') ? (
+                                    <div className="w-full max-w-3xl">
+                                        <div className="message-bubble bg-red-950/40 border border-red-500/30 rounded-xl p-4 text-red-200 font-mono text-sm shadow-lg border-l-4 border-l-red-500">
+                                            <div className="flex items-center gap-2 mb-2 text-red-400 font-bold pb-2 border-b border-red-500/30">
+                                                <AlertTriangle className="w-5 h-5 text-red-400 animate-pulse" />
+                                                <span className="text-sm uppercase tracking-[0.2em]">System Error</span>
+                                            </div>
+                                            <p className="text-red-200/90 leading-relaxed">{message.content.replace('[ERROR] ', '')}</p>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="w-full max-w-3xl space-y-6">
