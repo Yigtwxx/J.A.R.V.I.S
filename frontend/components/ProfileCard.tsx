@@ -41,7 +41,7 @@ function ProfileCard({ profile }: ProfileCardProps) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            const safeName = profile.name.replace(/\s+/g, '_');
+            const safeName = (profile.name || 'unknown').replace(/\s+/g, '_');
             const ext = format === 'pdf' ? 'pdf' : format === 'json' ? 'json' : 'csv';
             a.download = `JARVIS_Dossier_${safeName}.${ext}`;
             document.body.appendChild(a);
@@ -84,7 +84,7 @@ function ProfileCard({ profile }: ProfileCardProps) {
                         <div className="flex items-center gap-3 mb-1">
                             <Activity className="w-5 h-5 text-cyan-400 animate-pulse glow-cyan" />
                             <h3 className="text-3xl font-orbitron font-black text-white tracking-widest uppercase drop-shadow-lg">
-                                <GlitchText text={profile.name} interval={4000} />
+                                <GlitchText text={profile.name || 'Unknown'} interval={4000} />
                             </h3>
                         </div>
                         <div className="flex items-center gap-2 text-cyan-300 text-[11px] font-bold font-mono tracking-widest uppercase glow-cyan mt-1">
@@ -213,8 +213,8 @@ function ProfileCard({ profile }: ProfileCardProps) {
                         ];
                         const platformNodes = platformMap.flatMap(({ key, label }) => {
                             const val = profile[key];
-                            if (!val) return [];
-                            const urls = (val as string).split(',').map(u => u.trim()).filter(u => {
+                            if (!val || typeof val !== 'string') return [];
+                            const urls = val.split(',').map(u => u.trim()).filter(u => {
                                 try { return ['http:', 'https:'].includes(new URL(u).protocol); }
                                 catch { return false; }
                             });
@@ -229,7 +229,7 @@ function ProfileCard({ profile }: ProfileCardProps) {
                         return (
                             <div className="mt-4">
                                 <NetworkGraph
-                                    targetName={profile.name}
+                                    targetName={profile.name || 'Unknown'}
                                     connections={profile.network_connections ?? []}
                                     platforms={platformNodes}
                                 />
