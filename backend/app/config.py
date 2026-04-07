@@ -16,10 +16,6 @@ class Settings(BaseSettings):
     # Vision (multimodal)
     vision_model: str = "llama3.2-vision"
 
-    # Embedding & Vector Store
-    embedding_model: str = "nomic-embed-text"
-    chroma_db_path: str = "data/chroma_db"
-
     # GitHub
     github_token: str = ""
 
