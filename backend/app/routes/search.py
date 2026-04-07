@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -87,9 +89,12 @@ async def search_person(
         # 1. Parse query
         real_name, username = orchestration.parse_query(raw_query)
 
-        # 2. Parallel data fetching
-        orch_result, github_data, search_results = await orchestration.fetch_parallel_data(
-            real_name, username, depth_config=depth_config,
+        # 2. Parallel data fetching (120s timeout)
+        orch_result, github_data, search_results = await asyncio.wait_for(
+            orchestration.fetch_parallel_data(
+                real_name, username, depth_config=depth_config,
+            ),
+            timeout=120,
         )
         social_profiles = orch_result.social_profiles
         wiki_image = search_results[0]
@@ -106,16 +111,22 @@ async def search_person(
         images = orchestration.collect_images(social_profiles, github_data, wiki_image, real_name)
         face_images = orchestration.collect_face_images(social_profiles, github_data, wiki_image)
 
-        # 6. AI analysis + face match + sentiment
-        ai_response, face_match_report, sentiment_report = await orchestration.run_analysis(
-            raw_query, context, deep_context, face_images
+        # 6. AI analysis + face match + sentiment (90s timeout)
+        ai_response, face_match_report, sentiment_report = await asyncio.wait_for(
+            orchestration.run_analysis(
+                raw_query, context, deep_context, face_images
+            ),
+            timeout=90,
         )
 
-        # 7. Post-analysis (structured data, breach, cross-validation, score, psych, prediction)
-        post = await orchestration.run_post_analysis(
-            ai_response, real_name, username, github_data,
-            social_profiles, search_results[1], raw_sources, orch_result,
-            context=context, deep_context=deep_context, sentiment_report=sentiment_report,
+        # 7. Post-analysis (structured data, breach, cross-validation, score, psych, prediction) (90s timeout)
+        post = await asyncio.wait_for(
+            orchestration.run_post_analysis(
+                ai_response, real_name, username, github_data,
+                social_profiles, search_results[1], raw_sources, orch_result,
+                context=context, deep_context=deep_context, sentiment_report=sentiment_report,
+            ),
+            timeout=90,
         )
 
         # 8. Build response
@@ -131,6 +142,12 @@ async def search_person(
         logger.log_success(f"SEARCH COMPLETED FOR TARGET: {raw_query}")
         return response
 
+    except asyncio.TimeoutError:
+        logger.log_error(f"Search timed out for: {raw_query}")
+        raise HTTPException(
+            status_code=504,
+            detail="Search timed out. Try again with lower search depth.",
+        )
     except HTTPException:
         raise
     except Exception as e:
