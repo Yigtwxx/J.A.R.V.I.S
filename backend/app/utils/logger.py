@@ -16,7 +16,12 @@ jarvis_theme = Theme({
     "highlight": "bold cyan",
     "network": "magenta",
     "database": "green",
-    "time": "grey50"
+    "time": "grey50",
+    "step": "bold magenta",
+    "scan": "bright_cyan",
+    "detail": "dim cyan",
+    "phase": "bold yellow",
+    "timer": "bright_black",
 })
 
 console = Console(theme=jarvis_theme)
@@ -25,6 +30,7 @@ console = Console(theme=jarvis_theme)
 class JarvisLogger:
     def __init__(self):
         self.subscribers: set[asyncio.Queue] = set()
+        self._timers: dict[str, float] = {}
 
     def _push_to_queues(self, message: str):
         """Internal: push a message to all SSE subscriber queues (thread-safe)."""
@@ -119,6 +125,61 @@ class JarvisLogger:
             console.print(f"[database][DB-LINK][/database] [bold]{query_type}[/bold] [highlight]{table}[/highlight] {f'-> {details}' if details else ''}")
         except Exception:
             print(f"[DB] {query_type} {table} {details}")
+
+    def log_step(self, step_num: int, total: int, description: str):
+        """Log a numbered pipeline step (e.g., Step 3/10: Scanning Instagram)"""
+        msg = f"[STEP {step_num}/{total}] {description}"
+        console.print(f"[step]▶ STEP {step_num}/{total}[/step] [info]{description}[/info]")
+        self.broadcast(msg)
+
+    def log_scan(self, platform: str, target: str, detail: str = ""):
+        """Log a platform-specific scan operation"""
+        detail_str = f" → {detail}" if detail else ""
+        msg = f"[SCAN] {platform}: {target}{detail_str}"
+        console.print(f"[scan]  🔍 {platform}[/scan] [highlight]{target}[/highlight]{f' [detail]→ {detail}[/detail]' if detail else ''}")
+        self.broadcast(msg)
+
+    def log_detail(self, message: str):
+        """Log a sub-step detail (indented, dimmer — for granular info)"""
+        msg = f"    ↳ {message}"
+        console.print(f"[detail]    ↳ {message}[/detail]")
+        self.broadcast(msg)
+
+    def log_phase(self, phase_name: str, description: str = ""):
+        """Log a major phase transition with visual separator"""
+        separator = "─" * 60
+        desc_str = f" — {description}" if description else ""
+        msg = f"[PHASE] ═══ {phase_name}{desc_str} ═══"
+        console.print(f"\n[phase]{'═' * 60}[/phase]")
+        console.print(f"[phase]  ⚡ {phase_name.upper()}{desc_str}[/phase]")
+        console.print(f"[phase]{'═' * 60}[/phase]")
+        self.broadcast(msg)
+
+    def log_separator(self, label: str = ""):
+        """Print a visual separator line for grouping output"""
+        if label:
+            line = f"──── {label} {'─' * max(1, 50 - len(label))}"
+        else:
+            line = "─" * 56
+        console.print(f"[dim]{line}[/dim]")
+
+    def start_timer(self, label: str):
+        """Start a named timer"""
+        import time
+        self._timers[label] = time.time()
+
+    def stop_timer(self, label: str):
+        """Stop a named timer and log the elapsed time"""
+        import time
+        if label in self._timers:
+            elapsed = time.time() - self._timers.pop(label)
+            if elapsed >= 60:
+                time_str = f"{elapsed / 60:.1f} dakika"
+            else:
+                time_str = f"{elapsed:.1f}s"
+            msg = f"[TIMER] {label}: {time_str}"
+            console.print(f"[timer]  ⏱  {label}: {time_str}[/timer]")
+            self.broadcast(msg)
 
     def display_panel(self, title: str, content: str, style: str = "cyan"):
         """Display important data in a styled panel"""
