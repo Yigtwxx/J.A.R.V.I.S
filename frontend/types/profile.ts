@@ -143,6 +143,45 @@ export interface TimezoneAnalysis {
   hourly_distribution: Record<string, number>;
 }
 
+// ─── Psychological Analysis Types ───────────────────────────
+
+export interface SocialEngineeringVector {
+  vector: string;
+  approach: string;
+  risk_level: 'low' | 'medium' | 'high';
+}
+
+export interface PsychologicalAnalysis {
+  psychological_profile: string;
+  strengths: string[];
+  weaknesses: string[];
+  tactical_recommendations: string[];
+  social_engineering_vectors: SocialEngineeringVector[];
+  manipulation_resistance_score: number;
+  confidence_level: number;
+}
+
+// ─── Predictive Analysis Types ──────────────────────────────
+
+export interface PredictionEntry {
+  category: 'activity' | 'behavioral' | 'security' | 'financial';
+  prediction: string;
+  probability: number;
+  timeframe: '24h' | '7d' | '30d' | '90d';
+  supporting_evidence: string[];
+}
+
+export interface PredictiveAnalysis {
+  predictions: PredictionEntry[];
+  activity_pattern?: {
+    most_active_hours: number[];
+    most_active_days: string[];
+    posting_frequency: string;
+  };
+  trend_direction: 'increasing' | 'stable' | 'decreasing' | 'erratic';
+  data_sufficiency: number;
+}
+
 export interface SearchResponse extends SharedProfileFields {
   sources?: { title: string; url: string; snippet: string }[];
   ai_response: string;
@@ -157,6 +196,10 @@ export interface SearchResponse extends SharedProfileFields {
   };
   geoint_data?: GeoLocationData[];
   timezone_analysis?: TimezoneAnalysis;
+  psychological_analysis?: PsychologicalAnalysis;
+  prediction_data?: PredictiveAnalysis;
+  search_depth?: number;
+  search_tier?: string;
 }
 
 export interface FieldChange {
