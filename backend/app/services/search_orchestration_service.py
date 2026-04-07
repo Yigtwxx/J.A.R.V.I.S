@@ -151,6 +151,8 @@ class SearchOrchestrationService:
         breach_orchestrator: Any,
         darkweb_service: Any = None,
         geoint_service: Any = None,
+        psychological_service: Any = None,
+        predictive_service: Any = None,
     ) -> None:
         self._ai = ai_service
         self._search = search_service
@@ -165,6 +167,8 @@ class SearchOrchestrationService:
         self._breach_orch = breach_orchestrator
         self._darkweb = darkweb_service
         self._geoint = geoint_service
+        self._psych = psychological_service
+        self._predictor = predictive_service
 
     # -- Step 1: Parse query ------------------------------------------------
 
@@ -427,7 +431,15 @@ class SearchOrchestrationService:
                     logger.log_warning(f"Sentiment analysis failed (non-critical): {e}")
             return None
 
-        face_match_report, sentiment_report = await asyncio.gather(run_face_match(), run_sentiment())
+        face_match_report, sentiment_report = await asyncio.gather(
+            run_face_match(), run_sentiment(), return_exceptions=True,
+        )
+        if isinstance(face_match_report, BaseException):
+            logger.log_warning(f"Face match gather exception: {face_match_report}")
+            face_match_report = None
+        if isinstance(sentiment_report, BaseException):
+            logger.log_warning(f"Sentiment gather exception: {sentiment_report}")
+            sentiment_report = None
         return ai_response, face_match_report, sentiment_report
 
     # -- Step 8: Post-analysis (breach, cross-validation, weather, score) ---
@@ -442,6 +454,9 @@ class SearchOrchestrationService:
         web_results: str | None,
         raw_sources: list,
         orch_result,
+        context: dict | None = None,
+        deep_context: str | None = None,
+        sentiment_report: dict | None = None,
     ) -> dict:
         """Extract structured data, check breaches, cross-validate, compute scores."""
         from app.agents.security_agent import SecurityAgent
@@ -530,6 +545,36 @@ class SearchOrchestrationService:
         phone_numbers = orch_result.phone_numbers
         platform_activity = orch_result.platform_activity or SocialMediaAgent._compute_platform_activity(github_data, social_profiles)
 
+        # Psychological warfare analysis
+        psychological_analysis = None
+        if self._psych and context:
+            try:
+                logger.log_action("Initiating psychological warfare analysis...")
+                psychological_analysis = await self._psych.analyze(
+                    context=context,
+                    deep_context=deep_context or "",
+                    sentiment_report=sentiment_report,
+                    structured_data=structured_data,
+                )
+            except Exception as e:
+                logger.log_warning(f"Psychological analysis failed (non-critical): {e}")
+
+        # Predictive analytics
+        prediction_data = None
+        if self._predictor:
+            try:
+                logger.log_action("Running predictive analytics engine...")
+                prediction_data = await self._predictor.generate_predictions(
+                    github_data=github_data,
+                    social_profiles=social_profiles,
+                    platform_activity=platform_activity,
+                    timezone_analysis=timezone_analysis,
+                    structured_data=structured_data,
+                    deep_context=deep_context or "",
+                )
+            except Exception as e:
+                logger.log_warning(f"Predictive analysis failed (non-critical): {e}")
+
         return {
             'structured_data': structured_data,
             'data_breaches': data_breaches,
@@ -541,6 +586,8 @@ class SearchOrchestrationService:
             'darkweb_intel': darkweb_intel,
             'geoint_data': geoint_data,
             'timezone_analysis': timezone_analysis,
+            'psychological_analysis': psychological_analysis,
+            'prediction_data': prediction_data,
         }
 
     # -- Step 9: Build response ---------------------------------------------
@@ -630,6 +677,10 @@ class SearchOrchestrationService:
         # Tactical analysis
         if post.get('tactical_analysis'):
             response.tactical_analysis = post['tactical_analysis']
+
+        # Psychological warfare analysis
+        if post.get('psychological_analysis'):
+            response.psychological_analysis = post['psychological_analysis']
 
         # Prediction data
         if post.get('prediction_data'):
