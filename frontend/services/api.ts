@@ -9,7 +9,7 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 300_000,
+    timeout: 120_000,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -260,6 +260,98 @@ export const getPendingActions = async (): Promise<{ pending_actions: SystemActi
 
 export const getActionHistory = async (limit = 50): Promise<{ history: SystemAction[] }> => {
     const response = await api.get('/api/system/history', { params: { limit } });
+    return response.data;
+};
+
+export interface ServiceStatusResponse {
+    services: Record<string, { status: string; error?: string; [key: string]: unknown }>;
+    uptime_seconds: number;
+    is_monitoring: boolean;
+    recovery_attempts: Record<string, number>;
+}
+
+export interface HealthLogEntry {
+    timestamp: string;
+    service: string;
+    type: string;
+    message: string;
+}
+
+export const getServiceStatus = async (): Promise<ServiceStatusResponse> => {
+    const response = await api.get('/api/system/service-status');
+    return response.data;
+};
+
+export const getHealthLog = async (limit = 50): Promise<{ log: HealthLogEntry[] }> => {
+    const response = await api.get('/api/system/health-log', { params: { limit } });
+    return response.data;
+};
+
+// ─── Health API ─────────────────────────────────────────────
+
+export interface HealthCategory {
+    id: string;
+    label: string;
+}
+
+export interface HealthRecord {
+    id: number;
+    category: string;
+    key: string;
+    value: string;
+    context: string | null;
+    importance: number;
+    created_at: string | null;
+    updated_at: string | null;
+}
+
+export interface HealthSuggestions {
+    assessment: string;
+    suggestions: string[];
+    warnings: string[];
+    follow_up_questions: string[];
+    user_report: string;
+}
+
+export interface HealthPattern {
+    description: string;
+    category: string;
+    severity: 'low' | 'medium' | 'high';
+    recommendation: string;
+}
+
+export interface HealthPatterns {
+    patterns: HealthPattern[];
+    summary: string;
+    data_points: number;
+}
+
+export const getHealthCategories = async (): Promise<HealthCategory[]> => {
+    const response = await api.get('/api/health/categories');
+    return response.data;
+};
+
+export const recordHealthData = async (
+    category: string, key: string, value: string, context?: string,
+): Promise<HealthRecord> => {
+    const response = await api.post('/api/health/record', { category, key, value, context });
+    return response.data;
+};
+
+export const getHealthHistory = async (category?: string, limit = 50): Promise<HealthRecord[]> => {
+    const params: Record<string, string | number> = { limit };
+    if (category) params.category = category;
+    const response = await api.get('/api/health/history', { params });
+    return response.data;
+};
+
+export const getHealthSuggestions = async (report: string): Promise<HealthSuggestions> => {
+    const response = await api.post('/api/health/suggestions', { report });
+    return response.data;
+};
+
+export const getHealthPatterns = async (): Promise<HealthPatterns> => {
+    const response = await api.get('/api/health/patterns');
     return response.data;
 };
 
