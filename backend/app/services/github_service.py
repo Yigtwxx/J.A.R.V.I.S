@@ -70,6 +70,9 @@ class GitHubService:
             # Get repositories
             repos = self._get_user_repos(username)
 
+            # Get recent commit activity
+            recent_commits = self._get_recent_commits(username)
+
             return {
                 'username': user_data.get('login'),
                 'name': user_data.get('name'),
@@ -85,12 +88,38 @@ class GitHubService:
                 'profile_url': user_data.get('html_url'),
                 'avatar_url': user_data.get('avatar_url'),
                 'last_active': user_data.get('updated_at'),
-                'repositories': repos
+                'created_at': user_data.get('created_at'),
+                'repositories': repos,
+                'recent_commits': recent_commits,
             }
 
         except Exception as e:
             logger.log_error(f"Error fetching GitHub user node: {e}")
             return None
+
+    def _get_recent_commits(self, username: str, max_commits: int = 20) -> list:
+        """Get recent commit activity across user's public repos."""
+        try:
+            events_url = f"{self.base_url}/users/{username}/events/public"
+            response = self.session.get(events_url, params={"per_page": 100}, timeout=10)
+            if response.status_code != 200:
+                return []
+            events = response.json()
+            commits = []
+            for event in events:
+                if event.get("type") == "PushEvent":
+                    for commit in event.get("payload", {}).get("commits", []):
+                        commits.append({
+                            "date": event.get("created_at", ""),
+                            "message": commit.get("message", ""),
+                            "repo": event.get("repo", {}).get("name", ""),
+                        })
+                        if len(commits) >= max_commits:
+                            return commits
+            return commits
+        except Exception as e:
+            logger.log_warning(f"Failed to fetch recent commits: {e}")
+            return []
 
     def _get_user_repos(self, username: str, max_repos: int = 5) -> list:
         """Get user's top repositories"""
