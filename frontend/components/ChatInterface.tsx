@@ -56,12 +56,16 @@ export default function ChatInterface() {
     useEffect(() => {
         let eventSource: EventSource | null = null;
         let intentionalClose = false;
+        let active = true;
+        let reconnectCount = 0;
+        const MAX_RECONNECTS = 3;
 
         if (isLoading) {
             resetSearchState(); // Reset RAG and Live status
             eventSource = new EventSource(`${API_BASE_URL}/api/status/stream`);
 
             eventSource.onmessage = (event) => {
+                if (!active) return; // Guard against stale updates
                 const data = event.data as string;
 
                 if (data === '[STREAM_START]') {
@@ -84,8 +88,9 @@ export default function ChatInterface() {
             };
 
             eventSource.onerror = () => {
-                // Only close if not intentionally closed (prevents infinite reconnect loop)
-                if (!intentionalClose && eventSource?.readyState !== EventSource.CLOSED) {
+                reconnectCount++;
+                // Close after max reconnects or if intentionally closed
+                if (reconnectCount > MAX_RECONNECTS || intentionalClose || eventSource?.readyState === EventSource.CLOSED) {
                     eventSource?.close();
                 }
             };
@@ -94,6 +99,7 @@ export default function ChatInterface() {
         }
 
         return () => {
+            active = false;
             intentionalClose = true;
             if (eventSource) eventSource.close();
         };
@@ -453,21 +459,21 @@ export default function ChatInterface() {
                                 )}
 
                                 {/* Intelligence Sources Section */}
-                                {lastProfile.sources && lastProfile.sources.length > 0 && (
-                                    <motion.div
-                                        key="intelligence-sources"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        className="flex flex-col gap-2"
-                                    >
-                                        <div className="pt-2 pb-1 border-t border-cyan-500/20 mt-2">
-                                            <div className="flex items-center gap-2 px-1">
-                                                <TerminalSquare className="w-3.5 h-3.5 text-cyan-400" />
-                                                <ScrambleText text="Intelligence Sources" className="text-[9px] font-bold font-mono tracking-widest text-cyan-500/80 uppercase" />
-                                            </div>
+                                <motion.div
+                                    key="intelligence-sources"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="flex flex-col gap-2"
+                                >
+                                    <div className="pt-2 pb-1 border-t border-cyan-500/20 mt-2">
+                                        <div className="flex items-center gap-2 px-1">
+                                            <TerminalSquare className="w-3.5 h-3.5 text-cyan-400" />
+                                            <ScrambleText text="Intelligence Sources" className="text-[9px] font-bold font-mono tracking-widest text-cyan-500/80 uppercase" />
                                         </div>
-                                        {lastProfile.sources.slice(0, 4).map((source, idx) => (
+                                    </div>
+                                    {lastProfile.sources && lastProfile.sources.length > 0 ? (
+                                        lastProfile.sources.slice(0, 4).map((source, idx) => (
                                             <motion.a
                                                 key={`source-${idx}`}
                                                 href={source.url}
@@ -486,9 +492,13 @@ export default function ChatInterface() {
                                                 </div>
                                                 <span className="text-[8px] text-cyan-500/50 truncate pl-4 font-mono">{(() => { try { return new URL(source.url).hostname; } catch { return source.url.substring(0, 30); } })()}</span>
                                             </motion.a>
-                                        ))}
-                                    </motion.div>
-                                )}
+                                        ))
+                                    ) : (
+                                        <div className="text-[9px] font-mono text-cyan-500/40 px-2 py-3 text-center">
+                                            No indexed sources available for this query
+                                        </div>
+                                    )}
+                                </motion.div>
                             </AnimatePresence>
                         </div>
                     </motion.div>
