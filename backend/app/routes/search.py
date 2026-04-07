@@ -25,7 +25,6 @@ from app.services.geoint_service import geoint_service
 from app.services.psychological_analysis_service import psychological_analysis_service
 from app.services.predictive_analysis_service import predictive_analysis_service
 from app.services.search_orchestration_service import SearchOrchestrationService
-from app.services.vector_store_service import vector_store_service
 from app.utils.logger import logger
 
 router = APIRouter(prefix="/api/search", tags=["search"])
@@ -56,7 +55,6 @@ orchestration = SearchOrchestrationService(
     social_score_service=social_score_service,
     face_matching_service=face_matching_service,
     search_orchestrator=search_orchestrator,
-    vector_store_service=vector_store_service,
     version_history_service=version_history_service,
     breach_orchestrator=search_orchestrator,
     darkweb_service=darkweb_service,
