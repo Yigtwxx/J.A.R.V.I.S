@@ -5,6 +5,10 @@ import time
 import unicodedata
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.services.depth_config import DepthConfig
 
 import requests
 from bs4 import BeautifulSoup
@@ -377,10 +381,10 @@ class ScraperService:
         self._search_count += 1
         now = time.time()
         elapsed = now - self._last_request_time
-        # Adaptive delay: increases slightly as more searches are made
-        base_delay = 0.8 + (self._search_count * 0.05)  # 0.8s → 1.3s over 10 searches
-        min_delay = max(0.5, base_delay - 0.3)
-        max_delay = min(3.0, base_delay + 0.5)
+        # Reduced delay: fast enough to finish in time, slow enough to avoid blocks
+        base_delay = 0.4 + (self._search_count * 0.02)  # 0.4s → 0.6s over 10 searches
+        min_delay = max(0.2, base_delay - 0.2)
+        max_delay = min(1.5, base_delay + 0.3)
         target_delay = random.uniform(min_delay, max_delay)
         if elapsed < target_delay:
             time.sleep(target_delay - elapsed)
@@ -413,22 +417,22 @@ class ScraperService:
 
         # --- DuckDuckGo fallback (lenient, scraper-friendly) ---------------
         if not results and self._ddg_fails < self._CB_THRESHOLD:
-            time.sleep(random.uniform(0.3, 0.8))
+            time.sleep(random.uniform(0.1, 0.4))
             results = self._extract_urls_from_duckduckgo(query, domain_pattern, max_results)
 
         # --- Brave fallback (privacy-focused, less blocking) ---------------
         if not results and self._brave_fails < self._CB_THRESHOLD:
-            time.sleep(random.uniform(0.3, 0.8))
+            time.sleep(random.uniform(0.1, 0.4))
             results = self._extract_urls_from_brave(query, domain_pattern, max_results)
 
         # --- Bing fallback ------------------------------------------------
         if not results and self._bing_fails < self._CB_THRESHOLD:
-            time.sleep(random.uniform(0.3, 0.8))
+            time.sleep(random.uniform(0.1, 0.4))
             results = self._extract_urls_from_bing(query, domain_pattern, max_results)
 
         # --- Yahoo fallback -----------------------------------------------
         if not results and self._yahoo_fails < self._CB_THRESHOLD:
-            time.sleep(random.uniform(0.3, 0.8))
+            time.sleep(random.uniform(0.1, 0.4))
             results = self._extract_urls_from_yahoo(query, domain_pattern, max_results)
 
         if results:
@@ -536,32 +540,27 @@ class ScraperService:
         nfkd = unicodedata.normalize('NFD', name.strip())
         return nfkd.encode('ascii', errors='ignore').decode().strip()
 
-    def _platform_queries(self, name: str, site_pattern: str, extra_terms: str = '') -> list[str]:
+    def _platform_queries(self, name: str, site_pattern: str, extra_terms: str = '', max_queries: int = 3) -> list[str]:
         """Build an ordered list of search queries for a platform.
-        Handles both full names and usernames; adds ASCII variant for Turkish names."""
+        Handles both full names and usernames; adds ASCII variant for Turkish names.
+        max_queries limits how many queries are returned to control total search time."""
         is_username = ' ' not in name.strip() and len(name.strip()) >= 3
         ascii = self._ascii_name(name)
         queries: list[str] = []
         if is_username:
             # For usernames: site-specific search is most reliable
             queries.append(f'site:{site_pattern}/{name.strip()}')
-            queries.append(f'{site_pattern}/{name.strip()} profile')
             if extra_terms:
                 queries.append(f'@{name.strip()} {extra_terms}')
-            # Unquoted fallback: broader match for similar profiles
-            queries.append(f'{name.strip()} {extra_terms or site_pattern}')
         else:
             # For full names: try ASCII variant first (Turkish names), then quoted name
-            bare = ascii if ascii and ascii.lower() != name.lower() else name
             if ascii and ascii.lower() != name.lower():
                 queries.append(f'"{ascii}" site:{site_pattern}')
-                queries.append(f'"{ascii}" {extra_terms or site_pattern}')
             queries.append(f'"{name}" site:{site_pattern}')
-            queries.append(f'"{name}" {extra_terms or site_pattern} profile')
-            # Unquoted fallback: finds "similar" profiles even without exact name match
-            # (mirrors searching the name manually in the platform's search bar)
-            queries.append(f'{bare} {extra_terms or site_pattern}')
-        return queries
+            if len(queries) < max_queries:
+                bare = ascii if ascii and ascii.lower() != name.lower() else name
+                queries.append(f'{bare} {extra_terms or site_pattern}')
+        return queries[:max_queries]
 
     def find_instagram_profile(self, name: str) -> list:
         """Try to find Instagram profile URLs and bios"""
@@ -1018,10 +1017,25 @@ class ScraperService:
 
         return candidates[:15]
 
-    def find_all_profiles(self, name: str) -> dict[str, list]:
-        """Find all social media profiles and bios for a person (PARALLEL)"""
+    def find_all_profiles(self, name: str, depth_config: 'DepthConfig | None' = None) -> dict[str, list]:
+        """Find all social media profiles and bios for a person (PARALLEL)
+        depth_config controls search effort — lower depth = fewer queries = faster results."""
         logger.log_thought(f"Initiating deep-web scraping protocol for entity: {name}")
-        logger.log_action(f"[DIAG] find_all_profiles v3 — name={name}")
+        logger.log_action(f"[DIAG] find_all_profiles v4 — name={name}")
+
+        # Time budget: ensures search always completes within a reasonable time
+        depth = depth_config.depth if depth_config else 5
+        time_budget = {1: 30, 2: 40, 3: 50, 4: 60, 5: 75, 6: 90, 7: 120, 8: 150, 9: 180, 10: 210}.get(depth, 75)
+        start_time = time.time()
+        max_queries_per_platform = 2 if depth <= 5 else 3
+        max_name_variations = min(3, depth_config.max_username_variations if depth_config else 5)
+        max_cross_variations = min(5, depth_config.max_username_variations if depth_config else 5)
+
+        def _time_remaining() -> float:
+            return max(0.0, time_budget - (time.time() - start_time))
+
+        def _budget_exhausted() -> bool:
+            return _time_remaining() <= 0
 
         # Reset circuit breakers for each new search session
         self._reset_circuit_breakers()
@@ -1064,22 +1078,25 @@ class ScraperService:
                 futures[executor.submit(self.find_profiles_by_username, clean_name)] = DIRECT_TAG
 
             direct_hits: dict[str, list] = {}
-            for future in as_completed(futures):
-                tag = futures[future]
-                try:
-                    result = future.result()
-                    if tag == DIRECT_TAG:
-                        direct_hits = result
-                    else:
-                        profiles[tag] = result
-                        if result:
-                            label = "mention" if tag in ('tinder', 'bumble') else "profile"
-                            logger.log_success(f"{tag.capitalize()} {label} correlated: {len(result)} found")
-                except Exception as e:
-                    if tag == DIRECT_TAG:
-                        logger.log_warning(f"Direct username probe failed: {e}")
-                    else:
-                        logger.log_warning(f"{tag.capitalize()} scan failed: {e}")
+            try:
+                for future in as_completed(futures, timeout=60):
+                    tag = futures[future]
+                    try:
+                        result = future.result()
+                        if tag == DIRECT_TAG:
+                            direct_hits = result
+                        else:
+                            profiles[tag] = result
+                            if result:
+                                label = "mention" if tag in ('tinder', 'bumble') else "profile"
+                                logger.log_success(f"{tag.capitalize()} {label} correlated: {len(result)} found")
+                    except Exception as e:
+                        if tag == DIRECT_TAG:
+                            logger.log_warning(f"Direct username probe failed: {e}")
+                        else:
+                            logger.log_warning(f"{tag.capitalize()} scan failed: {e}")
+            except TimeoutError:
+                logger.log_warning("Phase 1 scraper executor timed out (60s) — returning partial results")
 
         # Merge direct username hits into profiles (don't overwrite Yahoo results, add new ones)
         for platform, items in direct_hits.items():
@@ -1094,18 +1111,22 @@ class ScraperService:
         # Phase 1.5: For real names, probe name-derived username variations via platform search fns.
         # Reset circuit breakers after Phase 1 — engines may have recovered
         found_count_p1 = sum(1 for v in profiles.values() if v)
-        if found_count_p1 < 3:
+        SEARCH_PLATFORMS = ('instagram', 'twitter', 'tiktok', 'youtube', 'reddit', 'linkedin', 'threads', 'medium', 'snapchat', 'tumblr', 'pinterest', 'steam')
+
+        if found_count_p1 < 3 and not _budget_exhausted():
             logger.log_action("Resetting search engine circuits for Phase 1.5 discovery...")
             self._reset_circuit_breakers()
-            time.sleep(random.uniform(1.0, 2.0))  # Brief cooldown before next wave
+            time.sleep(random.uniform(0.3, 0.8))  # Brief cooldown before next wave
 
         # This runs BEFORE the standard username cross-check so that discovered usernames
         # feed into Phase 2 collection below.
-        SEARCH_PLATFORMS = ('instagram', 'twitter', 'tiktok', 'youtube', 'reddit', 'linkedin', 'threads', 'medium', 'snapchat', 'tumblr', 'pinterest', 'steam')
-        if not input_is_username and not self._all_engines_broken():
+        if not input_is_username and not self._all_engines_broken() and not _budget_exhausted():
             name_unames = self.generate_name_username_variations(name)
-            logger.log_action(f"Generated {len(name_unames)} name-based username candidate(s)")
-            for uname in name_unames[:8]:
+            logger.log_action(f"Generated {len(name_unames)} name-based username candidate(s), using top {max_name_variations}")
+            for uname in name_unames[:max_name_variations]:
+                if _budget_exhausted():
+                    logger.log_warning(f"Time budget exhausted ({time_budget}s), skipping remaining Phase 1.5 variations")
+                    break
                 empty = [p for p in SEARCH_PLATFORMS if not profiles.get(p)]
                 if not empty:
                     break
@@ -1113,101 +1134,115 @@ class ScraperService:
                 # Search each empty platform using its own search function (not blind URL build)
                 with ThreadPoolExecutor(max_workers=min(len(empty), 6)) as ex:
                     fut_map = {ex.submit(platform_fns[p], uname): p for p in empty if p in platform_fns}
-                    for fut in as_completed(fut_map):
-                        platform = fut_map[fut]
-                        try:
-                            results = fut.result()
-                            if results and not profiles.get(platform):
-                                for item in results:
-                                    item['found_via_name_variation'] = uname
-                                profiles[platform] = results
-                                logger.log_success(f"{platform.capitalize()} matched via name-derived @{uname}")
-                        except Exception as e:
-                            logger.log_warning(f"{platform} probe for @{uname} failed: {e}")
+                    try:
+                        for fut in as_completed(fut_map, timeout=30):
+                            platform = fut_map[fut]
+                            try:
+                                results = fut.result()
+                                if results and not profiles.get(platform):
+                                    for item in results:
+                                        item['found_via_name_variation'] = uname
+                                    profiles[platform] = results
+                                    logger.log_success(f"{platform.capitalize()} matched via name-derived @{uname}")
+                            except Exception as e:
+                                logger.log_warning(f"{platform} probe for @{uname} failed: {e}")
+                    except TimeoutError:
+                        logger.log_warning(f"Phase 1.5 scraper timed out (30s) for @{uname}")
 
         # Phase 2: Collect all found usernames + the input itself
         collected_usernames: list[str] = []
         seen_unames: set[str] = set()
 
-        # Always add input as a username candidate (if it looks like one)
-        if input_is_username:
-            raw = name.strip().lower()
-            nfkd = unicodedata.normalize('NFD', raw)
-            ascii_form = nfkd.encode('ascii', errors='ignore').decode()
-            for candidate in [raw, ascii_form]:
-                if candidate and len(candidate) >= 3 and candidate not in seen_unames:
-                    collected_usernames.append(candidate)
-                    seen_unames.add(candidate)
+        if _budget_exhausted():
+            logger.log_warning(f"Time budget exhausted ({time_budget}s), skipping Phase 2 entirely")
+        else:
+            # Always add input as a username candidate (if it looks like one)
+            if input_is_username:
+                raw = name.strip().lower()
+                nfkd = unicodedata.normalize('NFD', raw)
+                ascii_form = nfkd.encode('ascii', errors='ignore').decode()
+                for candidate in [raw, ascii_form]:
+                    if candidate and len(candidate) >= 3 and candidate not in seen_unames:
+                        collected_usernames.append(candidate)
+                        seen_unames.add(candidate)
 
-        # Collect usernames from found profiles
-        for platform in ['instagram', 'tiktok', 'twitter', 'youtube', 'reddit', 'snapchat', 'tumblr', 'linkedin', 'pinterest', 'medium', 'threads', 'steam']:
-            items = profiles.get(platform, [])
-            if items:
-                # Skip search fallback URLs — they don't contain real usernames
-                if items[0].get('bio') == '[SEARCH]':
-                    continue
-                url = items[0]['url'].rstrip('/')
-                # Tumblr uses subdomains (username.tumblr.com), not path-based URLs
-                if platform == 'tumblr' and '.tumblr.com' in url:
-                    m = re.search(r'//([a-zA-Z0-9_-]+)\.tumblr\.com', url)
-                    candidate = m.group(1).lower() if m else ''
-                else:
-                    candidate = url.split('/')[-1].lstrip('@').lower()
-                if candidate and len(candidate) >= 3 and candidate not in seen_unames:
-                    collected_usernames.append(candidate)
-                    seen_unames.add(candidate)
+            # Collect usernames from found profiles
+            for platform in ['instagram', 'tiktok', 'twitter', 'youtube', 'reddit', 'snapchat', 'tumblr', 'linkedin', 'pinterest', 'medium', 'threads', 'steam']:
+                items = profiles.get(platform, [])
+                if items:
+                    # Skip search fallback URLs — they don't contain real usernames
+                    if items[0].get('bio') == '[SEARCH]':
+                        continue
+                    url = items[0]['url'].rstrip('/')
+                    # Tumblr uses subdomains (username.tumblr.com), not path-based URLs
+                    if platform == 'tumblr' and '.tumblr.com' in url:
+                        m = re.search(r'//([a-zA-Z0-9_-]+)\.tumblr\.com', url)
+                        candidate = m.group(1).lower() if m else ''
+                    else:
+                        candidate = url.split('/')[-1].lstrip('@').lower()
+                    if candidate and len(candidate) >= 3 and candidate not in seen_unames:
+                        collected_usernames.append(candidate)
+                        seen_unames.add(candidate)
 
-        # Build variation list from ALL collected usernames (input + found profiles)
-        all_variations: list[str] = []
-        seen_vars: set[str] = set(seen_unames)
-        for uname in collected_usernames:
-            for var in self.generate_username_variations(uname):
-                if var not in seen_vars:
-                    all_variations.append(var)
-                    seen_vars.add(var)
-                    if len(all_variations) >= 15:
-                        break
-            if len(all_variations) >= 15:
-                break
+            # Build variation list from ALL collected usernames (input + found profiles)
+            all_variations: list[str] = []
+            seen_vars: set[str] = set(seen_unames)
+            for uname in collected_usernames:
+                for var in self.generate_username_variations(uname):
+                    if var not in seen_vars:
+                        all_variations.append(var)
+                        seen_vars.add(var)
+                        if len(all_variations) >= max_cross_variations:
+                            break
+                if len(all_variations) >= max_cross_variations:
+                    break
 
-        # Exact cross-check for every collected username on empty platforms
-        for uname in collected_usernames:
-            empty = [p for p in ('instagram','tiktok','twitter','youtube','reddit','snapchat','tumblr','linkedin','pinterest','medium','threads','steam')
-                     if not profiles.get(p)]
-            if not empty:
-                break
-            logger.log_action(f"Cross-platform username check for: @{uname}")
-            cross = self.find_profiles_by_username(uname)
-            for platform, results in cross.items():
-                if results and not profiles.get(platform):
-                    profiles[platform] = results
-                    logger.log_success(f"{platform.capitalize()} cross-matched via username @{uname}")
-
-        # Variation checks — only for platforms still without results
-        if all_variations and not self._all_engines_broken():
-            logger.log_action(f"Scanning {len(all_variations)} username variation(s) across uncovered platforms")
-            for var in all_variations:
+            # Exact cross-check for every collected username on empty platforms
+            for uname in collected_usernames:
+                if _budget_exhausted():
+                    logger.log_warning(f"Time budget exhausted, stopping cross-platform checks")
+                    break
                 empty = [p for p in ('instagram','tiktok','twitter','youtube','reddit','snapchat','tumblr','linkedin','pinterest','medium','threads','steam')
                          if not profiles.get(p)]
-                if empty:
-                    cross = self.find_profiles_by_username(var)
-                    for platform, results in cross.items():
-                        if results and not profiles.get(platform):
-                            for item in results:
-                                item['found_via_variation'] = var
-                            profiles[platform] = results
-                            logger.log_success(f"{platform.capitalize()} matched via variation @{var}")
-                else:
+                if not empty:
                     break
+                logger.log_action(f"Cross-platform username check for: @{uname}")
+                cross = self.find_profiles_by_username(uname)
+                for platform, results in cross.items():
+                    if results and not profiles.get(platform):
+                        profiles[platform] = results
+                        logger.log_success(f"{platform.capitalize()} cross-matched via username @{uname}")
+
+            # Variation checks — only for platforms still without results
+            if all_variations and not self._all_engines_broken() and not _budget_exhausted():
+                logger.log_action(f"Scanning {len(all_variations)} username variation(s) across uncovered platforms")
+                for var in all_variations:
+                    if _budget_exhausted():
+                        logger.log_warning(f"Time budget exhausted, stopping variation scan")
+                        break
+                    empty = [p for p in ('instagram','tiktok','twitter','youtube','reddit','snapchat','tumblr','linkedin','pinterest','medium','threads','steam')
+                             if not profiles.get(p)]
+                    if empty:
+                        cross = self.find_profiles_by_username(var)
+                        for platform, results in cross.items():
+                            if results and not profiles.get(platform):
+                                for item in results:
+                                    item['found_via_variation'] = var
+                                profiles[platform] = results
+                                logger.log_success(f"{platform.capitalize()} matched via variation @{var}")
+                    else:
+                        break
 
         # Last resort: if still nothing found for a real name, search key platforms
         # using the simple ASCII-stripped username — via search functions (NOT blind URL build)
         found_count = sum(1 for v in profiles.values() if v)
-        if found_count == 0 and not input_is_username and not self._all_engines_broken():
+        if found_count == 0 and not input_is_username and not self._all_engines_broken() and not _budget_exhausted():
             fallback_username = re.sub(r'[^a-zA-Z0-9]', '', name.strip().lower())
             if len(fallback_username) >= 3:
                 logger.log_action(f"Last resort search for @{fallback_username}")
                 for platform in ('instagram', 'twitter', 'tiktok', 'youtube'):
+                    if _budget_exhausted():
+                        break
                     fn = platform_fns.get(platform)
                     if fn and not profiles.get(platform):
                         try:
@@ -1227,6 +1262,9 @@ class ScraperService:
                 profiles[platform] = [{"url": search_url, "bio": "[SEARCH]"}]
                 logger.log_action(f"Search fallback injected for {platform}")
 
+        elapsed = time.time() - start_time
+        found_final = sum(1 for v in profiles.values() if v)
+        logger.log_success(f"Profile scan completed in {elapsed:.1f}s — {found_final} platform(s) found")
         return profiles
 
     @staticmethod
@@ -1297,18 +1335,21 @@ class ScraperService:
         with ThreadPoolExecutor(max_workers=len(verifiable)) as ex:
             fut_map = {ex.submit(self._is_url_active, url): (platform, url)
                        for platform, url in verifiable.items()}
-            for fut in as_completed(fut_map):
-                platform, url = fut_map[fut]
-                try:
-                    if fut.result():
-                        results[platform] = [{"url": url, "bio": ""}]
-                        logger.log_success(f"{platform.capitalize()} URL verified: @{username}")
-                    else:
+            try:
+                for fut in as_completed(fut_map, timeout=30):
+                    platform, url = fut_map[fut]
+                    try:
+                        if fut.result():
+                            results[platform] = [{"url": url, "bio": ""}]
+                            logger.log_success(f"{platform.capitalize()} URL verified: @{username}")
+                        else:
+                            results[platform] = []
+                            logger.log_warning(f"{platform.capitalize()} URL inactive for @{username}")
+                    except Exception as exc:
                         results[platform] = []
-                        logger.log_warning(f"{platform.capitalize()} URL inactive for @{username}")
-                except Exception as exc:
-                    results[platform] = []
-                    logger.log_warning(f"{platform.capitalize()} verification error for @{username}: {exc}")
+                        logger.log_warning(f"{platform.capitalize()} verification error for @{username}: {exc}")
+            except TimeoutError:
+                logger.log_warning(f"URL verification timed out (30s) for @{username}")
 
         # TikTok and Snapchat: SPA rendering makes HTTP verification unreliable.
         # Rely on Phase 1 / Phase 1.5 search-based discovery for these platforms.
