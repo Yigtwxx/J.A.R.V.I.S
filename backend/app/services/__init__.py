@@ -8,10 +8,9 @@ from .github_service import GitHubService
 from .scraper_service import ScraperService
 from .search_service import SearchService
 from .social_score_service import SocialScoreService
-from .vector_store_service import vector_store_service
 from .weather_service import WeatherService
 
 __all__ = [
     "AIService", "SearchService", "GitHubService", "ScraperService", "WeatherService", "SocialScoreService",
-    "breach_service", "company_service", "FaceMatchingService", "vector_store_service", "version_history_service",
+    "breach_service", "company_service", "FaceMatchingService", "version_history_service",
 ]
