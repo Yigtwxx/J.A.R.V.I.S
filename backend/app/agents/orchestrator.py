@@ -84,21 +84,42 @@ class SearchOrchestrator:
                 status_callback=self._status,
                 loop=loop,
             )
-            social_result, legal_result, deep_result, github_data, search_results = await asyncio.gather(
+            results = await asyncio.gather(
                 social_agent.run(),
                 legal_agent.run(),
                 deep_agent.run(),
                 github_future,
                 search_future,
+                return_exceptions=True,
             )
+            social_result, legal_result, deep_result, github_data, search_results = results
         else:
             deep_result = None
-            social_result, legal_result, github_data, search_results = await asyncio.gather(
+            results = await asyncio.gather(
                 social_agent.run(),
                 legal_agent.run(),
                 github_future,
                 search_future,
+                return_exceptions=True,
             )
+            social_result, legal_result, github_data, search_results = results
+
+        # Gracefully handle individual task failures
+        if isinstance(social_result, BaseException):
+            self._status(f"[WARN] SocialMediaAgent failed: {social_result}")
+            social_result = AgentResult(agent_name="SocialMediaAgent", success=False)
+        if isinstance(legal_result, BaseException):
+            self._status(f"[WARN] LegalRecordsAgent failed: {legal_result}")
+            legal_result = AgentResult(agent_name="LegalRecordsAgent", success=False)
+        if isinstance(deep_result, BaseException):
+            self._status(f"[WARN] DeepSearchAgent failed: {deep_result}")
+            deep_result = None
+        if isinstance(github_data, BaseException):
+            self._status(f"[WARN] GitHub fetch failed: {github_data}")
+            github_data = None
+        if isinstance(search_results, BaseException):
+            self._status(f"[WARN] Search fetch failed: {search_results}")
+            search_results = (None, "", "", [])
 
         social_profiles = social_result.social_profiles
 
