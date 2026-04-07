@@ -146,7 +146,6 @@ class SearchOrchestrationService:
         social_score_service: Any,
         face_matching_service: Any,
         search_orchestrator: Any,
-        vector_store_service: Any,
         version_history_service: Any,
         breach_orchestrator: Any,
         darkweb_service: Any = None,
@@ -162,7 +161,6 @@ class SearchOrchestrationService:
         self._score = social_score_service
         self._face = face_matching_service
         self._orchestrator = search_orchestrator
-        self._vector = vector_store_service
         self._version = version_history_service
         self._breach_orch = breach_orchestrator
         self._darkweb = darkweb_service
@@ -271,12 +269,6 @@ class SearchOrchestrationService:
         except Exception as e:
             logger.log_warning(f"Failed to synchronize RAG context: {e}")
 
-        try:
-            loop = asyncio.get_running_loop()
-            loop.run_in_executor(None, self._vector.index_context, raw_query, dict(context))
-            logger.log_action("ChromaDB vector indexing initiated (background)", target=raw_query)
-        except Exception as e:
-            logger.log_warning(f"Vector store indexing could not be started: {e}")
 
     # -- Step 5: Collect images ---------------------------------------------
 
