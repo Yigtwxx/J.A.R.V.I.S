@@ -8,11 +8,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.middleware.security import verify_api_key
 from app.services.user_memory_service import UserMemoryService
-from app.services.vector_store_service import vector_store_service
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
 
-memory_service = UserMemoryService(vector_store=vector_store_service)
+memory_service = UserMemoryService()
 
 
 class MemoryCreate(BaseModel):
@@ -71,10 +70,11 @@ async def get_user_context(
 @router.post("/search")
 async def semantic_search(
     query: MemoryQuery,
+    db: Session = Depends(get_db),
     _api_key: str = Depends(verify_api_key),
 ):
-    """Semantically search through user memories."""
-    results = memory_service.semantic_recall(query.query, n_results=query.n_results)
+    """Search through user memories using keyword matching."""
+    results = memory_service.semantic_recall(db, query.query, n_results=query.n_results)
     return {"results": results, "query": query.query}
 
 
