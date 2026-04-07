@@ -16,11 +16,13 @@ class SocialMediaAgent(BaseAgent):
         real_name: str,
         status_callback: StatusCallback,
         loop: asyncio.AbstractEventLoop,
+        depth_config: Any = None,
     ) -> None:
         super().__init__(status_callback, loop)
         self._scraper   = scraper_service
         self._username  = username
         self._real_name = real_name
+        self._depth_config = depth_config
 
     @property
     def agent_name(self) -> str:
@@ -30,14 +32,14 @@ class SocialMediaAgent(BaseAgent):
         self._broadcast(f"[SYS] SocialMediaAgent: scanning profiles for {self._username}")
 
         # 1. find_all_profiles(username)
-        social_profiles = await self._run_sync(self._scraper.find_all_profiles, self._username)
+        social_profiles = await self._run_sync(self._scraper.find_all_profiles, self._username, self._depth_config)
 
         found_platforms = [k for k, v in social_profiles.items() if v]
         self._broadcast(f"[DIAG] SocialMediaAgent: {len(found_platforms)} platform(s): {found_platforms[:5]}")
 
         # 2. Merge by real_name if different from username
         if self._real_name.lower() != self._username.lower():
-            social_by_name = await self._run_sync(self._scraper.find_all_profiles, self._real_name)
+            social_by_name = await self._run_sync(self._scraper.find_all_profiles, self._real_name, self._depth_config)
             for platform, items in social_by_name.items():
                 existing_urls = {p['url'] for p in social_profiles.get(platform, [])}
                 for item in items:
