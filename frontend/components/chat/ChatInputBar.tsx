@@ -7,6 +7,7 @@ import { searchPerson, getSearchHistory } from '@/services/api';
 import { Message } from '@/types/profile';
 import { useChatStore } from '@/store/chatStore';
 import VisionUpload from '@/components/chat/VisionUpload';
+import DepthSelector from '@/components/chat/DepthSelector';
 
 const ChatInputBar = () => {
     const input = useChatStore(state => state.input);
@@ -20,6 +21,7 @@ const ChatInputBar = () => {
     const setHistory = useChatStore(state => state.setHistory);
     const isAgentMode = useChatStore(state => state.isAgentMode);
     const setAgentMode = useChatStore(state => state.setAgentMode);
+    const searchDepth = useChatStore(state => state.searchDepth);
 
     const handleSearch = async () => {
         if (!input.trim() || isLoading) return;
@@ -37,7 +39,7 @@ const ChatInputBar = () => {
         setRagInput('');
 
         try {
-            const response = await searchPerson(input.trim());
+            const response = await searchPerson(input.trim(), searchDepth);
 
             const assistantMessage: Message = {
                 id: crypto.randomUUID(),
@@ -84,8 +86,10 @@ const ChatInputBar = () => {
             transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
             className="fixed bottom-10 left-0 w-full pl-[300px] pr-[280px] flex justify-center z-50 pointer-events-none"
         >
-            <div className="pointer-events-auto w-full max-w-4xl glass-strong p-4 rounded-3xl flex gap-3 items-center border-2 border-cyan-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-hidden group hover:border-cyan-400/60 transition-all duration-500">
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+            <div className="pointer-events-auto w-full max-w-4xl glass-strong p-4 rounded-3xl flex gap-3 items-center border-2 border-cyan-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-visible group hover:border-cyan-400/60 transition-all duration-500">
+                <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                </div>
 
                 {/* Agent Mode Toggle */}
                 <button
@@ -104,6 +108,13 @@ const ChatInputBar = () => {
                 <div className="relative z-10">
                     <VisionUpload onResult={handleVisionResult} />
                 </div>
+
+                {/* Depth Selector - Search Mode only */}
+                {!isAgentMode && (
+                    <div className="relative z-10">
+                        <DepthSelector />
+                    </div>
+                )}
 
                 <input
                     type="text"
