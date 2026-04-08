@@ -1,3 +1,4 @@
+import secrets
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings
@@ -24,7 +25,7 @@ class Settings(BaseSettings):
     port: int = 8000
     cors_origins: list[str] = ["http://localhost:3000"]
 
-    # Security — API Key Authentication (empty = auth disabled)
+    # Security — API Key Authentication (empty = auth disabled, NOT recommended)
     api_key: str = ""
 
     # Rate Limiting (sliding window per IP)
@@ -46,3 +47,8 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get cached settings instance"""
     return Settings()
+
+
+def generate_api_key() -> str:
+    """Generate a cryptographically secure API key."""
+    return secrets.token_urlsafe(32)
