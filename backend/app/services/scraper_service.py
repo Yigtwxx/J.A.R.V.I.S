@@ -20,12 +20,12 @@ class ScraperService:
     """Service for scraping social media profiles"""
 
     _USER_AGENTS = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:126.0) Gecko/20100101 Firefox/126.0',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15',
     ]
 
     _CB_THRESHOLD = 5  # Skip a search engine after this many consecutive failures
@@ -44,6 +44,7 @@ class ScraperService:
         self._ddg_fails = 0
         self._bing_fails = 0
         self._brave_fails = 0
+        self._startpage_fails = 0
         self._last_request_time = 0.0
         self._search_count = 0  # Total searches in current session
 
@@ -88,6 +89,7 @@ class ScraperService:
         self._ua_index = (self._ua_index + 1) % len(self._USER_AGENTS)
         ua = self._USER_AGENTS[self._ua_index]
         is_firefox = 'Firefox' in ua
+        is_safari = 'Safari' in ua and 'Chrome' not in ua and 'Chromium' not in ua
         self.session.headers.update({
             'User-Agent': ua,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' if is_firefox else 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -96,15 +98,31 @@ class ScraperService:
             'DNT': '1',
             'Upgrade-Insecure-Requests': '1',
         })
-        if not is_firefox:
+        if not is_firefox and not is_safari:
+            # Chromium browsers send Client Hints — their absence is a bot signal
+            chrome_match = re.search(r'Chrome/(\d+)', ua)
+            edge_match = re.search(r'Edg/(\d+)', ua)
+            major = chrome_match.group(1) if chrome_match else '134'
+            if edge_match:
+                edge_major = edge_match.group(1)
+                ch_ua = f'"Microsoft Edge";v="{edge_major}", "Chromium";v="{major}", "Not-A.Brand";v="8"'
+            else:
+                ch_ua = f'"Chromium";v="{major}", "Google Chrome";v="{major}", "Not-A.Brand";v="8"'
+            is_mac = 'Macintosh' in ua
             self.session.headers.update({
                 'Sec-Fetch-Dest': 'document',
                 'Sec-Fetch-Mode': 'navigate',
                 'Sec-Fetch-Site': 'none',
                 'Sec-Fetch-User': '?1',
+                'sec-ch-ua': ch_ua,
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"macOS"' if is_mac else '"Windows"',
             })
         else:
-            for key in ('Sec-Fetch-Dest', 'Sec-Fetch-Mode', 'Sec-Fetch-Site', 'Sec-Fetch-User'):
+            # Firefox and Safari don't send Client Hints or Sec-Fetch
+            for key in ('Sec-Fetch-Dest', 'Sec-Fetch-Mode', 'Sec-Fetch-Site',
+                        'Sec-Fetch-User', 'sec-ch-ua', 'sec-ch-ua-mobile',
+                        'sec-ch-ua-platform'):
                 self.session.headers.pop(key, None)
 
     def _all_engines_broken(self) -> bool:
@@ -113,12 +131,14 @@ class ScraperService:
                 and self._yahoo_fails >= self._CB_THRESHOLD
                 and self._ddg_fails >= self._CB_THRESHOLD
                 and self._bing_fails >= self._CB_THRESHOLD
-                and self._brave_fails >= self._CB_THRESHOLD)
+                and self._brave_fails >= self._CB_THRESHOLD
+                and self._startpage_fails >= self._CB_THRESHOLD)
 
     def _extract_urls_from_google(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
         """Search via Google HTML results."""
         try:
             self._rotate_user_agent()
+            self.session.cookies.clear()
             self.session.headers['Referer'] = 'https://www.google.com/'
             search_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}&num=10&hl=en"
             response = self.session.get(search_url, timeout=15)
@@ -208,6 +228,7 @@ class ScraperService:
         """Fallback search via DuckDuckGo HTML when Yahoo fails."""
         try:
             self._rotate_user_agent()
+            self.session.cookies.clear()
             self.session.headers['Referer'] = 'https://duckduckgo.com/'
             search_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
             response = self.session.get(search_url, timeout=15)
@@ -271,6 +292,7 @@ class ScraperService:
         """Third fallback search via Bing when Yahoo and DuckDuckGo both fail."""
         try:
             self._rotate_user_agent()
+            self.session.cookies.clear()
             self.session.headers['Referer'] = 'https://www.bing.com/'
             search_url = f"https://www.bing.com/search?q={urllib.parse.quote(query)}"
             response = self.session.get(search_url, timeout=15)
@@ -325,6 +347,7 @@ class ScraperService:
         """Search via Brave Search HTML results. Brave is less aggressive with blocking."""
         try:
             self._rotate_user_agent()
+            self.session.cookies.clear()
             self.session.headers['Referer'] = 'https://search.brave.com/'
             search_url = f"https://search.brave.com/search?q={urllib.parse.quote(query)}&source=web"
             response = self.session.get(search_url, timeout=15)
@@ -398,6 +421,7 @@ class ScraperService:
         self._ddg_fails = 0
         self._bing_fails = 0
         self._brave_fails = 0
+        self._startpage_fails = 0
         self._search_count = 0
         self.session.cookies.clear()
         self._rotate_user_agent()
@@ -414,6 +438,11 @@ class ScraperService:
         # --- Google (primary) ---------------------------------------------
         if not results and self._google_fails < self._CB_THRESHOLD:
             results = self._extract_urls_from_google(query, domain_pattern, max_results)
+
+        # --- Startpage (Google proxy, no captcha) -------------------------
+        if not results and self._startpage_fails < self._CB_THRESHOLD:
+            time.sleep(random.uniform(0.1, 0.4))
+            results = self._extract_urls_from_startpage(query, domain_pattern, max_results)
 
         # --- DuckDuckGo fallback (lenient, scraper-friendly) ---------------
         if not results and self._ddg_fails < self._CB_THRESHOLD:
@@ -444,6 +473,7 @@ class ScraperService:
         """Search via Yahoo HTML results."""
         try:
             self._rotate_user_agent()
+            self.session.cookies.clear()
             self.session.headers['Referer'] = 'https://search.yahoo.com/'
             search_url = f"https://search.yahoo.com/search?p={urllib.parse.quote(query)}"
 
@@ -526,6 +556,61 @@ class ScraperService:
         except Exception as e:
             self._yahoo_fails += 1
             logger.log_error(f"Yahoo search failed for {query}: {e}")
+            return []
+
+    def _extract_urls_from_startpage(self, query: str, domain_pattern: str, max_results: int = 3) -> list:
+        """Search via Startpage — proxies Google results without CAPTCHAs."""
+        try:
+            self._rotate_user_agent()
+            self.session.cookies.clear()
+            self.session.headers['Referer'] = 'https://www.startpage.com/'
+            search_url = f"https://www.startpage.com/do/dsearch?query={urllib.parse.quote(query)}&cat=web"
+            response = self.session.get(search_url, timeout=15)
+
+            if response.status_code != 200:
+                self._startpage_fails += 1
+                logger.log_warning(f"Startpage returned status {response.status_code}")
+                return []
+
+            self._startpage_fails = 0
+            soup = BeautifulSoup(response.text, 'html.parser')
+            results = []
+
+            # Primary: Startpage result links
+            for link in soup.find_all('a', class_=lambda c: c and ('result-link' in str(c) or 'w-gl__result-url' in str(c)), href=True):
+                href = link.get('href', '')
+                if href.startswith('http') and re.search(domain_pattern, href, re.IGNORECASE) and not any(r['url'] == href for r in results):
+                    snippet = ""
+                    parent = link.find_parent('div', class_=lambda c: c and 'result' in str(c))
+                    if parent:
+                        snippet_elem = parent.find('p', class_=lambda c: c and 'description' in str(c))
+                        if not snippet_elem:
+                            snippet_elem = parent.find('p')
+                        if snippet_elem:
+                            snippet = snippet_elem.get_text(strip=True)[:200]
+                    results.append({"url": href, "bio": snippet})
+                if len(results) >= max_results:
+                    break
+
+            # Fallback: scan all <a> tags
+            if not results:
+                for link in soup.find_all('a', href=True):
+                    href = link.get('href', '')
+                    if (href.startswith('http')
+                            and re.search(domain_pattern, href, re.IGNORECASE)
+                            and 'startpage.com' not in href
+                            and not any(r['url'] == href for r in results)):
+                        results.append({"url": href, "bio": ""})
+                    if len(results) >= max_results:
+                        break
+
+            if results:
+                logger.log_success(f"Startpage found {len(results)} result(s) for: {query}")
+            return results
+
+        except Exception as e:
+            self._startpage_fails += 1
+            logger.log_error(f"Startpage search failed for {query}: {e}")
             return []
 
     INSTAGRAM_RESERVED_PATHS = {
