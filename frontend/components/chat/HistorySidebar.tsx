@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, Trash2, Clock, Brain, Eye, Puzzle, Terminal } from 'lucide-react';
+import { History, Trash2, Clock, Brain, Eye, Puzzle, Terminal, Heart } from 'lucide-react';
 import { getSearchHistory, deleteHistoryItem } from '@/services/api';
 import { useChatStore, SidePanel } from '@/store/chatStore';
 import ScrambleText from '@/components/ui/ScrambleText';
@@ -12,6 +12,7 @@ const MemoryPanel = dynamic(() => import('@/components/panels/MemoryPanel'), { s
 const WatchPanel = dynamic(() => import('@/components/panels/WatchPanel'), { ssr: false });
 const PluginPanel = dynamic(() => import('@/components/panels/PluginPanel'), { ssr: false });
 const SystemPanel = dynamic(() => import('@/components/panels/SystemPanel'), { ssr: false });
+const HealthPanel = dynamic(() => import('@/components/panels/HealthPanel'), { ssr: false });
 
 const PANEL_TABS: { id: SidePanel; icon: typeof History; label: string }[] = [
     { id: 'history', icon: History, label: 'Logs' },
@@ -19,6 +20,7 @@ const PANEL_TABS: { id: SidePanel; icon: typeof History; label: string }[] = [
     { id: 'watch', icon: Eye, label: 'Watch' },
     { id: 'plugins', icon: Puzzle, label: 'Plugins' },
     { id: 'system', icon: Terminal, label: 'System' },
+    { id: 'health', icon: Heart, label: 'Health' },
 ];
 
 const HistoryContent = () => {
@@ -107,6 +109,7 @@ const HistorySidebar = () => {
             case 'watch': return <WatchPanel />;
             case 'plugins': return <PluginPanel />;
             case 'system': return <SystemPanel />;
+            case 'health': return <HealthPanel />;
             default: return <HistoryContent />;
         }
     };
