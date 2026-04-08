@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.middleware.security import verify_api_key
 from app.models import Profile
 from app.schemas import ProfileCreate, ProfileResponse
 from app.utils.logger import logger
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 
 
 @router.post("/", response_model=ProfileResponse)
-async def create_profile(profile: ProfileCreate, db: Session = Depends(get_db)):
+async def create_profile(profile: ProfileCreate, db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
     """
     Create a new profile in the database
 
@@ -63,7 +64,7 @@ async def create_profile(profile: ProfileCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=list[ProfileResponse])
-async def get_all_profiles(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+async def get_all_profiles(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
     """Get all profiles from database"""
     try:
         profiles = db.query(Profile).offset(skip).limit(limit).all()
@@ -74,7 +75,7 @@ async def get_all_profiles(skip: int = 0, limit: int = 100, db: Session = Depend
 
 
 @router.get("/{profile_id}", response_model=ProfileResponse)
-async def get_profile(profile_id: int, db: Session = Depends(get_db)):
+async def get_profile(profile_id: int, db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
     """Get a specific profile by ID"""
     try:
         profile = db.query(Profile).filter(Profile.id == profile_id).first()
@@ -91,7 +92,7 @@ async def get_profile(profile_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{profile_id}")
-async def delete_profile(profile_id: int, db: Session = Depends(get_db)):
+async def delete_profile(profile_id: int, db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
     """Delete a profile"""
     try:
         profile = db.query(Profile).filter(Profile.id == profile_id).first()
@@ -113,7 +114,7 @@ async def delete_profile(profile_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/search/{name}", response_model=list[ProfileResponse])
-async def search_profiles_by_name(name: str, db: Session = Depends(get_db)):
+async def search_profiles_by_name(name: str, db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
     """Search profiles by name"""
     try:
         profiles = db.query(Profile).filter(Profile.name.ilike(f"%{name}%")).all()
