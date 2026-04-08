@@ -75,6 +75,7 @@ async def search_person(
 
     Pipeline: parse -> fetch -> process -> analyze -> build -> save -> return.
     """
+    current_step = "init"
     try:
         raw_query = query.query.strip()
         if not raw_query:
@@ -88,6 +89,7 @@ async def search_person(
         real_name, username = orchestration.parse_query(raw_query)
 
         # 2. Parallel data fetching (120s timeout)
+        current_step = "data_fetch"
         orch_result, github_data, search_results = await asyncio.wait_for(
             orchestration.fetch_parallel_data(
                 real_name, username, depth_config=depth_config,
@@ -109,22 +111,24 @@ async def search_person(
         images = orchestration.collect_images(social_profiles, github_data, wiki_image, real_name)
         face_images = orchestration.collect_face_images(social_profiles, github_data, wiki_image)
 
-        # 6. AI analysis + face match + sentiment (90s timeout)
+        # 6. AI analysis + face match + sentiment (180s timeout — inner AI stream can take up to 120s)
+        current_step = "ai_analysis"
         ai_response, face_match_report, sentiment_report = await asyncio.wait_for(
             orchestration.run_analysis(
                 raw_query, context, deep_context, face_images
             ),
-            timeout=90,
+            timeout=180,
         )
 
-        # 7. Post-analysis (structured data, breach, cross-validation, score, psych, prediction) (90s timeout)
+        # 7. Post-analysis (structured data, breach, cross-validation, score, psych, prediction) (120s timeout)
+        current_step = "post_analysis"
         post = await asyncio.wait_for(
             orchestration.run_post_analysis(
                 ai_response, real_name, username, github_data,
                 social_profiles, search_results[1], raw_sources, orch_result,
                 context=context, deep_context=deep_context, sentiment_report=sentiment_report,
             ),
-            timeout=90,
+            timeout=120,
         )
 
         # 8. Build response
@@ -141,11 +145,14 @@ async def search_person(
         return response
 
     except asyncio.TimeoutError:
-        logger.log_error(f"Search timed out for: {raw_query}")
-        raise HTTPException(
-            status_code=504,
-            detail="Search timed out. Try again with lower search depth.",
-        )
+        step_messages = {
+            "data_fetch": "Data collection timed out. The target may have too many online profiles to scan.",
+            "ai_analysis": "AI analysis timed out. The language model is taking too long to respond. Try reducing search depth.",
+            "post_analysis": "Post-analysis timed out. Try again with a lower search depth.",
+        }
+        detail = step_messages.get(current_step, "Search timed out. Try again with lower search depth.")
+        logger.log_error(f"Search timed out at step '{current_step}' for: {raw_query}")
+        raise HTTPException(status_code=504, detail=detail)
     except HTTPException:
         raise
     except Exception as e:
@@ -154,7 +161,7 @@ async def search_person(
 
 
 @router.get("/test")
-async def test_search():
+async def test_search(_api_key: str = Depends(verify_api_key)):
     """Test endpoint to verify search API is working"""
     return {
         "status": "ok",
@@ -169,7 +176,7 @@ async def test_search():
 
 
 @router.get("/test-scraper")
-async def test_scraper(q: str = "Elon Musk"):
+async def test_scraper(q: str = "Elon Musk", _api_key: str = Depends(verify_api_key)):
     """Debug endpoint — run the scraper and return raw results."""
     try:
         results = scraper_service.find_all_profiles(q)
