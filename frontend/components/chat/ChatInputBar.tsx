@@ -56,10 +56,24 @@ const ChatInputBar = () => {
 
         } catch (error: any) {
             setStreamingContent('');
+            const detail = error.response?.data?.detail || '';
+            const message = error.message || '';
+            let errorText: string;
+
+            if (error.response?.status === 504 || detail.toLowerCase().includes('timed out')) {
+                errorText = 'The search took too long to complete. Try reducing the search depth or searching a less common name.';
+            } else if (message.includes('timeout') || message.includes('Timeout')) {
+                errorText = 'Connection timed out while waiting for results. The AI model may be under heavy load. Please try again.';
+            } else if (message.includes('Network Error') || message.includes('ECONNREFUSED')) {
+                errorText = 'Cannot reach the analysis server. Please verify that the backend and Ollama are running.';
+            } else {
+                errorText = detail || message || 'An unexpected error occurred. Please try again.';
+            }
+
             const errorMessage: Message = {
                 id: crypto.randomUUID(),
                 role: 'assistant',
-                content: `[ERROR] Analysis failed: ${error.response?.data?.detail || error.message || 'Unknown error'}. Please verify connection.`
+                content: `[ERROR] ${errorText}`
             };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
