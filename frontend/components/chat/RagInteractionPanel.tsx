@@ -4,7 +4,7 @@ import React from 'react';
 import { TerminalSquare, Send, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useChatStore } from '@/store/chatStore';
-import { API_BASE_URL } from '@/services/api';
+import { API_BASE_URL, getApiHeaders } from '@/services/api';
 import RagStreamingBubble from '@/components/chat/RagStreamingBubble';
 
 const RagInteractionPanel = ({ profileName }: { profileName: string }) => {
@@ -28,7 +28,7 @@ const RagInteractionPanel = ({ profileName }: { profileName: string }) => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/chat/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getApiHeaders(),
                 body: JSON.stringify({
                     query_name: profileName,
                     messages: ragMessages.concat(userMessage)
@@ -42,13 +42,19 @@ const RagInteractionPanel = ({ profileName }: { profileName: string }) => {
             let aiContent = '';
 
             if (reader) {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
 
-                    const chunk = decoder.decode(value);
-                    aiContent += chunk;
-                    setStreamingRagContent(aiContent);
+                        const chunk = decoder.decode(value, { stream: true });
+                        aiContent += chunk;
+                        setStreamingRagContent(aiContent);
+                    }
+                } catch (readError) {
+                    console.error('RAG stream read failed:', readError);
+                    if (!aiContent) throw readError;
+                    aiContent += '\n\n[Stream interrupted]';
                 }
             }
 
