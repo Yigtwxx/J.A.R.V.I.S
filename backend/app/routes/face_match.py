@@ -1,8 +1,9 @@
 import asyncio
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.middleware.security import verify_api_key
 from app.schemas.face_match import FaceMatchReport
 from app.services.face_matching_service import FaceMatchingService
 from app.utils.logger import logger
@@ -18,7 +19,7 @@ class CompareRequest(BaseModel):
 
 
 @router.post("/compare", response_model=FaceMatchReport)
-async def compare_faces(request: CompareRequest):
+async def compare_faces(request: CompareRequest, _api_key: str = Depends(verify_api_key)):
     """
     Compare face images from provided URLs.
     Each image should have a 'label' and 'url' field.
