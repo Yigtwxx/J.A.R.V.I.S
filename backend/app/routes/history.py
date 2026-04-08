@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.middleware.security import verify_api_key
 from app.models.history import SearchHistory
 from app.schemas.history import HistoryResponse
 from app.utils.logger import logger
@@ -22,7 +23,7 @@ def cleanup_old_history(db: Session):
         logger.log_error(f"Failed to cleanup old history: {str(e)}")
 
 @router.get("/", response_model=list[HistoryResponse])
-def get_history(db: Session = Depends(get_db)):
+def get_history(db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
     """Get all search history ordered by newest first, removing duplicates."""
     cleanup_old_history(db)
 
@@ -40,7 +41,7 @@ def get_history(db: Session = Depends(get_db)):
     return unique_records
 
 @router.delete("/{history_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_history_item(history_id: int, db: Session = Depends(get_db)):
+def delete_history_item(history_id: int, db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
     """Delete a specific history item"""
     record = db.query(SearchHistory).filter(SearchHistory.id == history_id).first()
     if not record:
@@ -51,7 +52,7 @@ def delete_history_item(history_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
-def clear_all_history(db: Session = Depends(get_db)):
+def clear_all_history(db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
     """Clear all history"""
     db.query(SearchHistory).delete()
     db.commit()
