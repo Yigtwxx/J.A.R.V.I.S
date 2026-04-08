@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.middleware.security import verify_api_key
 from app.schemas.snapshot import ChangeReport, SnapshotResponse
 from app.services import version_history_service
 from app.utils.logger import logger
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/api/version-history", tags=["Version History"])
 
 
 @router.get("/{query_name}", response_model=list[SnapshotResponse])
-def get_snapshots(query_name: str, db: Session = Depends(get_db)):
+def get_snapshots(query_name: str, db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
     """Get all snapshots for a person, ordered oldest → newest."""
     try:
         snapshots = version_history_service.get_snapshots(db, query_name)
@@ -26,7 +27,7 @@ def get_snapshots(query_name: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{query_name}/report", response_model=ChangeReport)
-def get_change_report(query_name: str, db: Session = Depends(get_db)):
+def get_change_report(query_name: str, db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
     """Get the latest change report comparing the two most recent snapshots."""
     try:
         report = version_history_service.generate_change_report(db, query_name)
