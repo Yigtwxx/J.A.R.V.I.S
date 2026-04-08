@@ -43,6 +43,7 @@ const getHash = (str: string) => {
 export default function ChatInterface() {
     const messages = useChatStore(state => state.messages);
     const setMessages = useChatStore(state => state.setMessages);
+    const setInput = useChatStore(state => state.setInput);
     const isLoading = useChatStore(state => state.isLoading);
     const isAgentMode = useChatStore(state => state.isAgentMode);
 
@@ -683,12 +684,28 @@ export default function ChatInterface() {
                                     </div>
                                 ) : message.content.startsWith('[ERROR]') ? (
                                     <div className="w-full max-w-3xl">
-                                        <div className="message-bubble bg-red-950/40 border border-red-500/30 rounded-xl p-4 text-red-200 font-mono text-sm shadow-lg border-l-4 border-l-red-500">
-                                            <div className="flex items-center gap-2 mb-2 text-red-400 font-bold pb-2 border-b border-red-500/30">
-                                                <AlertTriangle className="w-5 h-5 text-red-400 animate-pulse" />
-                                                <span className="text-sm uppercase tracking-[0.2em]">System Error</span>
+                                        <div className="message-bubble bg-red-950/30 border border-red-500/20 rounded-2xl p-5 text-red-200 font-mono text-sm shadow-lg border-l-4 border-l-red-500/60">
+                                            <div className="flex items-center gap-2 mb-3 text-red-400 font-bold pb-2 border-b border-red-500/20">
+                                                <AlertTriangle className="w-5 h-5 text-red-400" />
+                                                <span className="text-xs uppercase tracking-[0.2em]">Analysis Error</span>
                                             </div>
-                                            <p className="text-red-200/90 leading-relaxed">{message.content.replace('[ERROR] ', '')}</p>
+                                            <p className="text-red-200/80 leading-relaxed text-[13px]">{message.content.replace('[ERROR] ', '')}</p>
+                                            {(() => {
+                                                const prevUserMsg = messages.slice(0, index).reverse().find(m => m.role === 'user');
+                                                if (!prevUserMsg || isLoading) return null;
+                                                return (
+                                                    <button
+                                                        onClick={() => {
+                                                            setInput(prevUserMsg.content);
+                                                            setMessages(prev => prev.filter(m => m.id !== message.id));
+                                                        }}
+                                                        className="mt-3 flex items-center gap-2 px-4 py-2 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 hover:bg-red-900/40 hover:border-red-400 hover:text-red-200 transition-all text-xs font-bold tracking-wider uppercase"
+                                                    >
+                                                        <Search className="w-3.5 h-3.5" />
+                                                        Retry Search
+                                                    </button>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 ) : (
