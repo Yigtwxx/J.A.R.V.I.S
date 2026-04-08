@@ -42,6 +42,17 @@ async def lifespan(app: FastAPI):
     logger.log_action("AI Neural Net", target=f"{settings.ollama_model} (Ollama)")
     logger.log_action("Server Address", target=f"http://{settings.host}:{settings.port}")
 
+    # Security: API key status
+    if not settings.api_key:
+        logger.log_warning("=" * 60)
+        logger.log_warning("WARNING: API_KEY is not configured!")
+        logger.log_warning("All endpoints are UNPROTECTED without an API key.")
+        logger.log_warning("Set API_KEY in backend/.env and NEXT_PUBLIC_API_KEY in frontend.")
+        logger.log_warning("Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\"")
+        logger.log_warning("=" * 60)
+    else:
+        logger.log_success("API Key authentication active")
+
     try:
         init_db()
         logger.log_success("Memory matrices initialized successfully.")
