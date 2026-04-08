@@ -6,17 +6,27 @@ import {
 } from '@/types/profile';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY || '';
+
+/** Build headers for raw fetch() calls — includes API key if configured. */
+export const getApiHeaders = (): Record<string, string> => ({
+    'Content-Type': 'application/json',
+    ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
+});
 
 const api = axios.create({
     baseURL: API_BASE_URL,
     timeout: 120_000,
     headers: {
         'Content-Type': 'application/json',
+        ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
     },
 });
 
 export const searchPerson = async (query: string, depth: number = 5): Promise<SearchResponse> => {
-    const response = await api.post<SearchResponse>('/api/search/', { query, depth });
+    const response = await api.post<SearchResponse>('/api/search/', { query, depth }, {
+        timeout: 300_000, // 5 minutes — search pipeline has multiple sequential AI steps
+    });
     return response.data;
 };
 
@@ -100,7 +110,7 @@ export const agentChat = async (
     if (stream) {
         const response = await fetch(`${API_BASE_URL}/api/agent/chat`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getApiHeaders(),
             body: JSON.stringify({ message, history, stream: true }),
         });
         return response.text();
@@ -117,7 +127,7 @@ export const agentChatStream = async (
 ): Promise<Response> => {
     return fetch(`${API_BASE_URL}/api/agent/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getApiHeaders(),
         body: JSON.stringify({ message, history, stream: true }),
     });
 };
