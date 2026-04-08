@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.middleware.security import verify_api_key
 from app.services.ai_service import AIService
 from app.services.user_memory_service import UserMemoryService
 from app.utils.logger import logger
@@ -23,7 +24,7 @@ ai_service = AIService()
 memory_service = UserMemoryService()
 
 @router.post("/")
-async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
+async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
     """
     RAG-based conversational endpoint for a specific person.
     Streams back the AI answer based on local JSON context.
