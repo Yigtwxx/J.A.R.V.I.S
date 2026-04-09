@@ -1,9 +1,11 @@
 import asyncio
 
+from cachetools import TTLCache
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.agents.orchestrator import SearchOrchestrator
+from app.config import get_settings
 from app.database import get_db
 from app.middleware.security import verify_api_key
 from app.schemas import SearchQuery, SearchResponse
@@ -46,6 +48,20 @@ search_orchestrator = SearchOrchestrator(
     status_callback=logger.broadcast,
 )
 
+_settings = get_settings()
+
+# In-memory cache: normalized query -> SearchResponse
+_search_cache: TTLCache = TTLCache(
+    maxsize=_settings.search_cache_max_size,
+    ttl=_settings.search_cache_ttl_seconds,
+)
+
+
+def _cache_key(query: str, depth: int) -> str:
+    """Normalize query into a stable cache key."""
+    return f"{' '.join(query.lower().strip().split())}::{depth}"
+
+
 orchestration = SearchOrchestrationService(
     ai_service=ai_service,
     search_service=search_service,
@@ -80,6 +96,13 @@ async def search_person(
         raw_query = query.query.strip()
         if not raw_query:
             raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+        # Check cache before running the full pipeline
+        cache_key = _cache_key(raw_query, query.depth)
+        cached = _search_cache.get(cache_key)
+        if cached is not None:
+            logger.log_success(f"Cache hit for: {raw_query}")
+            return cached
 
         depth_config = DepthConfig(query.depth)
         logger.log_thought(f"Incoming connection detected on secure channel: {raw_query}")
@@ -141,6 +164,9 @@ async def search_person(
         # 9. Save history
         orchestration.save_history(db, raw_query, response)
 
+        # Store in cache
+        _search_cache[cache_key] = response
+
         logger.log_success(f"SEARCH COMPLETED FOR TARGET: {raw_query}")
         return response
 
@@ -179,7 +205,7 @@ async def test_search(_api_key: str = Depends(verify_api_key)):
 async def test_scraper(q: str = "Elon Musk", _api_key: str = Depends(verify_api_key)):
     """Debug endpoint — run the scraper and return raw results."""
     try:
-        results = scraper_service.find_all_profiles(q)
+        results = await asyncio.to_thread(scraper_service.find_all_profiles, q)
         return {
             "query": q,
             "found_count": sum(1 for v in results.values() if v),
