@@ -1,7 +1,7 @@
 """
 Export routes — PDF, JSON, CSV dossier generation from saved profiles or search results.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -12,6 +12,22 @@ from app.services.report_service import report_service
 from app.utils.logger import logger
 
 router = APIRouter(prefix="/api/export", tags=["export"])
+
+MAX_EXPORT_BODY_BYTES = 1_048_576  # 1 MB
+
+
+async def _enforce_body_limit(request: Request):
+    """Reject export payloads larger than 1 MB."""
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if int(content_length) > MAX_EXPORT_BODY_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail="Request body too large (max 1 MB).",
+                )
+        except ValueError:
+            pass  # malformed header — let FastAPI handle it
 
 
 def _get_profile_dict(profile_id: int, db: Session) -> dict:
@@ -91,6 +107,7 @@ async def export_csv(
 async def export_pdf_from_data(
     profile: dict,
     _api_key: str = Depends(verify_api_key),
+    _limit: None = Depends(_enforce_body_limit),
 ):
     """Export a search result (not saved) directly as PDF."""
     logger.log_action("Generating PDF dossier from live search data")
@@ -107,6 +124,7 @@ async def export_pdf_from_data(
 async def export_json_from_data(
     profile: dict,
     _api_key: str = Depends(verify_api_key),
+    _limit: None = Depends(_enforce_body_limit),
 ):
     """Export live search result as JSON."""
     json_str = report_service.export_json(profile)
@@ -122,6 +140,7 @@ async def export_json_from_data(
 async def export_csv_from_data(
     profile: dict,
     _api_key: str = Depends(verify_api_key),
+    _limit: None = Depends(_enforce_body_limit),
 ):
     """Export live search result as CSV."""
     csv_str = report_service.export_csv(profile)
