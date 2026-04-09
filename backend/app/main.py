@@ -53,6 +53,26 @@ async def lifespan(app: FastAPI):
     else:
         logger.log_success("API Key authentication active")
 
+    # Ollama connectivity pre-check
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{settings.ollama_url}/api/tags", timeout=5.0)
+            models = [m["name"] for m in resp.json().get("models", [])]
+            if any(settings.ollama_model in m for m in models):
+                logger.log_success(f"Ollama online — model '{settings.ollama_model}' available")
+            else:
+                logger.log_warning(
+                    f"Ollama online but model '{settings.ollama_model}' not found. "
+                    f"Available: {', '.join(models) or 'none'}"
+                )
+    except Exception as e:
+        logger.log_warning("=" * 60)
+        logger.log_warning(f"Ollama is unreachable at {settings.ollama_url}")
+        logger.log_warning(f"Error: {e}")
+        logger.log_warning("AI features will fail until Ollama is available.")
+        logger.log_warning("=" * 60)
+
     try:
         init_db()
         logger.log_success("Memory matrices initialized successfully.")
