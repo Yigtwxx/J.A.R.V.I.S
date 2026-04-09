@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # Computer Control (disabled by default for security)
     enable_computer_control: bool = False
 
+    # Cache (in-memory TTL cache for search results)
+    search_cache_ttl_seconds: int = 300   # 5 minutes
+    search_cache_max_size: int = 50       # max cached queries
+
     # Plugins
     plugins_dir: str = "app/plugins"
 
