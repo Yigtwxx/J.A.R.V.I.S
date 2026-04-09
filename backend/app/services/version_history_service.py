@@ -1,10 +1,15 @@
 import json
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
 from app.models.snapshot import ProfileSnapshot
 from app.schemas.snapshot import ChangeReport, FieldChange
 from app.utils.logger import logger
+
+# Garbage collection settings
+MAX_SNAPSHOTS_PER_QUERY = 10
+RETENTION_DAYS = 90
 
 # Fields to track with their human-readable labels
 TRACKED_FIELDS = {
@@ -89,6 +94,13 @@ def save_snapshot(db: Session, query_name: str, search_response) -> ProfileSnaps
     db.refresh(snapshot)
 
     logger.log_success(f"Version snapshot #{snapshot.id} saved for '{normalized}'")
+
+    # Run garbage collection after saving
+    try:
+        cleanup_old_snapshots(db, query_name)
+    except Exception as e:
+        logger.log_warning(f"Snapshot GC failed (non-critical): {e}")
+
     return snapshot
 
 
@@ -204,3 +216,53 @@ def generate_change_report(db: Session, query_name: str) -> ChangeReport | None:
         snapshot_count=total_count,
         has_changes=len(changes) > 0,
     )
+
+
+# ---------------------------------------------------------------------------
+# Garbage collection
+# ---------------------------------------------------------------------------
+
+
+def cleanup_old_snapshots(
+    db: Session,
+    query_name: str,
+    max_snapshots: int = MAX_SNAPSHOTS_PER_QUERY,
+    retention_days: int = RETENTION_DAYS,
+) -> int:
+    """Remove excess and expired snapshots for a query. Returns count deleted."""
+    normalized = _normalize_query(query_name)
+    deleted = 0
+
+    # 1. Delete snapshots older than retention_days
+    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+    old_count = (
+        db.query(ProfileSnapshot)
+        .filter(
+            ProfileSnapshot.query_name == normalized,
+            ProfileSnapshot.captured_at < cutoff,
+        )
+        .delete(synchronize_session="fetch")
+    )
+    deleted += old_count
+
+    # 2. Keep only the newest max_snapshots (delete the rest)
+    all_ids = (
+        db.query(ProfileSnapshot.id)
+        .filter(ProfileSnapshot.query_name == normalized)
+        .order_by(ProfileSnapshot.captured_at.desc())
+        .all()
+    )
+    if len(all_ids) > max_snapshots:
+        excess_ids = [row[0] for row in all_ids[max_snapshots:]]
+        excess_count = (
+            db.query(ProfileSnapshot)
+            .filter(ProfileSnapshot.id.in_(excess_ids))
+            .delete(synchronize_session="fetch")
+        )
+        deleted += excess_count
+
+    if deleted:
+        db.commit()
+        logger.log_action(f"Snapshot GC: pruned {deleted} old snapshot(s) for '{normalized}'")
+
+    return deleted
