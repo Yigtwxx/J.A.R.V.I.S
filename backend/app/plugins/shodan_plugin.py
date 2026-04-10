@@ -12,6 +12,7 @@ from typing import Any
 
 import httpx
 
+from app.utils.logger import logger
 from .base_plugin import BasePlugin
 
 
@@ -56,8 +57,8 @@ class ShodanPlugin(BasePlugin):
                         "isp": data.get("isp"),
                         "vulns": data.get("vulns", []),
                     })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.log_detail(f"Shodan host lookup failed for {query}: {e}")
 
             # Also run a general search
             try:
@@ -77,8 +78,8 @@ class ShodanPlugin(BasePlugin):
                             "version": match.get("version"),
                             "os": match.get("os"),
                         })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.log_detail(f"Shodan search failed for {query}: {e}")
 
         return {
             "source": self.name,
