@@ -214,7 +214,8 @@ class AgentLoop:
             )
             reflected = self._strip_thinking(resp.get("message", {}).get("content", ""))
             return reflected if reflected else draft
-        except Exception:
+        except Exception as e:
+            logger.log_warning(f"Agent reflection failed, using draft: {e}")
             return draft
 
     @staticmethod
