@@ -290,8 +290,8 @@ class GeoIntService:
                     data = resp.json()
                     if data:
                         return float(data[0]["lat"]), float(data[0]["lon"])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.log_detail(f"Geocoding failed for '{place}': {e}")
         return None
 
 
