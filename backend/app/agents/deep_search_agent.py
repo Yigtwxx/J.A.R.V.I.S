@@ -105,7 +105,8 @@ class DeepSearchAgent(BaseAgent):
                         h["_strategy"] = label
                         results.append(h)
                 time.sleep(1.5)  # conservative delay for deep search
-            except Exception:
+            except Exception as e:
+                self._broadcast(f"[WARN] Search query failed: {e}")
                 continue
 
         return results
