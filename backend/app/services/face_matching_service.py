@@ -187,5 +187,5 @@ class FaceMatchingService:
         try:
             if path and os.path.exists(path):
                 os.unlink(path)
-        except Exception:
+        except OSError:
             pass
