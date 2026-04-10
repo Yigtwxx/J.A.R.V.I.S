@@ -33,7 +33,8 @@ class PluginManager:
             try:
                 with open(self._config_path, encoding="utf-8") as f:
                     self._enabled = json.load(f)
-            except Exception:
+            except Exception as e:
+                logger.log_warning(f"Failed to load plugin config: {e}")
                 self._enabled = {}
 
     def _save_config(self) -> None:
