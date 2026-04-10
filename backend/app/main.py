@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.config import get_settings
 from app.database import init_db
@@ -99,6 +100,37 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# ---------------------------------------------------------------------------
+# Global exception handlers — consistent error response format
+# ---------------------------------------------------------------------------
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return a consistent error format for validation failures."""
+    errors = exc.errors()
+    messages = []
+    for err in errors:
+        loc = " -> ".join(str(part) for part in err.get("loc", []))
+        msg = err.get("msg", "Invalid value")
+        messages.append(f"{loc}: {msg}" if loc else msg)
+    detail = "; ".join(messages) if messages else "Validation error"
+    logger.log_warning(f"Validation error on {request.method} {request.url.path}: {detail}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": detail, "type": "validation_error"},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all for unhandled exceptions — log and return a generic error."""
+    logger.log_error(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "type": "server_error"},
+    )
+
 
 # Configure CORS
 app.add_middleware(
