@@ -1,12 +1,12 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class SearchQuery(BaseModel):
     """Search query from user"""
-    query: str = Field(..., description="Search query (e.g., person's name)")
+    query: str = Field(..., min_length=2, max_length=200, description="Search query (e.g., person's name)")
     depth: int = Field(default=5, ge=1, le=10, description="Search depth 1-10 (surface/medium/deep)")
 
 
@@ -32,6 +32,23 @@ class SocialUrlsMixin(BaseModel):
     discord_mention: str | None = None
     phone_numbers: list[str] | None = None
 
+    @field_validator(
+        'github_url', 'instagram_url', 'twitter_url', 'linkedin_url',
+        'spotify_url', 'tiktok_url', 'snapchat_url', 'tumblr_url',
+        'youtube_url', 'reddit_url', 'facebook_url', 'pinterest_url',
+        'medium_url', 'threads_url', 'steam_url',
+        mode='before',
+    )
+    @classmethod
+    def validate_url_fields(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        for part in v.split(','):
+            part = part.strip()
+            if part and not part.startswith(('http://', 'https://')):
+                raise ValueError(f"URL must start with http:// or https://, got: {part!r}")
+        return v
+
 
 class ProfileDataMixin(SocialUrlsMixin):
     """Extended profile fields shared across create, response, and search schemas."""
@@ -46,7 +63,7 @@ class ProfileDataMixin(SocialUrlsMixin):
 
 class ProfileCreate(ProfileDataMixin):
     """Schema for creating a new profile"""
-    name: str
+    name: str = Field(..., min_length=1, max_length=200)
 
 
 class ProfileResponse(ProfileDataMixin):
