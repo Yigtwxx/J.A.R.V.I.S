@@ -81,7 +81,8 @@ class ScraperService:
             ]
 
             return not any(sig in content_snippet for sig in not_found_signatures)
-        except Exception:
+        except Exception as e:
+            logger.log_detail(f"Profile existence check failed for {url}: {e}")
             return False
 
     def _rotate_user_agent(self):
@@ -1455,7 +1456,8 @@ class ScraperService:
                 tag = soup.find('meta', attrs={'name': 'twitter:image'})
             img_url = tag.get('content', '').strip() if tag else ''
             return img_url if img_url.startswith('http') else None
-        except Exception:
+        except Exception as e:
+            logger.log_detail(f"Avatar fetch failed for {url}: {e}")
             return None
 
     def format_social_profiles(self, profiles: dict[str, list]) -> str:
