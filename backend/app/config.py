@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     search_cache_ttl_seconds: int = 300   # 5 minutes
     search_cache_max_size: int = 50       # max cached queries
 
+    # Debug mode (enables test/debug endpoints)
+    debug: bool = False
+
     # Plugins
     plugins_dir: str = "app/plugins"
 
