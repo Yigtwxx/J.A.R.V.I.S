@@ -127,7 +127,8 @@ class SearchService:
                             'url': real_url,
                             'snippet': snippet
                         })
-                except Exception:
+                except Exception as e:
+                    logger.log_detail(f"Failed to parse search result: {e}")
                     continue
 
             logger.log_success(f"Extracted {len(results)} pertinent data packets.")
