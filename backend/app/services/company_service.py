@@ -710,7 +710,8 @@ class CompanyScraperService:
         try:
             resp = self.session.get(url, timeout=self.timeout)
             resp.raise_for_status()
-        except Exception:
+        except Exception as e:
+            logger.log_detail(f"Yahoo fetch failed for query: {e}")
             return []
 
         soup = BeautifulSoup(resp.text, 'html.parser')
