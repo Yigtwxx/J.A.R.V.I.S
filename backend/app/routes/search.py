@@ -204,6 +204,8 @@ async def test_search(_api_key: str = Depends(verify_api_key)):
 @router.get("/test-scraper")
 async def test_scraper(q: str = "Elon Musk", _api_key: str = Depends(verify_api_key)):
     """Debug endpoint — run the scraper and return raw results."""
+    if not _settings.debug:
+        raise HTTPException(status_code=404, detail="Not found")
     try:
         results = await asyncio.to_thread(scraper_service.find_all_profiles, q)
         return {
