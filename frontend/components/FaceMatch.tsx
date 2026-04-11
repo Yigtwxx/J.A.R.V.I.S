@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaceMatchReport } from '@/types/profile';
 import { ScanFace, CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { strings } from '@/lib/strings';
 
 interface FaceMatchProps {
     report: FaceMatchReport;
@@ -22,7 +23,7 @@ export default function FaceMatch({ report }: FaceMatchProps) {
     let borderColor = 'border-red-500/30';
     let bgColor = 'bg-red-950/20';
     let glowColor = 'shadow-[0_0_15px_rgba(248,113,113,0.3)]';
-    let statusText = 'DOĞRULANAMADI';
+    let statusText: string = strings.faceMatch.unverified;
     let StatusIcon = XCircle;
 
     if (conf >= 80) {
@@ -30,14 +31,14 @@ export default function FaceMatch({ report }: FaceMatchProps) {
         borderColor = 'border-emerald-500/30';
         bgColor = 'bg-emerald-950/20';
         glowColor = 'shadow-[0_0_15px_rgba(52,211,153,0.3)]';
-        statusText = 'YÜKSEK GÜVENİLİRLİK';
+        statusText = strings.faceMatch.highConfidence;
         StatusIcon = CheckCircle2;
     } else if (conf >= 50) {
         statusColor = 'text-amber-400';
         borderColor = 'border-amber-500/30';
         bgColor = 'bg-amber-950/20';
         glowColor = 'shadow-[0_0_15px_rgba(251,191,36,0.3)]';
-        statusText = 'KISMİ EŞLEŞME';
+        statusText = strings.faceMatch.partialMatch;
         StatusIcon = AlertCircle;
     }
 
@@ -61,9 +62,11 @@ export default function FaceMatch({ report }: FaceMatchProps) {
             />
 
             {/* Header Section */}
-            <div
-                className={`p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors relative z-10 border-b ${expanded ? borderColor : 'border-transparent'}`}
+            <button
+                type="button"
+                aria-expanded={expanded}
                 onClick={() => setExpanded(!expanded)}
+                className={`w-full text-left p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors relative z-10 border-b ${expanded ? borderColor : 'border-transparent'}`}
             >
                 <div className="flex items-center gap-4">
                     {/* Gauge Icon */}
@@ -112,16 +115,16 @@ export default function FaceMatch({ report }: FaceMatchProps) {
                             {statusText}
                         </div>
                         <p className="text-[10px] text-slate-400 font-mono mt-1">
-                            {report.face_detected_count} platform fotoğrafı çapraz analiz edildi.
+                            {strings.faceMatch.photosAnalyzed(report.face_detected_count)}
                         </p>
                     </div>
                 </div>
 
                 {/* Expand Icon */}
-                <div className="p-2 text-slate-400">
+                <div className="p-2 text-slate-400" aria-hidden="true">
                     {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                 </div>
-            </div>
+            </button>
 
             {/* Expanded Details Section */}
             <AnimatePresence>
@@ -135,12 +138,12 @@ export default function FaceMatch({ report }: FaceMatchProps) {
                     >
                         <div className="p-4 pt-2 space-y-2 bg-black/20 relative z-10">
                             <div className="text-[10px] font-mono text-cyan-400/70 mb-3 px-1 uppercase tracking-widest border-b border-cyan-900/30 pb-1">
-                                Pairwise DeepFace Analysis (Kümlesel Yüz Doğrulama)
+                                {strings.faceMatch.pairwiseTitle}
                             </div>
 
                             {report.pairs.length === 0 ? (
                                 <div className="text-xs text-slate-400 font-mono italic px-2">
-                                    Başarılı bir karşılaştırma yapılamadı.
+                                    {strings.faceMatch.noComparison}
                                 </div>
                             ) : (
                                 report.pairs.map((pair, idx) => {
