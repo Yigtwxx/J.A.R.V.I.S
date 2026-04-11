@@ -6,6 +6,7 @@ import { Puzzle, ToggleLeft, ToggleRight, Play, Loader2 } from 'lucide-react';
 import { getPlugins, togglePlugin, runPlugin } from '@/services/api';
 import { useChatStore } from '@/store/chatStore';
 import ScrambleText from '@/components/ui/ScrambleText';
+import { showError } from '@/lib/toast';
 
 const PluginPanel = () => {
     const plugins = useChatStore(state => state.plugins);
@@ -20,6 +21,7 @@ const PluginPanel = () => {
             setPlugins(data.plugins);
         } catch (e) {
             console.error('Failed to load plugins', e);
+            showError('Failed to load plugins.');
         }
     }, [setPlugins]);
 
@@ -31,6 +33,7 @@ const PluginPanel = () => {
             setPlugins(plugins.map(p => p.name === name ? { ...p, enabled: result.enabled } : p));
         } catch (e) {
             console.error('Failed to toggle plugin', e);
+            showError('Failed to toggle plugin.');
         }
     };
 
@@ -43,6 +46,7 @@ const PluginPanel = () => {
             setRunTarget(null);
         } catch (e) {
             console.error('Failed to run plugin', e);
+            showError('Failed to run plugin.');
         } finally { setRunningPlugin(null); }
     };
 
@@ -67,7 +71,7 @@ const PluginPanel = () => {
                             >
                                 <div className="flex items-center justify-between mb-1">
                                     <span className="text-[12px] text-gray-200 font-medium">{p.name}</span>
-                                    <button onClick={() => handleToggle(p.name)} className="transition-colors">
+                                    <button onClick={() => handleToggle(p.name)} role="switch" aria-checked={p.enabled} aria-label={`Toggle ${p.name}`} className="transition-colors">
                                         {p.enabled ? (
                                             <ToggleRight className="w-5 h-5 text-green-400" />
                                         ) : (
