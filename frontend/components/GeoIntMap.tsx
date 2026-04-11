@@ -31,8 +31,8 @@ async function geocode(query: string): Promise<{ lat: number; lng: number } | nu
         if (data.length > 0) {
             return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
         }
-    } catch {
-        // Geocoding failed silently
+    } catch (e) {
+        console.error('Geocoding failed:', e);
     }
     return null;
 }
