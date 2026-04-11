@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Loader2, Bot, Search } from 'lucide-react';
 import { searchPerson, getSearchHistory } from '@/services/api';
@@ -22,9 +22,19 @@ const ChatInputBar = () => {
     const isAgentMode = useChatStore(state => state.isAgentMode);
     const setAgentMode = useChatStore(state => state.setAgentMode);
     const searchDepth = useChatStore(state => state.searchDepth);
+    const abortControllerRef = useRef<AbortController | null>(null);
+
+    useEffect(() => {
+        return () => { abortControllerRef.current?.abort(); };
+    }, []);
 
     const handleSearch = async () => {
         if (!input.trim() || isLoading) return;
+
+        // Cancel any in-flight search
+        abortControllerRef.current?.abort();
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
 
         const userMessage: Message = {
             id: crypto.randomUUID(),
@@ -39,7 +49,7 @@ const ChatInputBar = () => {
         setRagInput('');
 
         try {
-            const response = await searchPerson(input.trim(), searchDepth);
+            const response = await searchPerson(input.trim(), searchDepth, controller.signal);
 
             const assistantMessage: Message = {
                 id: crypto.randomUUID(),
@@ -55,6 +65,9 @@ const ChatInputBar = () => {
             getSearchHistory().then(setHistory).catch(console.error);
 
         } catch (error: any) {
+            // Ignore intentionally cancelled requests
+            if (error.name === 'CanceledError' || error.name === 'AbortError') return;
+
             setStreamingContent('');
             const detail = error.response?.data?.detail || '';
             const message = error.message || '';
