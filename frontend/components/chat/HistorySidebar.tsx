@@ -7,6 +7,7 @@ import { getSearchHistory, deleteHistoryItem } from '@/services/api';
 import { useChatStore, SidePanel } from '@/store/chatStore';
 import ScrambleText from '@/components/ui/ScrambleText';
 import dynamic from 'next/dynamic';
+import { showError } from '@/lib/toast';
 
 const MemoryPanel = dynamic(() => import('@/components/panels/MemoryPanel'), { ssr: false });
 const WatchPanel = dynamic(() => import('@/components/panels/WatchPanel'), { ssr: false });
@@ -34,6 +35,7 @@ const HistoryContent = () => {
             setHistory(data);
         } catch (error) {
             console.error('Failed to load history', error);
+            showError('Failed to load search history.');
         }
     }, [setHistory]);
 
@@ -47,6 +49,7 @@ const HistoryContent = () => {
             setHistory(prev => prev.filter(item => item.id !== id));
         } catch (error) {
             console.error('Failed to delete history item', error);
+            showError('Failed to delete history item.');
         }
     };
 
@@ -72,8 +75,11 @@ const HistoryContent = () => {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.9 }}
+                                role="button"
+                                tabIndex={0}
                                 className="group/hist flex items-center justify-between p-2.5 rounded-lg hover:bg-cyan-900/40 border border-transparent hover:border-cyan-500/30 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_10px_rgba(0,255,255,0.1)]"
                                 onClick={() => setInput(item.query_name)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInput(item.query_name); } }}
                             >
                                 <div className="flex items-center gap-2 overflow-hidden">
                                     <div className="w-1.5 h-1.5 rounded-full bg-cyan-500/50 group-hover/hist:bg-cyan-400 group-hover/hist:shadow-[0_0_5px_rgba(0,255,255,0.8)] transition-all shrink-0"></div>
@@ -122,12 +128,15 @@ const HistorySidebar = () => {
             className={`fixed z-40 left-6 top-32 bottom-32 w-64 glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden transition-all duration-700 ${messages.length === 0 ? 'translate-y-[15vh]' : 'translate-y-0'}`}
         >
             {/* Tab Navigation */}
-            <div className="flex border-b border-cyan-500/20 bg-black/30 shrink-0">
+            <div className="flex border-b border-cyan-500/20 bg-black/30 shrink-0" role="tablist" aria-label="Side panel navigation">
                 {PANEL_TABS.map(({ id, icon: Icon, label }) => (
                     <button
                         key={id}
                         onClick={() => setActiveSidePanel(id)}
                         title={label}
+                        role="tab"
+                        aria-selected={activeSidePanel === id}
+                        aria-label={label}
                         className={`flex-1 py-2.5 flex items-center justify-center transition-all ${
                             activeSidePanel === id
                                 ? 'text-cyan-300 border-b-2 border-cyan-400 bg-cyan-900/20'
