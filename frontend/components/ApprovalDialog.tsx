@@ -29,6 +29,7 @@ export default function ApprovalDialog({
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 bg-black/80 backdrop-blur-md z-40"
                         onClick={onReject}
+                        aria-hidden="true"
                     />
 
                     {/* Dialog */}
@@ -38,8 +39,9 @@ export default function ApprovalDialog({
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
                         transition={{ duration: 0.3, ease: "easeOut" }}
                         className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        onKeyDown={(e) => e.key === 'Escape' && onReject()}
                     >
-                        <div className="glass-strong rounded-2xl p-8 max-w-md w-full relative overflow-hidden group border-cyan-500/30">
+                        <div role="dialog" aria-modal="true" aria-labelledby="approval-dialog-title" className="glass-strong rounded-2xl p-8 max-w-md w-full relative overflow-hidden group border-cyan-500/30">
                             {/* Tech accents */}
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50" />
                             <div className="absolute top-0 left-0 w-16 h-16 border-t-2 border-l-2 border-cyan-400 opacity-30 rounded-tl-2xl" />
@@ -51,7 +53,7 @@ export default function ApprovalDialog({
                                     <Database className="w-6 h-6 text-cyan-400 animate-pulse" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-orbitron font-bold text-white tracking-widest uppercase mb-1">
+                                    <h3 id="approval-dialog-title" className="text-xl font-orbitron font-bold text-white tracking-widest uppercase mb-1">
                                         Archive Data
                                     </h3>
                                     <p className="text-cyan-400/60 font-mono text-xs tracking-wider uppercase">
