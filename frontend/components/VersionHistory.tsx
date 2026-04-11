@@ -4,6 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ChangeReport } from '@/types/profile';
 import { GitCompare, ArrowRight, Clock, ChevronRight, TrendingUp } from 'lucide-react';
+import { strings } from '@/lib/strings';
 
 interface VersionHistoryProps {
     report: ChangeReport;
@@ -15,7 +16,7 @@ function VersionHistory({ report }: VersionHistoryProps) {
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '—';
         const d = new Date(dateStr);
-        return d.toLocaleDateString('tr-TR', {
+        return d.toLocaleDateString('en-US', {
             day: '2-digit',
             month: 'short',
             year: 'numeric',
@@ -56,12 +57,12 @@ function VersionHistory({ report }: VersionHistoryProps) {
                         <div className="flex items-center gap-2 mb-0.5">
                             <TrendingUp className="w-4 h-4 text-emerald-400 animate-pulse" />
                             <h3 className="text-lg font-orbitron font-black text-white tracking-widest uppercase drop-shadow-lg">
-                                Değişim Raporu
+                                {strings.versionHistory.changeReport}
                             </h3>
                         </div>
                         <div className="flex items-center gap-2 text-emerald-300/80 text-[10px] font-bold font-mono tracking-widest uppercase">
                             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                            {report.snapshot_count} tarama kaydı • Version History
+                            {strings.versionHistory.scanRecords(report.snapshot_count)} • {strings.versionHistory.versionHistory}
                         </div>
                     </div>
                 </div>
@@ -121,7 +122,7 @@ function VersionHistory({ report }: VersionHistoryProps) {
                 ) : (
                     <div className="text-center py-4">
                         <p className="text-emerald-400/60 text-sm font-mono tracking-wider">
-                            Değişiklik tespit edilmedi — Profil verileri önceki taramayla aynı.
+                            {strings.versionHistory.noChanges}
                         </p>
                     </div>
                 )}
