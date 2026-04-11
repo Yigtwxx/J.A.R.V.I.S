@@ -23,9 +23,10 @@ const api = axios.create({
     },
 });
 
-export const searchPerson = async (query: string, depth: number = 5): Promise<SearchResponse> => {
+export const searchPerson = async (query: string, depth: number = 5, signal?: AbortSignal): Promise<SearchResponse> => {
     const response = await api.post<SearchResponse>('/api/search/', { query, depth }, {
         timeout: 300_000, // 5 minutes — search pipeline has multiple sequential AI steps
+        signal,
     });
     return response.data;
 };
@@ -124,11 +125,13 @@ export const agentChat = async (
 export const agentChatStream = async (
     message: string,
     history: AgentMessage[] = [],
+    signal?: AbortSignal,
 ): Promise<Response> => {
     return fetch(`${API_BASE_URL}/api/agent/chat`, {
         method: 'POST',
         headers: getApiHeaders(),
         body: JSON.stringify({ message, history, stream: true }),
+        signal,
     });
 };
 
@@ -139,8 +142,8 @@ export const getAgentTools = async (): Promise<AgentToolInfo[]> => {
 
 // ─── Vision API ────��────────────────────────────────────────
 
-export const analyzeImage = async (imageUrl: string, prompt?: string): Promise<VisionAnalysisResponse> => {
-    const response = await api.post<VisionAnalysisResponse>('/api/vision/analyze', { image_url: imageUrl, prompt });
+export const analyzeImage = async (imageUrl: string, prompt?: string, signal?: AbortSignal): Promise<VisionAnalysisResponse> => {
+    const response = await api.post<VisionAnalysisResponse>('/api/vision/analyze', { image_url: imageUrl, prompt }, { signal });
     return response.data;
 };
 
