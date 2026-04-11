@@ -6,6 +6,7 @@ import { Eye, EyeOff, Plus, StopCircle, Activity, Clock, X } from 'lucide-react'
 import { getActiveWatches, startWatch, stopWatch, stopAllWatches } from '@/services/api';
 import { useChatStore } from '@/store/chatStore';
 import ScrambleText from '@/components/ui/ScrambleText';
+import { showError } from '@/lib/toast';
 
 const WatchPanel = () => {
     const activeWatches = useChatStore(state => state.activeWatches);
@@ -22,6 +23,7 @@ const WatchPanel = () => {
             setActiveWatches(data.watches);
         } catch (e) {
             console.error('Failed to load watches', e);
+            showError('Failed to load watches.');
         }
     }, [setActiveWatches]);
 
@@ -37,6 +39,7 @@ const WatchPanel = () => {
             await loadWatches();
         } catch (e) {
             console.error('Failed to start watch', e);
+            showError('Failed to start watch.');
         } finally { setLoading(false); }
     };
 
@@ -46,6 +49,7 @@ const WatchPanel = () => {
             await loadWatches();
         } catch (e) {
             console.error('Failed to stop watch', e);
+            showError('Failed to stop watch.');
         }
     };
 
@@ -55,6 +59,7 @@ const WatchPanel = () => {
             setActiveWatches([]);
         } catch (e) {
             console.error('Failed to stop all', e);
+            showError('Failed to stop all watches.');
         }
     };
 
@@ -74,7 +79,7 @@ const WatchPanel = () => {
 
             {/* Add Watch */}
             <div className="p-3 border-b border-cyan-500/10 flex gap-2">
-                <button onClick={() => setShowAdd(!showAdd)} className="p-1.5 text-cyan-500 hover:text-green-400">
+                <button onClick={() => setShowAdd(!showAdd)} aria-expanded={showAdd} aria-label={showAdd ? 'Close add watch form' : 'Add new watch'} className="p-1.5 text-cyan-500 hover:text-green-400">
                     {showAdd ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                 </button>
             </div>
