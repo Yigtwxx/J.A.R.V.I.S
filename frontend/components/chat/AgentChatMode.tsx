@@ -18,13 +18,23 @@ const AgentChatMode = () => {
 
     const [input, setInput] = React.useState('');
     const scrollRef = useRef<HTMLDivElement>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }, [agentMessages, streamingAgentContent]);
 
+    useEffect(() => {
+        return () => { abortControllerRef.current?.abort(); };
+    }, []);
+
     const handleSend = async () => {
         if (!input.trim() || isAgentLoading) return;
+
+        // Cancel any in-flight stream
+        abortControllerRef.current?.abort();
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
 
         const userMsg: AgentMessage = { role: 'user', content: input.trim() };
         setAgentMessages(prev => [...prev, userMsg]);
@@ -33,7 +43,7 @@ const AgentChatMode = () => {
         setStreamingAgentContent('');
 
         try {
-            const response = await agentChatStream(input.trim(), [...agentMessages, userMsg]);
+            const response = await agentChatStream(input.trim(), [...agentMessages, userMsg], controller.signal);
 
             if (!response.body) throw new Error('No response body');
 
@@ -50,6 +60,7 @@ const AgentChatMode = () => {
                     setStreamingAgentContent(full);
                 }
             } catch (readError) {
+                if (readError instanceof DOMException && readError.name === 'AbortError') return;
                 console.error('Agent stream read failed:', readError);
                 if (!full) throw readError;
                 full += '\n\n[Stream interrupted]';
@@ -58,6 +69,7 @@ const AgentChatMode = () => {
             setAgentMessages(prev => [...prev, { role: 'assistant', content: full }]);
             setStreamingAgentContent('');
         } catch (error: unknown) {
+            if (error instanceof DOMException && error.name === 'AbortError') return;
             const errMsg = error instanceof Error ? error.message : 'Unknown error';
             setAgentMessages(prev => [...prev, { role: 'assistant', content: `[ERROR] Agent failed: ${errMsg}` }]);
             setStreamingAgentContent('');
