@@ -7,6 +7,7 @@ import { User, Users, ChevronRight, Activity, AlertTriangle, FileText, FileJson,
 import dynamic from 'next/dynamic';
 import GlitchText from '@/components/ui/GlitchText';
 import { exportPdfFromData, exportJsonFromData, exportCsvFromData } from '@/services/api';
+import { showError } from '@/lib/toast';
 
 function extractUsername(url: string): string {
     try {
@@ -50,6 +51,7 @@ function ProfileCard({ profile }: ProfileCardProps) {
             URL.revokeObjectURL(url);
         } catch (err) {
             console.error(`Export ${format} failed:`, err);
+            showError('Export failed. Please try again.');
         } finally {
             setExporting(null);
         }
