@@ -6,15 +6,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import get_health_service
 from app.middleware.security import verify_api_key
-from app.services.health_service import HealthService, HEALTH_CATEGORIES
-from app.services.user_memory_service import UserMemoryService
+from app.services.health_service import HEALTH_CATEGORIES
 
 router = APIRouter(prefix="/api/health", tags=["health"])
-
-memory_service = UserMemoryService()
-health_service = HealthService(memory_service=memory_service)
-
 
 class HealthRecordCreate(BaseModel):
     category: str = Field(..., description="Health category (e.g. health_sleep, health_energy)")
@@ -28,7 +24,10 @@ class HealthReportQuery(BaseModel):
 
 
 @router.get("/categories")
-async def get_categories(_api_key: str = Depends(verify_api_key)):
+async def get_categories(
+    _api_key: str = Depends(verify_api_key),
+    health_service=Depends(get_health_service),
+):
     """List available health categories."""
     return health_service.get_categories()
 
@@ -38,6 +37,7 @@ async def record_health_data(
     data: HealthRecordCreate,
     db: Session = Depends(get_db),
     _api_key: str = Depends(verify_api_key),
+    health_service=Depends(get_health_service),
 ):
     """Record a health data point."""
     try:
@@ -53,6 +53,7 @@ async def get_health_history(
     limit: int = 50,
     db: Session = Depends(get_db),
     _api_key: str = Depends(verify_api_key),
+    health_service=Depends(get_health_service),
 ):
     """Retrieve health history, optionally filtered by category."""
     try:
@@ -66,6 +67,7 @@ async def get_health_suggestions(
     query: HealthReportQuery,
     db: Session = Depends(get_db),
     _api_key: str = Depends(verify_api_key),
+    health_service=Depends(get_health_service),
 ):
     """Get AI-powered health suggestions based on user report."""
     return await health_service.get_suggestions(db, query.report)
@@ -75,6 +77,7 @@ async def get_health_suggestions(
 async def get_health_patterns(
     db: Session = Depends(get_db),
     _api_key: str = Depends(verify_api_key),
+    health_service=Depends(get_health_service),
 ):
     """Detect patterns in health data."""
     return await health_service.detect_patterns(db)
