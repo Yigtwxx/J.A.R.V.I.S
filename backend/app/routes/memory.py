@@ -6,13 +6,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import get_memory_service
 from app.middleware.security import verify_api_key
-from app.services.user_memory_service import UserMemoryService
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
-
-memory_service = UserMemoryService()
-
 
 class MemoryCreate(BaseModel):
     category: str = Field(..., description="Memory category: preference, fact, interaction, personality")
@@ -32,6 +29,7 @@ async def remember(
     memory: MemoryCreate,
     db: Session = Depends(get_db),
     _api_key: str = Depends(verify_api_key),
+    memory_service=Depends(get_memory_service),
 ):
     """Store a new memory or update existing one."""
     result = memory_service.remember(
@@ -51,6 +49,7 @@ async def recall_all(
     key: str | None = None,
     db: Session = Depends(get_db),
     _api_key: str = Depends(verify_api_key),
+    memory_service=Depends(get_memory_service),
 ):
     """Retrieve memories, optionally filtered by category and/or key."""
     memories = memory_service.recall(db, category=category, key=key)
@@ -61,6 +60,7 @@ async def recall_all(
 async def get_user_context(
     db: Session = Depends(get_db),
     _api_key: str = Depends(verify_api_key),
+    memory_service=Depends(get_memory_service),
 ):
     """Get the full user context string for AI prompt injection."""
     context = memory_service.build_user_context(db)
@@ -72,6 +72,7 @@ async def semantic_search(
     query: MemoryQuery,
     db: Session = Depends(get_db),
     _api_key: str = Depends(verify_api_key),
+    memory_service=Depends(get_memory_service),
 ):
     """Search through user memories using keyword matching."""
     results = memory_service.semantic_recall(db, query.query, n_results=query.n_results)
@@ -83,6 +84,7 @@ async def forget(
     memory_id: int,
     db: Session = Depends(get_db),
     _api_key: str = Depends(verify_api_key),
+    memory_service=Depends(get_memory_service),
 ):
     """Delete a specific memory."""
     deleted = memory_service.forget(db, memory_id)
@@ -96,6 +98,7 @@ async def forget_category(
     category: str,
     db: Session = Depends(get_db),
     _api_key: str = Depends(verify_api_key),
+    memory_service=Depends(get_memory_service),
 ):
     """Delete all memories in a category."""
     count = memory_service.forget_category(db, category)
