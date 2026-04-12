@@ -4,49 +4,15 @@ from cachetools import TTLCache
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.agents.orchestrator import SearchOrchestrator
 from app.config import get_settings
 from app.database import get_db
+from app.dependencies import get_search_orchestration, get_scraper_service
 from app.middleware.security import verify_api_key
 from app.schemas import SearchQuery, SearchResponse
 from app.services.depth_config import DepthConfig
-from app.services import (
-    AIService,
-    GitHubService,
-    ScraperService,
-    SearchService,
-    SocialScoreService,
-    WeatherService,
-    version_history_service,
-)
-from app.services.breach_service import breach_service
-from app.services.company_service import company_service
-from app.services.face_matching_service import FaceMatchingService
-from app.services.darkweb_service import darkweb_service
-from app.services.geoint_service import geoint_service
-from app.services.psychological_analysis_service import psychological_analysis_service
-from app.services.predictive_analysis_service import predictive_analysis_service
-from app.services.search_orchestration_service import SearchOrchestrationService
 from app.utils.logger import logger
 
 router = APIRouter(prefix="/api/search", tags=["search"])
-
-# Initialize services
-ai_service = AIService()
-search_service = SearchService()
-github_service = GitHubService()
-scraper_service = ScraperService()
-weather_service = WeatherService()
-social_score_service = SocialScoreService()
-face_matching_service = FaceMatchingService()
-
-search_orchestrator = SearchOrchestrator(
-    scraper_service=scraper_service,
-    company_service=company_service,
-    search_service=search_service,
-    breach_service=breach_service,
-    status_callback=logger.broadcast,
-)
 
 _settings = get_settings()
 
@@ -62,29 +28,12 @@ def _cache_key(query: str, depth: int) -> str:
     return f"{' '.join(query.lower().strip().split())}::{depth}"
 
 
-orchestration = SearchOrchestrationService(
-    ai_service=ai_service,
-    search_service=search_service,
-    github_service=github_service,
-    scraper_service=scraper_service,
-    weather_service=weather_service,
-    social_score_service=social_score_service,
-    face_matching_service=face_matching_service,
-    search_orchestrator=search_orchestrator,
-    version_history_service=version_history_service,
-    breach_orchestrator=search_orchestrator,
-    darkweb_service=darkweb_service,
-    geoint_service=geoint_service,
-    psychological_service=psychological_analysis_service,
-    predictive_service=predictive_analysis_service,
-)
-
-
 @router.post("/", response_model=SearchResponse)
 async def search_person(
     query: SearchQuery,
     db: Session = Depends(get_db),
     _api_key: str = Depends(verify_api_key),
+    orchestration=Depends(get_search_orchestration),
 ):
     """
     Search for a person and gather all available information.
@@ -202,7 +151,11 @@ async def test_search(_api_key: str = Depends(verify_api_key)):
 
 
 @router.get("/test-scraper")
-async def test_scraper(q: str = "Elon Musk", _api_key: str = Depends(verify_api_key)):
+async def test_scraper(
+    q: str = "Elon Musk",
+    _api_key: str = Depends(verify_api_key),
+    scraper_service=Depends(get_scraper_service),
+):
     """Debug endpoint — run the scraper and return raw results."""
     if not _settings.debug:
         raise HTTPException(status_code=404, detail="Not found")
