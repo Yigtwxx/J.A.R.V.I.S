@@ -2,17 +2,11 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.agents.agent_loop import AgentLoop
-from app.agents.tools.osint_tools import build_osint_registry
+from app.dependencies import get_agent_loop
 from app.middleware.security import verify_api_key
 from app.utils.logger import logger
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
-
-# Build registry once at module load
-_registry = build_osint_registry()
-_agent = AgentLoop(registry=_registry)
-
 
 class AgentChatMessage(BaseModel):
     role: str
@@ -26,7 +20,11 @@ class AgentChatRequest(BaseModel):
 
 
 @router.post("/chat")
-async def agent_chat(request: AgentChatRequest, _api_key: str = Depends(verify_api_key)):
+async def agent_chat(
+    request: AgentChatRequest,
+    _api_key: str = Depends(verify_api_key),
+    _agent=Depends(get_agent_loop),
+):
     """Agentic chat endpoint — the AI decides which OSINT tools to call."""
     logger.log_action("Agent chat request received", target=request.message[:80])
 
@@ -51,6 +49,9 @@ async def agent_chat(request: AgentChatRequest, _api_key: str = Depends(verify_a
 
 
 @router.get("/tools")
-async def list_agent_tools(_api_key: str = Depends(verify_api_key)):
+async def list_agent_tools(
+    _api_key: str = Depends(verify_api_key),
+    _agent=Depends(get_agent_loop),
+):
     """List all available tools the agent can use."""
-    return {"tools": _registry.get_ollama_schemas()}
+    return {"tools": _agent.registry.get_ollama_schemas()}
