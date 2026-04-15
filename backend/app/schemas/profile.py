@@ -60,6 +60,46 @@ class ProfileDataMixin(SocialUrlsMixin):
     email_addresses: list[str] | None = None
     data_breaches: list[dict[str, Any]] | None = None
 
+    @field_validator('email_addresses', mode='before')
+    @classmethod
+    def validate_email_addresses(cls, v: list | None) -> list | None:
+        if v is None:
+            return v
+        for email in v:
+            if not isinstance(email, str) or '@' not in email:
+                raise ValueError(f"Invalid email address: {email!r}")
+        return v
+
+    @field_validator('phone_numbers', mode='before')
+    @classmethod
+    def validate_phone_numbers(cls, v: list | None) -> list | None:
+        if v is None:
+            return v
+        for phone in v:
+            if not isinstance(phone, str) or len(phone.strip()) < 3:
+                raise ValueError(f"Phone number too short or invalid: {phone!r}")
+        return v
+
+    @field_validator('network_connections', mode='before')
+    @classmethod
+    def validate_network_connections(cls, v: list | None) -> list | None:
+        if v is None:
+            return v
+        for item in v:
+            if not isinstance(item, dict) or 'name' not in item:
+                raise ValueError("Each network_connection entry must have a 'name' key")
+        return v
+
+    @field_validator('data_breaches', mode='before')
+    @classmethod
+    def validate_data_breaches(cls, v: list | None) -> list | None:
+        if v is None:
+            return v
+        for item in v:
+            if not isinstance(item, dict) or 'source' not in item:
+                raise ValueError("Each data_breach entry must have a 'source' key")
+        return v
+
 
 class ProfileCreate(ProfileDataMixin):
     """Schema for creating a new profile"""
