@@ -43,8 +43,8 @@ class Profile(Base):
     data_breaches = Column(JSON, nullable=True)  # Dark web intelligence details
 
     # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), index=True)
 
     def __repr__(self):
         return f"<Profile(id={self.id}, name='{self.name}')>"
