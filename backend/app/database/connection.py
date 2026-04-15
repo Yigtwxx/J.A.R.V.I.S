@@ -51,17 +51,31 @@ Base = declarative_base()
 
 def get_db() -> Generator[Session, None, None]:
     """
-    Dependency function to get database session
+    Dependency function to get database session.
+    Commits on success, rolls back on exception.
     Usage: db: Session = Depends(get_db)
     """
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
 
 def init_db():
-    """Initialize database tables (creates missing tables for fresh installs).
-    Schema evolution is handled by Alembic migrations."""
-    Base.metadata.create_all(bind=engine)
+    """Initialize database — run Alembic migrations, fallback to create_all for fresh installs."""
+    from pathlib import Path
+    from alembic.config import Config
+    from alembic import command
+
+    alembic_ini = Path(__file__).resolve().parents[1] / "alembic.ini"
+    try:
+        alembic_cfg = Config(str(alembic_ini))
+        command.upgrade(alembic_cfg, "head")
+    except Exception:
+        # Fallback for fresh installs or missing alembic state
+        Base.metadata.create_all(bind=engine)
