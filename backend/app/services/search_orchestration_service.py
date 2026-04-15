@@ -703,6 +703,6 @@ class SearchOrchestrationService:
         try:
             history_entry = SearchHistory(query_name=raw_query)
             db.add(history_entry)
-            db.commit()
+            db.flush()
         except Exception as e:
             logger.log_warning(f"Failed to record search history: {e}")
