@@ -17,7 +17,6 @@ def cleanup_old_history(db: Session):
         one_week_ago = datetime.now(UTC) - timedelta(days=7)
         deleted = db.query(SearchHistory).filter(SearchHistory.searched_at < one_week_ago).delete()
         if deleted > 0:
-            db.commit()
             logger.log_action(f"Cleaned up {deleted} old history records")
     except Exception as e:
         logger.log_error(f"Failed to cleanup old history: {str(e)}")
@@ -47,7 +46,6 @@ def delete_history_item(history_id: int, db: Session = Depends(get_db), _api_key
     if not record:
         raise HTTPException(status_code=404, detail="History not found")
     db.delete(record)
-    db.commit()
     logger.log_action(f"Deleted history record {history_id}")
     return {"ok": True}
 
@@ -55,6 +53,5 @@ def delete_history_item(history_id: int, db: Session = Depends(get_db), _api_key
 def clear_all_history(db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
     """Clear all history"""
     db.query(SearchHistory).delete()
-    db.commit()
     logger.log_action("Cleared all query history")
     return {"ok": True}
