@@ -41,7 +41,7 @@ class UserMemoryService:
             existing.context = context or existing.context
             existing.importance = importance
             existing.updated_at = datetime.now(UTC)
-            db.commit()
+            db.flush()
             db.refresh(existing)
             logger.log_action(f"Memory updated: [{category}] {key}")
             return existing
@@ -54,7 +54,7 @@ class UserMemoryService:
             importance=importance,
         )
         db.add(memory)
-        db.commit()
+        db.flush()
         db.refresh(memory)
         logger.log_success(f"Memory stored: [{category}] {key}")
         return memory
@@ -75,14 +75,12 @@ class UserMemoryService:
         if not memory:
             return False
         db.delete(memory)
-        db.commit()
         logger.log_action(f"Memory erased: [{memory.category}] {memory.key}")
         return True
 
     def forget_category(self, db: Session, category: str) -> int:
         """Delete all memories in a category. Returns count deleted."""
         count = db.query(UserMemory).filter(UserMemory.category == category).delete()
-        db.commit()
         logger.log_action(f"Category purged: {category} ({count} memories)")
         return count
 
