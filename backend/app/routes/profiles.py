@@ -51,14 +51,13 @@ async def create_profile(profile: ProfileCreate, db: Session = Depends(get_db), 
         )
 
         db.add(db_profile)
-        db.commit()
+        db.flush()
         db.refresh(db_profile)
 
         logger.log_success(f"Profile saved to database matrix: {profile.name}")
         return db_profile
 
     except Exception as e:
-        db.rollback()
         logger.log_error(f"Error saving profile parameters: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create profile: {str(e)}") from e
 
@@ -106,7 +105,6 @@ async def delete_profile(profile_id: int, db: Session = Depends(get_db), _api_ke
             raise HTTPException(status_code=404, detail="Profile not found")
 
         db.delete(profile)
-        db.commit()
 
         logger.log_success(f"Profile deleted from archives: {profile.name}")
         return {"message": f"Profile {profile_id} deleted successfully"}
@@ -114,7 +112,6 @@ async def delete_profile(profile_id: int, db: Session = Depends(get_db), _api_ke
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to delete profile: {str(e)}") from e
 
 
