@@ -2,14 +2,14 @@ import asyncio
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.config import get_settings
+from app.config import generate_api_key, get_settings
 from app.database import init_db
-from app.middleware.security import RateLimitMiddleware
+from app.middleware.security import RateLimitMiddleware, verify_api_key
 from app.plugins import plugin_manager
 from app.services.self_healing_service import self_healing_service
 from app.routes import (
@@ -43,13 +43,15 @@ async def lifespan(app: FastAPI):
     logger.log_action("AI Neural Net", target=f"{settings.ollama_model} (Ollama)")
     logger.log_action("Server Address", target=f"http://{settings.host}:{settings.port}")
 
-    # Security: API key status
+    # Security: API key — auto-generate if not configured so auth is never disabled
     if not settings.api_key:
+        generated_key = generate_api_key()
+        object.__setattr__(settings, "api_key", generated_key)
         logger.log_warning("=" * 60)
-        logger.log_warning("WARNING: API_KEY is not configured!")
-        logger.log_warning("All endpoints are UNPROTECTED without an API key.")
-        logger.log_warning("Set API_KEY in backend/.env and NEXT_PUBLIC_API_KEY in frontend.")
-        logger.log_warning("Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\"")
+        logger.log_warning("WARNING: API_KEY was not configured in .env!")
+        logger.log_warning(f"Auto-generated API key: {generated_key}")
+        logger.log_warning("Add this to backend/.env:  API_KEY=" + generated_key)
+        logger.log_warning("Also set NEXT_PUBLIC_API_KEY in frontend/.env.local")
         logger.log_warning("=" * 60)
     else:
         logger.log_success("API Key authentication active")
@@ -213,7 +215,7 @@ async def root():
 
 
 @app.get("/api/status/stream")
-async def stream_status():
+async def stream_status(_api_key: str = Depends(verify_api_key)):
     """Stream live JARVIS activity logs via SSE"""
     async def event_generator():
         queue = asyncio.Queue()
