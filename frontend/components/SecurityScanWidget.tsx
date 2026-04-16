@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, ShieldAlert, AlertTriangle, Key, Mail, MapPin, Phone, User, Calendar, FileText } from 'lucide-react';
 import { BreachData, PasteData, LeakRecord } from '@/types/profile';
+import { strings } from '@/lib/strings';
+
+const s = strings.securityScan;
 
 interface SecurityScanProps {
     emails?: string[];
@@ -66,18 +69,18 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
                         <h3 className={`font-mono font-bold tracking-wider text-sm ${
                             isSecure ? 'text-cyan-300' : 'text-red-400'
                         }`}>
-                            DEEP WEB THREAT ANALYSIS
+                            {s.title}
                         </h3>
                         <p className="text-xs text-gray-400 font-mono mt-0.5">
-                            {emails.length} identifier(s) scanned across Dark Nodes.
+                            {s.identifiersScanned(emails.length)}
                             {breaches.length > 0 && (
                                 <span className="text-red-400 ml-1">
-                                    {breaches.length} breach(es)
+                                    {s.breachCount(breaches.length)}
                                 </span>
                             )}
                             {pastes.length > 0 && (
                                 <span className="text-orange-400 ml-1">
-                                    + {pastes.length} paste(s) detected.
+                                    {s.pasteCount(pastes.length)}
                                 </span>
                             )}
                         </p>
@@ -87,11 +90,11 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
                 <div className="flex items-center gap-2">
                     {isSecure ? (
                         <span className="px-2 py-1 text-[10px] font-mono rounded bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
-                            SECURE
+                            {s.statusSecure}
                         </span>
                     ) : (
                         <span className="px-2 py-1 text-[10px] font-mono rounded bg-red-500/20 border border-red-500/30 text-red-400 animate-pulse">
-                            COMPROMISED
+                            {s.statusCompromised}
                         </span>
                     )}
                     <span className="text-xs text-gray-500 ml-2">{isExpanded ? '[-]' : '[+]'}</span>
@@ -106,7 +109,7 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
                     {breaches.length > 0 && (
                         <div className="space-y-4">
                             <div className="text-[10px] text-red-400/70 font-mono uppercase tracking-widest">
-                                Data Breaches — {breaches.length} found
+                                {s.breachSectionTitle(breaches.length)}
                             </div>
                             {breaches.map((breach, idx) => (
                                 <motion.div
@@ -126,12 +129,12 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
                                                 </h4>
                                                 {breach.IsVerified && (
                                                     <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-emerald-900/40 border border-emerald-800/50 text-emerald-400">
-                                                        VERIFIED
+                                                        {s.badgeVerified}
                                                     </span>
                                                 )}
                                                 {breach.IsSpamList && (
                                                     <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-yellow-900/40 border border-yellow-800/50 text-yellow-400">
-                                                        SPAM LIST
+                                                        {s.badgeSpamList}
                                                     </span>
                                                 )}
                                             </div>
@@ -146,7 +149,7 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
                                             </p>
                                         </div>
                                         <div className="text-right">
-                                            <div className="text-[10px] text-gray-400 font-mono mb-1">Target Identity:</div>
+                                            <div className="text-[10px] text-gray-400 font-mono mb-1">{s.targetIdentityLabel}</div>
                                             <div className="text-xs font-mono text-cyan-400 bg-cyan-900/20 px-2 py-0.5 rounded border border-cyan-800/50">
                                                 {breach.TargetEmail}
                                             </div>
@@ -155,7 +158,7 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
 
                                     <div className="ml-2 mt-3 pt-3 border-t border-red-900/30">
                                         <div className="text-[10px] text-gray-400 font-mono uppercase mb-2">
-                                            Compromised Data Nodes:
+                                            {s.compromisedNodesLabel}
                                         </div>
                                         <div className="flex flex-wrap gap-2">
                                             {breach.DataClasses.map((dc, dcIdx) => (
@@ -178,7 +181,7 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
                     {pastes.length > 0 && (
                         <div className="space-y-3">
                             <div className="text-[10px] text-orange-400/70 font-mono uppercase tracking-widest">
-                                Paste-Site Exposures — {pastes.length} found
+                                {s.pasteSectionTitle(pastes.length)}
                             </div>
                             {pastes.map((paste, idx) => (
                                 <motion.div
@@ -202,13 +205,13 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
                                                 {paste.Date ? paste.Date.split('T')[0] : 'Unknown date'} • {paste.Source}
                                                 {paste.EmailCount > 1 && (
                                                     <span className="text-gray-500">
-                                                        • {paste.EmailCount.toLocaleString()} emails in paste
+                                                        {s.emailsInPaste(paste.EmailCount)}
                                                     </span>
                                                 )}
                                             </p>
                                         </div>
                                         <div className="text-right">
-                                            <div className="text-[10px] text-gray-400 font-mono mb-1">Target Identity:</div>
+                                            <div className="text-[10px] text-gray-400 font-mono mb-1">{s.targetIdentityLabel}</div>
                                             <div className="text-xs font-mono text-cyan-400 bg-cyan-900/20 px-2 py-0.5 rounded border border-cyan-800/50">
                                                 {paste.TargetEmail}
                                             </div>
@@ -227,11 +230,10 @@ const SecurityScanWidget: React.FC<SecurityScanProps> = ({ emails = [], dataBrea
                     <div className="flex flex-col items-center justify-center py-6 text-center">
                         <Shield className="text-cyan-500/30 mb-3" size={32} />
                         <p className="text-sm text-cyan-300 font-mono">
-                            No intelligence leaks detected in known databases.
+                            {s.noLeaksTitle}
                         </p>
                         <p className="text-xs text-gray-500 mt-2 max-w-sm">
-                            Cross-referenced {emails.length} identifier(s) against known public breaches
-                            and dark web paste dumps. The target's digital footprint remains uncompromised.
+                            {s.noLeaksBody(emails.length)}
                         </p>
                         <div className="flex flex-wrap gap-2 mt-4 justify-center">
                             {emails.map((em, idx) => (
