@@ -28,6 +28,14 @@ async def _enforce_body_limit(request: Request):
                 )
         except ValueError:
             pass  # malformed header — let FastAPI handle it
+    else:
+        # No Content-Length header — read the actual body to check size
+        body = await request.body()
+        if len(body) > MAX_EXPORT_BODY_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail="Request body too large (max 1 MB).",
+            )
 
 
 def _get_profile_dict(profile_id: int, db: Session) -> dict:
