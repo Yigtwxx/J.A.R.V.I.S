@@ -105,6 +105,7 @@ async def delete_profile(profile_id: int, db: Session = Depends(get_db), _api_ke
             raise HTTPException(status_code=404, detail="Profile not found")
 
         db.delete(profile)
+        db.flush()
 
         logger.log_success(f"Profile deleted from archives: {profile.name}")
         return {"message": f"Profile {profile_id} deleted successfully"}
