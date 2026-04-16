@@ -137,7 +137,9 @@ async def search_person(
 
 @router.get("/test")
 async def test_search(_api_key: str = Depends(verify_api_key)):
-    """Test endpoint to verify search API is working"""
+    """Test endpoint to verify search API is working (debug mode only)"""
+    if not _settings.debug:
+        raise HTTPException(status_code=404, detail="Not found")
     return {
         "status": "ok",
         "message": "JARVIS search API is operational",
