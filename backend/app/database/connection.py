@@ -59,7 +59,7 @@ def get_db() -> Generator[Session, None, None]:
     try:
         yield db
         db.commit()
-    except Exception:
+    except Exception as e:
         db.rollback()
         raise
     finally:
@@ -76,6 +76,7 @@ def init_db():
     try:
         alembic_cfg = Config(str(alembic_ini))
         command.upgrade(alembic_cfg, "head")
-    except Exception:
+    except Exception as e:
         # Fallback for fresh installs or missing alembic state
+        logger.log_warning(f"Alembic migration failed ({e}), falling back to create_all()")
         Base.metadata.create_all(bind=engine)
