@@ -116,14 +116,14 @@ class JarvisLogger:
             else:
                 color = "success" if status_code < 400 else "error"
                 console.print(f"[network][NET-OUT][/network] [bold white]{method}[/bold white] [highlight]{path}[/highlight] -> [{color}]Status: {status_code}[/{color}] [time]({process_time:.2f}ms)[/time]")
-        except Exception:
+        except Exception as e:
             print(f"[NET] {method} {path} {status_code or '<-'} {client_ip}")
 
     def log_db_query(self, query_type: str, table: str = "", details: str = ""):
         """Log background database activity mimicking deep data retrieval"""
         try:
             console.print(f"[database][DB-LINK][/database] [bold]{query_type}[/bold] [highlight]{table}[/highlight] {f'-> {details}' if details else ''}")
-        except Exception:
+        except Exception as e:
             print(f"[DB] {query_type} {table} {details}")
 
     def log_step(self, step_num: int, total: int, description: str):
