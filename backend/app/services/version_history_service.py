@@ -90,7 +90,7 @@ def save_snapshot(db: Session, query_name: str, search_response) -> ProfileSnaps
     )
 
     db.add(snapshot)
-    db.commit()
+    db.flush()
     db.refresh(snapshot)
 
     logger.log_success(f"Version snapshot #{snapshot.id} saved for '{normalized}'")
@@ -262,7 +262,7 @@ def cleanup_old_snapshots(
         deleted += excess_count
 
     if deleted:
-        db.commit()
+        db.flush()
         logger.log_action(f"Snapshot GC: pruned {deleted} old snapshot(s) for '{normalized}'")
 
     return deleted
