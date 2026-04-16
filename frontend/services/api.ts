@@ -107,12 +107,14 @@ export const agentChat = async (
     message: string,
     history: AgentMessage[] = [],
     stream = false,
+    signal?: AbortSignal,
 ): Promise<string> => {
     if (stream) {
         const response = await fetch(`${API_BASE_URL}/api/agent/chat`, {
             method: 'POST',
             headers: getApiHeaders(),
             body: JSON.stringify({ message, history, stream: true }),
+            signal,
         });
         return response.text();
     }
