@@ -170,7 +170,7 @@ class DeepSearchAgent(BaseAgent):
                         if a.netloc == b.netloc and a.path == b.path:
                             strategies_with_url.add(strat_label)
                             break
-                    except Exception:
+                    except Exception as e:
                         continue
 
             # For deep search, we want ≥1 strategy match + name match
@@ -204,7 +204,7 @@ class DeepSearchAgent(BaseAgent):
                 host = urllib.parse.urlparse(url).hostname or ""
                 if any(d in host for d in skip_domains):
                     continue
-            except Exception:
+            except Exception as e:
                 continue
 
             content = self._search.fetch_content(url)
