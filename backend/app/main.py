@@ -9,11 +9,14 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.config import generate_api_key, get_settings
 from app.database import init_db
-from app.middleware.security import RateLimitMiddleware, verify_api_key
+from app.middleware.audit import AuditMiddleware
+from app.middleware.csrf import CSRFMiddleware
+from app.middleware.security import PersistentRateLimitMiddleware, RateLimitMiddleware, verify_api_key
 from app.plugins import plugin_manager
 from app.services.self_healing_service import self_healing_service
 from app.routes import (
     agent_router,
+    audit_router,
     chat_router,
     export_router,
     face_match_router,
@@ -42,6 +45,14 @@ async def lifespan(app: FastAPI):
     logger.log_action("Database Source", target=settings.database_url.split('@')[-1] if '@' in settings.database_url else 'Not configured')
     logger.log_action("AI Neural Net", target=f"{settings.ollama_model} (Ollama)")
     logger.log_action("Server Address", target=f"http://{settings.host}:{settings.port}")
+
+    # Security: auto-generate CSRF secret if enabled but not configured
+    if settings.csrf_enabled and not settings.csrf_secret:
+        import secrets as _secrets
+        csrf_secret = _secrets.token_hex(32)
+        object.__setattr__(settings, "csrf_secret", csrf_secret)
+        logger.log_warning("CSRF enabled but CSRF_SECRET not set — auto-generated for this session.")
+        logger.log_warning("Set CSRF_SECRET in backend/.env for persistent CSRF protection.")
 
     # Security: API key — auto-generate if not configured so auth is never disabled
     if not settings.api_key:
@@ -88,11 +99,60 @@ async def lifespan(app: FastAPI):
     # Start self-healing background monitor
     monitor_task = asyncio.create_task(self_healing_service.start_monitoring(interval_seconds=30))
 
+    # Start persistent rate-limit cleanup task (if persistent mode is on)
+    rl_cleanup_task = None
+    if settings.rate_limit_persistent:
+        async def _rate_limit_cleanup():
+            while True:
+                await asyncio.sleep(settings.rate_limit_cleanup_interval)
+                try:
+                    import time as _time
+                    from app.database.connection import SessionLocal
+                    from app.models.rate_limit import RateLimit
+                    cutoff = _time.time() - settings.rate_limit_window_seconds
+                    db = SessionLocal()
+                    try:
+                        deleted = db.query(RateLimit).filter(RateLimit.timestamp < cutoff).delete()
+                        db.commit()
+                        if deleted:
+                            logger.log_action(f"Rate limit cleanup: removed {deleted} expired entries")
+                    finally:
+                        db.close()
+                except Exception as e:
+                    logger.log_warning(f"Rate limit cleanup error: {e}")
+        rl_cleanup_task = asyncio.create_task(_rate_limit_cleanup())
+
+    # Start daily audit log cleanup task
+    audit_cleanup_task = None
+    if settings.audit_log_enabled:
+        async def _audit_cleanup():
+            while True:
+                await asyncio.sleep(86400)  # daily
+                try:
+                    from datetime import datetime, timedelta
+                    from app.database.connection import SessionLocal
+                    from app.models.audit_log import AuditLog
+                    cutoff = datetime.utcnow() - timedelta(days=settings.audit_log_retention_days)
+                    db = SessionLocal()
+                    try:
+                        deleted = db.query(AuditLog).filter(AuditLog.timestamp < cutoff).delete()
+                        db.commit()
+                        logger.log_action(f"Audit cleanup: removed {deleted} entries older than {settings.audit_log_retention_days}d")
+                    finally:
+                        db.close()
+                except Exception as e:
+                    logger.log_warning(f"Audit cleanup error: {e}")
+        audit_cleanup_task = asyncio.create_task(_audit_cleanup())
+
     logger.log_success("All systems online. Awaiting coordinates.")
     yield
     # --- Shutdown ---
     self_healing_service.stop()
     monitor_task.cancel()
+    if rl_cleanup_task:
+        rl_cleanup_task.cancel()
+    if audit_cleanup_task:
+        audit_cleanup_task.cancel()
 
 
 # Create FastAPI app
@@ -134,21 +194,34 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Configure CORS
+# Configure CORS (tightened header/method lists)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-API-Key", "X-CSRF-Token", "Authorization"],
 )
 
-# Rate Limiting (per-IP sliding window)
-app.add_middleware(
-    RateLimitMiddleware,
-    max_requests=settings.rate_limit_requests,
-    window_seconds=settings.rate_limit_window_seconds,
-)
+# CSRF protection (opt-in via csrf_enabled=True)
+app.add_middleware(CSRFMiddleware, secret=settings.csrf_secret)
+
+# Audit trail
+app.add_middleware(AuditMiddleware)
+
+# Rate Limiting: SQLite-backed or in-memory depending on config
+if settings.rate_limit_persistent:
+    app.add_middleware(
+        PersistentRateLimitMiddleware,
+        max_requests=settings.rate_limit_requests,
+        window_seconds=settings.rate_limit_window_seconds,
+    )
+else:
+    app.add_middleware(
+        RateLimitMiddleware,
+        max_requests=settings.rate_limit_requests,
+        window_seconds=settings.rate_limit_window_seconds,
+    )
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -197,6 +270,7 @@ app.include_router(agent_router)
 app.include_router(vision_router)
 app.include_router(system_router)
 app.include_router(health_router)
+app.include_router(audit_router)
 
 
 @app.get("/")
