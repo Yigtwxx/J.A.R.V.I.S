@@ -15,6 +15,8 @@ from app.database.connection import Base
 from app.models.profile import Profile  # noqa: F401
 from app.models.snapshot import ProfileSnapshot  # noqa: F401
 from app.models.history import SearchHistory  # noqa: F401
+from app.models.rate_limit import RateLimit  # noqa: F401
+from app.models.audit_log import AuditLog  # noqa: F401
 
 config = context.config
 
