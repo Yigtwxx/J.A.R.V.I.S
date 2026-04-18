@@ -31,6 +31,16 @@ class Settings(BaseSettings):
     # Rate Limiting (sliding window per IP)
     rate_limit_requests: int = 30      # max requests per window
     rate_limit_window_seconds: int = 60  # window size in seconds
+    rate_limit_persistent: bool = False  # True = SQLite-backed (survives restarts)
+    rate_limit_cleanup_interval: int = 300  # seconds between cleanup runs
+
+    # Audit Trail
+    audit_log_enabled: bool = True
+    audit_log_retention_days: int = 30
+
+    # CSRF Protection
+    csrf_enabled: bool = False
+    csrf_secret: str = ""
 
     # Computer Control (disabled by default for security)
     enable_computer_control: bool = False
