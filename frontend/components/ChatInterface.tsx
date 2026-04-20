@@ -2,7 +2,8 @@
 
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TerminalSquare, Save, CheckCircle, Github, Instagram, Twitter, Linkedin, Globe, MapPin, Thermometer, Cloud, Sun, Wind, Search, AlertTriangle } from 'lucide-react';
+import { TerminalSquare, Save, CheckCircle, Github, Instagram, Twitter, Linkedin, Globe, MapPin, Thermometer, Cloud, Sun, Wind, Search, AlertTriangle, Link2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { saveProfile, API_BASE_URL } from '@/services/api';
 import { Message, SearchResponse } from '@/types/profile';
 import ReactMarkdown from 'react-markdown';
@@ -801,20 +802,35 @@ export default function ChatInterface() {
                                                     <span className="text-gray-400 italic text-xs max-w-sm">
                                                         If this profile looks correct, save it to the database for quick access later.
                                                     </span>
-                                                    {!message.isSaved ? (
+                                                    <div className="flex items-center gap-2 shrink-0">
                                                         <button
-                                                            onClick={() => handleApprove(index, message.profileData!)}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-900/40 hover:border-cyan-400 transition-colors shadow-[0_0_10px_rgba(0,255,255,0.1)] shrink-0"
+                                                            onClick={() => {
+                                                                const url = `${window.location.origin}/?q=${encodeURIComponent(message.profileData!.name)}`;
+                                                                navigator.clipboard.writeText(url).then(() => {
+                                                                    toast.success('Link copied!');
+                                                                });
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/30 border border-cyan-500/20 text-cyan-500/60 hover:text-cyan-300 hover:border-cyan-500/40 transition-colors shrink-0"
+                                                            title="Copy shareable link"
                                                         >
-                                                            <Save className="w-4 h-4" />
-                                                            <span className="text-sm font-semibold tracking-wide">Save</span>
+                                                            <Link2 className="w-4 h-4" />
+                                                            <span className="text-sm font-semibold tracking-wide">Copy Link</span>
                                                         </button>
-                                                    ) : (
-                                                        <div className="flex items-center gap-1.5 px-3 py-1.5 text-green-400 font-medium shrink-0">
-                                                            <CheckCircle className="w-5 h-5" />
-                                                            <span className="text-sm">Saved to DB</span>
-                                                        </div>
-                                                    )}
+                                                        {!message.isSaved ? (
+                                                            <button
+                                                                onClick={() => handleApprove(index, message.profileData!)}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-900/40 hover:border-cyan-400 transition-colors shadow-[0_0_10px_rgba(0,255,255,0.1)] shrink-0"
+                                                            >
+                                                                <Save className="w-4 h-4" />
+                                                                <span className="text-sm font-semibold tracking-wide">Save</span>
+                                                            </button>
+                                                        ) : (
+                                                            <div className="flex items-center gap-1.5 px-3 py-1.5 text-green-400 font-medium shrink-0">
+                                                                <CheckCircle className="w-5 h-5" />
+                                                                <span className="text-sm">Saved to DB</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 {/* RAG Interactive Chat Mode (Only for the latest profile) */}
