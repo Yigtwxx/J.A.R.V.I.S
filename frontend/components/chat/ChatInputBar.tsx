@@ -26,13 +26,28 @@ const ChatInputBar = () => {
     const setAgentMode = useChatStore(state => state.setAgentMode);
     const searchDepth = useChatStore(state => state.searchDepth);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const autoSearchFiredRef = useRef(false);
 
     useEffect(() => {
         return () => { abortControllerRef.current?.abort(); };
     }, []);
 
-    const handleSearch = async () => {
-        if (!input.trim() || isLoading) return;
+    // Auto-search when ?q= is present in the URL on first mount
+    useEffect(() => {
+        if (autoSearchFiredRef.current) return;
+        const q = new URLSearchParams(window.location.search).get('q');
+        if (q && q.trim()) {
+            autoSearchFiredRef.current = true;
+            // input was already set by SearchInitializer — trigger search after a tick
+            // so the store update is flushed first
+            setTimeout(() => triggerSearch(q.trim()), 0);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const triggerSearch = async (queryOverride?: string) => {
+        const query = queryOverride ?? input;
+        if (!query.trim() || isLoading) return;
 
         // Cancel any in-flight search
         abortControllerRef.current?.abort();
@@ -42,7 +57,7 @@ const ChatInputBar = () => {
         const userMessage: Message = {
             id: crypto.randomUUID(),
             role: 'user',
-            content: input.trim()
+            content: query.trim()
         };
 
         setMessages(prev => [...prev, userMessage]);
@@ -52,7 +67,10 @@ const ChatInputBar = () => {
         setRagInput('');
 
         try {
-            const response = await searchPerson(input.trim(), searchDepth, controller.signal);
+            const response = await searchPerson(query.trim(), searchDepth, controller.signal);
+
+            // Update URL to reflect the current search query
+            window.history.replaceState(null, '', `?q=${encodeURIComponent(query.trim())}`);
 
             const assistantMessage: Message = {
                 id: crypto.randomUUID(),
@@ -100,7 +118,7 @@ const ChatInputBar = () => {
     const handleKeyPress = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSearch();
+            triggerSearch();
         }
     };
 
@@ -157,7 +175,7 @@ const ChatInputBar = () => {
                 />
 
                 <button
-                    onClick={handleSearch}
+                    onClick={() => triggerSearch()}
                     disabled={isLoading || !input.trim()}
                     className={`relative z-10 btn-jarvis rounded-xl w-14 h-14 p-0 flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed group/btn border-2 transition-all ${
                         isAgentMode
