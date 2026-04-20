@@ -230,7 +230,70 @@ export const SearchHistoryItemSchema = z.object({
     searched_at: z.string(),
 });
 
-// ─── api.ts inline schemas ───────────────────────────────────
+// ─── Vision schemas ──────────────────────────────────────────
+
+export const VisionAnalysisResponseSchema = z.object({
+    analysis: z.union([z.string(), z.record(z.string(), z.unknown())]),
+    image_url: z.string(),
+});
+
+export const VisionScreenshotResponseSchema = z.object({
+    text: z.string(),
+    image_url: z.string(),
+});
+
+// ─── Memory schemas ──────────────────────────────────────────
+
+export const UserMemorySchema = z.object({
+    id: z.number(),
+    category: z.string(),
+    key: z.string(),
+    value: z.string(),
+    context: z.string().nullable(),
+    importance: z.number(),
+    created_at: z.string(),
+    updated_at: z.string(),
+});
+
+export const MemoryListResponseSchema = z.object({
+    memories: z.array(UserMemorySchema),
+    count: z.number(),
+});
+
+// ─── Watch schemas ───────────────────────────────────────────
+
+export const WatchTargetSchema = z.object({
+    query: z.string(),
+    interval_minutes: z.number(),
+    is_active: z.boolean(),
+    last_checked: z.string().nullable(),
+    changes_detected: z.number(),
+    last_diff: z.record(z.string(), z.object({
+        old: z.unknown(),
+        new: z.unknown(),
+    })).nullable(),
+});
+
+export const WatchListResponseSchema = z.object({
+    watches: z.array(WatchTargetSchema),
+    count: z.number(),
+});
+
+// ─── Plugin schemas ──────────────────────────────────────────
+
+export const PluginInfoSchema = z.object({
+    name: z.string(),
+    version: z.string(),
+    description: z.string(),
+    author: z.string(),
+    enabled: z.boolean(),
+});
+
+export const PluginListResponseSchema = z.object({
+    plugins: z.array(PluginInfoSchema),
+});
+
+// ─── System / Health inline schemas ─────────────────────────
 
 export const ServiceStatusResponseSchema = z.object({
     services: z.record(z.string(), z.object({ status: z.string(), error: z.string().optional() })),
@@ -244,4 +307,8 @@ export const HealthLogEntrySchema = z.object({
     service: z.string(),
     type: z.string(),
     message: z.string(),
+});
+
+export const HealthLogListResponseSchema = z.object({
+    log: z.array(HealthLogEntrySchema),
 });
