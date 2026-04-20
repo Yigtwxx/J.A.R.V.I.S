@@ -4,6 +4,10 @@ import {
     AgentToolInfo, AgentMessage, VisionAnalysisResponse, VisionScreenshotResponse,
     UserMemory, WatchTarget, PluginInfo, SystemAction,
 } from '@/types/profile';
+import {
+    SearchResponseSchema, ProfileDataSchema, SearchHistoryItemSchema, ChangeReportSchema,
+} from '@/lib/schemas';
+import { validateResponse } from '@/lib/validateApi';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY || '';
@@ -28,22 +32,24 @@ export const searchPerson = async (query: string, depth: number = 5, signal?: Ab
         timeout: 300_000, // 5 minutes — search pipeline has multiple sequential AI steps
         signal,
     });
-    return response.data;
+    return validateResponse(SearchResponseSchema, response.data, 'searchPerson');
 };
 
 export const saveProfile = async (profileData: ProfileData): Promise<ProfileData> => {
     const response = await api.post<ProfileData>('/api/profiles/', profileData);
-    return response.data;
+    return validateResponse(ProfileDataSchema, response.data, 'saveProfile');
 };
 
 export const getAllProfiles = async (): Promise<ProfileData[]> => {
     const response = await api.get<ProfileData[]>('/api/profiles/');
-    return response.data;
+    return (response.data as unknown[]).map((item, i) =>
+        validateResponse(ProfileDataSchema, item, `getAllProfiles[${i}]`),
+    );
 };
 
 export const getProfile = async (id: number): Promise<ProfileData> => {
     const response = await api.get<ProfileData>(`/api/profiles/${id}`);
-    return response.data;
+    return validateResponse(ProfileDataSchema, response.data, 'getProfile');
 };
 
 export const deleteProfile = async (id: number): Promise<void> => {
@@ -52,12 +58,16 @@ export const deleteProfile = async (id: number): Promise<void> => {
 
 export const searchProfiles = async (name: string): Promise<ProfileData[]> => {
     const response = await api.get<ProfileData[]>(`/api/profiles/search/${name}`);
-    return response.data;
+    return (response.data as unknown[]).map((item, i) =>
+        validateResponse(ProfileDataSchema, item, `searchProfiles[${i}]`),
+    );
 };
 
 export const getSearchHistory = async (): Promise<SearchHistoryItem[]> => {
     const response = await api.get<SearchHistoryItem[]>('/api/history/');
-    return response.data;
+    return (response.data as unknown[]).map((item, i) =>
+        validateResponse(SearchHistoryItemSchema, item, `getSearchHistory[${i}]`),
+    );
 };
 
 export const deleteHistoryItem = async (id: number): Promise<void> => {
@@ -66,7 +76,7 @@ export const deleteHistoryItem = async (id: number): Promise<void> => {
 
 export const getVersionHistory = async (queryName: string): Promise<ChangeReport> => {
     const response = await api.get(`/api/version-history/${encodeURIComponent(queryName)}/report`);
-    return response.data;
+    return validateResponse(ChangeReportSchema, response.data, 'getVersionHistory');
 };
 
 // --- Export endpoints ---
