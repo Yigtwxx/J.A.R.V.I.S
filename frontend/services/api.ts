@@ -6,6 +6,9 @@ import {
 } from '@/types/profile';
 import {
     SearchResponseSchema, ProfileDataSchema, SearchHistoryItemSchema, ChangeReportSchema,
+    VisionAnalysisResponseSchema, VisionScreenshotResponseSchema,
+    MemoryListResponseSchema, WatchListResponseSchema, PluginListResponseSchema,
+    ServiceStatusResponseSchema, HealthLogListResponseSchema,
 } from '@/lib/schemas';
 import { validateResponse } from '@/lib/validateApi';
 
@@ -130,7 +133,7 @@ export const agentChat = async (
     }
     const response = await api.post<{ response: string }>('/api/agent/chat', {
         message, history, stream: false,
-    });
+    }, { signal });
     return response.data.response;
 };
 
@@ -156,21 +159,21 @@ export const getAgentTools = async (): Promise<AgentToolInfo[]> => {
 
 export const analyzeImage = async (imageUrl: string, prompt?: string, signal?: AbortSignal): Promise<VisionAnalysisResponse> => {
     const response = await api.post<VisionAnalysisResponse>('/api/vision/analyze', { image_url: imageUrl, prompt }, { signal });
-    return response.data;
+    return validateResponse(VisionAnalysisResponseSchema, response.data, 'analyzeImage');
 };
 
-export const analyzeSocialPhoto = async (imageUrl: string): Promise<VisionAnalysisResponse> => {
-    const response = await api.post<VisionAnalysisResponse>('/api/vision/social-photo', { image_url: imageUrl });
-    return response.data;
+export const analyzeSocialPhoto = async (imageUrl: string, signal?: AbortSignal): Promise<VisionAnalysisResponse> => {
+    const response = await api.post<VisionAnalysisResponse>('/api/vision/social-photo', { image_url: imageUrl }, { signal });
+    return validateResponse(VisionAnalysisResponseSchema, response.data, 'analyzeSocialPhoto');
 };
 
-export const readScreenshot = async (imageUrl: string): Promise<VisionScreenshotResponse> => {
-    const response = await api.post<VisionScreenshotResponse>('/api/vision/screenshot', { image_url: imageUrl });
-    return response.data;
+export const readScreenshot = async (imageUrl: string, signal?: AbortSignal): Promise<VisionScreenshotResponse> => {
+    const response = await api.post<VisionScreenshotResponse>('/api/vision/screenshot', { image_url: imageUrl }, { signal });
+    return validateResponse(VisionScreenshotResponseSchema, response.data, 'readScreenshot');
 };
 
-export const compareFacesVisual = async (imageUrlA: string, imageUrlB: string) => {
-    const response = await api.post('/api/vision/compare-faces', { image_url_a: imageUrlA, image_url_b: imageUrlB });
+export const compareFacesVisual = async (imageUrlA: string, imageUrlB: string, signal?: AbortSignal) => {
+    const response = await api.post('/api/vision/compare-faces', { image_url_a: imageUrlA, image_url_b: imageUrlB }, { signal });
     return response.data;
 };
 
@@ -186,7 +189,7 @@ export const createMemory = async (
 export const getMemories = async (category?: string): Promise<{ memories: UserMemory[]; count: number }> => {
     const params = category ? { category } : {};
     const response = await api.get('/api/memory/', { params });
-    return response.data;
+    return validateResponse(MemoryListResponseSchema, response.data, 'getMemories');
 };
 
 export const deleteMemory = async (id: number): Promise<void> => {
@@ -226,7 +229,7 @@ export const stopAllWatches = async () => {
 
 export const getActiveWatches = async (): Promise<{ watches: WatchTarget[]; count: number }> => {
     const response = await api.get('/api/watch/');
-    return response.data;
+    return validateResponse(WatchListResponseSchema, response.data, 'getActiveWatches');
 };
 
 export const getWatchStatus = async (query: string): Promise<WatchTarget> => {
@@ -238,7 +241,7 @@ export const getWatchStatus = async (query: string): Promise<WatchTarget> => {
 
 export const getPlugins = async (): Promise<{ plugins: PluginInfo[] }> => {
     const response = await api.get('/api/plugins/');
-    return response.data;
+    return validateResponse(PluginListResponseSchema, response.data, 'getPlugins');
 };
 
 export const togglePlugin = async (name: string): Promise<{ name: string; enabled: boolean }> => {
@@ -304,12 +307,12 @@ export interface HealthLogEntry {
 
 export const getServiceStatus = async (): Promise<ServiceStatusResponse> => {
     const response = await api.get('/api/system/service-status');
-    return response.data;
+    return validateResponse(ServiceStatusResponseSchema, response.data, 'getServiceStatus');
 };
 
 export const getHealthLog = async (limit = 50): Promise<{ log: HealthLogEntry[] }> => {
     const response = await api.get('/api/system/health-log', { params: { limit } });
-    return response.data;
+    return validateResponse(HealthLogListResponseSchema, response.data, 'getHealthLog');
 };
 
 // ─── Health API ─────────────────────────────────────────────
