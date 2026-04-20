@@ -1,0 +1,48 @@
+{
+  "faceMatch": {
+    "unverified": "DOĞRULANAMADI",
+    "highConfidence": "YÜKSEK GÜVENILIRLIK",
+    "partialMatch": "KISMİ EŞLEŞME",
+    "photosAnalyzed": "{count} platform fotoğrafı karşılaştırıldı.",
+    "pairwiseTitle": "İkili DeepFace Analizi",
+    "noComparison": "Başarılı karşılaştırma yapılamadı."
+  },
+  "versionHistory": {
+    "changeReport": "Değişim Raporu",
+    "scanRecords": "{count} tarama kaydı",
+    "versionHistory": "Versiyon Geçmişi",
+    "noChanges": "Değişiklik tespit edilmedi — Profil verileri önceki taramayla aynı."
+  },
+  "securityScan": {
+    "title": "DEEP WEB TEHDİT ANALİZİ",
+    "identifiersScanned": "{count} kimlik Dark Node'larda tarandı.",
+    "breachCount": "{count} ihlal",
+    "pasteCount": "+ {count} paste tespit edildi.",
+    "statusSecure": "GÜVENLİ",
+    "statusCompromised": "İHLAL EDİLMİŞ",
+    "badgeVerified": "DOĞRULANDI",
+    "badgeSpamList": "SPAM LİSTESİ",
+    "breachSectionTitle": "Veri İhlalleri — {count} bulundu",
+    "pasteSectionTitle": "Paste Site İfşaatları — {count} bulundu",
+    "targetIdentityLabel": "Hedef Kimlik:",
+    "compromisedNodesLabel": "Ele Geçirilen Veri Noktaları:",
+    "emailsInPaste": "• {count} e-posta paste'te",
+    "noLeaksTitle": "Bilinen veri tabanlarında sızıntı tespit edilmedi.",
+    "noLeaksBody": "{count} kimlik bilinen ihlaller ve dark web paste dökümlerine karşı doğrulandı. Hedefin dijital izi temiz görünüyor."
+  },
+  "chatInput": {
+    "switchToSearch": "Arama Moduna Geç",
+    "switchToAgent": "Ajan Moduna Geç",
+    "placeholderAgent": "Ajana bir şey sor...",
+    "placeholderSearch": "İsim veya kullanıcı adı girin ('/' ile ayırın)..."
+  },
+  "psychAnalysis": {
+    "title": "Psikolojik Harp Analizi",
+    "confidenceLabel": "Güven Seviyesi",
+    "manipulationScore": "Manipülasyon Direnci",
+    "strengthsLabel": "Güçlü Yönler",
+    "weaknessesLabel": "Zayıf Yönler",
+    "recommendationsLabel": "Taktik Öneriler",
+    "vectorsLabel": "Sosyal Mühendislik Vektörleri"
+  }
+}
