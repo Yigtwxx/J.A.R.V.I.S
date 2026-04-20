@@ -1,0 +1,48 @@
+{
+  "faceMatch": {
+    "unverified": "UNVERIFIED",
+    "highConfidence": "HIGH CONFIDENCE",
+    "partialMatch": "PARTIAL MATCH",
+    "photosAnalyzed": "{count} platform photos cross-analyzed.",
+    "pairwiseTitle": "Pairwise DeepFace Analysis",
+    "noComparison": "No successful comparison could be made."
+  },
+  "versionHistory": {
+    "changeReport": "Change Report",
+    "scanRecords": "{count} scan records",
+    "versionHistory": "Version History",
+    "noChanges": "No changes detected — Profile data is identical to previous scan."
+  },
+  "securityScan": {
+    "title": "DEEP WEB THREAT ANALYSIS",
+    "identifiersScanned": "{count} identifier(s) scanned across Dark Nodes.",
+    "breachCount": "{count} breach(es)",
+    "pasteCount": "+ {count} paste(s) detected.",
+    "statusSecure": "SECURE",
+    "statusCompromised": "COMPROMISED",
+    "badgeVerified": "VERIFIED",
+    "badgeSpamList": "SPAM LIST",
+    "breachSectionTitle": "Data Breaches — {count} found",
+    "pasteSectionTitle": "Paste-Site Exposures — {count} found",
+    "targetIdentityLabel": "Target Identity:",
+    "compromisedNodesLabel": "Compromised Data Nodes:",
+    "emailsInPaste": "• {count} emails in paste",
+    "noLeaksTitle": "No intelligence leaks detected in known databases.",
+    "noLeaksBody": "Cross-referenced {count} identifier(s) against known public breaches and dark web paste dumps. The target's digital footprint remains uncompromised."
+  },
+  "chatInput": {
+    "switchToSearch": "Switch to Search Mode",
+    "switchToAgent": "Switch to Agent Mode",
+    "placeholderAgent": "Ask the agent anything...",
+    "placeholderSearch": "Enter name or username (use '/' to separate)..."
+  },
+  "psychAnalysis": {
+    "title": "Psychological Warfare Analysis",
+    "confidenceLabel": "Confidence Level",
+    "manipulationScore": "Manipulation Resistance",
+    "strengthsLabel": "Strengths",
+    "weaknessesLabel": "Weaknesses",
+    "recommendationsLabel": "Tactical Recommendations",
+    "vectorsLabel": "Social Engineering Vectors"
+  }
+}
