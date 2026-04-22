@@ -59,7 +59,7 @@ class FaceMatchingService:
                 img.save(tmp, format="JPEG", quality=95)
             return tmp.name
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError) as e:
             logger.log_warning(f"Face match: Failed to download image from {url[:60]}...: {e}")
             return None
 
@@ -102,7 +102,7 @@ class FaceMatchingService:
                 "distance": round(distance, 4),
             }
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, OSError) as e:
             logger.log_warning(f"Face match: Comparison failed ({label_a} vs {label_b}): {e}")
             return None
 
