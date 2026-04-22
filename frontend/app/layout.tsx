@@ -16,11 +16,13 @@ export const metadata: Metadata = {
     description: 'Just A Rather Very Intelligent System',
     type: 'website',
     siteName: 'J.A.R.V.I.S',
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'J.A.R.V.I.S AI Assistant' }],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: 'J.A.R.V.I.S - AI Assistant',
     description: 'Just A Rather Very Intelligent System',
+    images: ['/og.png'],
   },
   icons: { icon: '/favicon.ico' },
 };
