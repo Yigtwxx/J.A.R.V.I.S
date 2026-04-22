@@ -1,6 +1,7 @@
 """Step 5 — build deduplicated image list and labeled face-image pairs."""
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from .base import PipelineStep
@@ -30,9 +31,21 @@ class ImageCollectorStep(PipelineStep):
         wiki_image = ctx.search_results[0] if ctx.search_results else None  # type: ignore[index]
         real_name = ctx.real_name
 
-        ctx.images = self._collect_images(social_profiles, github_data, wiki_image, real_name)
-        ctx.face_images = self._collect_face_images(social_profiles, github_data, wiki_image)
+        # fetch_avatar_from_url does blocking I/O — offload to thread pool
+        ig_avatar = await self._fetch_ig_avatar(social_profiles)
+        ctx.images = self._collect_images(social_profiles, github_data, wiki_image, real_name, ig_avatar)
+        ctx.face_images = self._collect_face_images(social_profiles, github_data, wiki_image, ig_avatar)
         return ctx
+
+    async def _fetch_ig_avatar(self, social_profiles: dict) -> str | None:
+        instagram_items = social_profiles.get('instagram', [])
+        if not _is_real_profile(instagram_items, 'instagram.com'):
+            return None
+        ig_url = instagram_items[0]['url'].split(',')[0].strip()
+        ig_username = ig_url.rstrip('/').split('/')[-1]
+        if not ig_username or len(ig_username) < 2:
+            return None
+        return await asyncio.to_thread(self._scraper.fetch_avatar_from_url, ig_url)
 
     def _collect_images(
         self,
@@ -40,6 +53,7 @@ class ImageCollectorStep(PipelineStep):
         github_data: dict | None,
         wiki_image: str | None,
         real_name: str,
+        ig_avatar: str | None = None,
     ) -> list[str]:
         images: list[str] = []
         if wiki_image:
@@ -52,9 +66,8 @@ class ImageCollectorStep(PipelineStep):
             ig_url = instagram_items[0]['url'].split(',')[0].strip()
             ig_username = ig_url.rstrip('/').split('/')[-1]
             if ig_username and len(ig_username) >= 2:
-                direct_ig = self._scraper.fetch_avatar_from_url(ig_url)
                 images.append(
-                    direct_ig if direct_ig
+                    ig_avatar if ig_avatar
                     else f"https://unavatar.io/instagram/{ig_username}?fallback=false"
                 )
 
@@ -87,6 +100,7 @@ class ImageCollectorStep(PipelineStep):
         social_profiles: dict,
         github_data: dict | None,
         wiki_image: str | None,
+        ig_avatar: str | None = None,
     ) -> list[tuple[str, str]]:
         face_images: list[tuple[str, str]] = []
         if wiki_image:
@@ -99,10 +113,9 @@ class ImageCollectorStep(PipelineStep):
             ig_url = instagram_items[0]['url'].split(',')[0].strip()
             ig_username = ig_url.rstrip('/').split('/')[-1]
             if ig_username and len(ig_username) >= 2:
-                direct_ig = self._scraper.fetch_avatar_from_url(ig_url)
                 face_images.append((
                     "Instagram",
-                    direct_ig if direct_ig
+                    ig_avatar if ig_avatar
                     else f"https://unavatar.io/instagram/{ig_username}?fallback=false",
                 ))
 
