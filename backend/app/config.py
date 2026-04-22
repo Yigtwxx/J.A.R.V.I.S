@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 30      # max requests per window
     rate_limit_window_seconds: int = 60  # window size in seconds
     rate_limit_persistent: bool = False  # True = SQLite-backed (survives restarts)
+    rate_limit_backend: str = "memory"  # "memory" | "sqlite" | "redis"
+    redis_url: str = ""  # e.g. redis://localhost:6379 — required when rate_limit_backend=redis
     rate_limit_cleanup_interval: int = 300  # seconds between cleanup runs
 
     # Audit Trail
