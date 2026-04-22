@@ -4,13 +4,14 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaceMatchReport } from '@/types/profile';
 import { ScanFace, CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { strings } from '@/lib/strings';
+import { useTranslations } from 'next-intl';
 
 interface FaceMatchProps {
     report: FaceMatchReport;
 }
 
 export default function FaceMatch({ report }: FaceMatchProps) {
+    const t = useTranslations('faceMatch');
     const [expanded, setExpanded] = useState(false);
 
     // Don't render if no comparisons were made
@@ -23,7 +24,7 @@ export default function FaceMatch({ report }: FaceMatchProps) {
     let borderColor = 'border-red-500/30';
     let bgColor = 'bg-red-950/20';
     let glowColor = 'shadow-[0_0_15px_rgba(248,113,113,0.3)]';
-    let statusText: string = strings.faceMatch.unverified;
+    let statusText: string = t('unverified');
     let StatusIcon = XCircle;
 
     if (conf >= 80) {
@@ -31,14 +32,14 @@ export default function FaceMatch({ report }: FaceMatchProps) {
         borderColor = 'border-emerald-500/30';
         bgColor = 'bg-emerald-950/20';
         glowColor = 'shadow-[0_0_15px_rgba(52,211,153,0.3)]';
-        statusText = strings.faceMatch.highConfidence;
+        statusText = t('highConfidence');
         StatusIcon = CheckCircle2;
     } else if (conf >= 50) {
         statusColor = 'text-amber-400';
         borderColor = 'border-amber-500/30';
         bgColor = 'bg-amber-950/20';
         glowColor = 'shadow-[0_0_15px_rgba(251,191,36,0.3)]';
-        statusText = strings.faceMatch.partialMatch;
+        statusText = t('partialMatch');
         StatusIcon = AlertCircle;
     }
 
@@ -115,7 +116,7 @@ export default function FaceMatch({ report }: FaceMatchProps) {
                             {statusText}
                         </div>
                         <p className="text-[10px] text-slate-400 font-mono mt-1">
-                            {strings.faceMatch.photosAnalyzed(report.face_detected_count)}
+                            {t('photosAnalyzed', { count: report.face_detected_count })}
                         </p>
                     </div>
                 </div>
@@ -138,12 +139,12 @@ export default function FaceMatch({ report }: FaceMatchProps) {
                     >
                         <div className="p-4 pt-2 space-y-2 bg-black/20 relative z-10">
                             <div className="text-[10px] font-mono text-cyan-400/70 mb-3 px-1 uppercase tracking-widest border-b border-cyan-900/30 pb-1">
-                                {strings.faceMatch.pairwiseTitle}
+                                {t('pairwiseTitle')}
                             </div>
 
                             {report.pairs.length === 0 ? (
                                 <div className="text-xs text-slate-400 font-mono italic px-2">
-                                    {strings.faceMatch.noComparison}
+                                    {t('noComparison')}
                                 </div>
                             ) : (
                                 report.pairs.map((pair, idx) => {
