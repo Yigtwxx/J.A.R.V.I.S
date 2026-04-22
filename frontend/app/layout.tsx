@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ToastProvider from "@/components/ui/ToastProvider";
+import { NextIntlClientProvider } from 'next-intl';
+import { getMessages } from 'next-intl/server';
 
 export const metadata: Metadata = {
   title: { default: 'J.A.R.V.I.S - AI Assistant', template: '%s | J.A.R.V.I.S' },
@@ -29,18 +31,21 @@ export const viewport: Viewport = {
   themeColor: '#0a0e17',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const messages = await getMessages();
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="tr" suppressHydrationWarning>
       <body className="antialiased">
-        <ErrorBoundary>
-          {children}
-        </ErrorBoundary>
-        <ToastProvider />
+        <NextIntlClientProvider messages={messages}>
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
+          <ToastProvider />
+        </NextIntlClientProvider>
       </body>
     </html>
   );
