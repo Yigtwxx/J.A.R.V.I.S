@@ -11,7 +11,7 @@ from app.config import generate_api_key, get_settings
 from app.database import init_db
 from app.middleware.audit import AuditMiddleware
 from app.middleware.csrf import CSRFMiddleware
-from app.middleware.security import PersistentRateLimitMiddleware, RateLimitMiddleware, verify_api_key
+from app.middleware.security import PersistentRateLimitMiddleware, RateLimitMiddleware, RedisRateLimitMiddleware, verify_api_key
 from app.plugins import plugin_manager
 from app.services.self_healing_service import self_healing_service
 from app.routes import (
@@ -209,8 +209,18 @@ app.add_middleware(CSRFMiddleware, secret=settings.csrf_secret)
 # Audit trail
 app.add_middleware(AuditMiddleware)
 
-# Rate Limiting: SQLite-backed or in-memory depending on config
-if settings.rate_limit_persistent:
+# Rate Limiting: select backend from config (memory / sqlite / redis)
+_rl_backend = settings.rate_limit_backend.lower()
+if _rl_backend == "redis":
+    if not settings.redis_url:
+        raise RuntimeError("RATE_LIMIT_BACKEND=redis requires REDIS_URL to be set in .env")
+    app.add_middleware(
+        RedisRateLimitMiddleware,
+        max_requests=settings.rate_limit_requests,
+        window_seconds=settings.rate_limit_window_seconds,
+        redis_url=settings.redis_url,
+    )
+elif _rl_backend == "sqlite" or settings.rate_limit_persistent:
     app.add_middleware(
         PersistentRateLimitMiddleware,
         max_requests=settings.rate_limit_requests,
