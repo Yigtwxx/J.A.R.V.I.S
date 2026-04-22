@@ -81,7 +81,7 @@ class ScraperService:
             ]
 
             return not any(sig in content_snippet for sig in not_found_signatures)
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as e:
             logger.log_detail(f"Profile existence check failed for {url}: {e}")
             return False
 
@@ -220,7 +220,7 @@ class ScraperService:
                 logger.log_success(f"Google found {len(results)} result(s) for: {query}")
             return results
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as e:
             self._google_fails += 1
             logger.log_error(f"Google search failed for {query}: {e}")
             return []
@@ -284,7 +284,7 @@ class ScraperService:
                 logger.log_success(f"DuckDuckGo fallback found {len(results)} result(s) for: {query}")
             return results
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as e:
             self._ddg_fails += 1
             logger.log_error(f"DuckDuckGo fallback failed for {query}: {e}")
             return []
@@ -339,7 +339,7 @@ class ScraperService:
                 logger.log_success(f"Bing fallback found {len(results)} result(s) for: {query}")
             return results
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as e:
             self._bing_fails += 1
             logger.log_error(f"Bing fallback failed for {query}: {e}")
             return []
@@ -395,7 +395,7 @@ class ScraperService:
                 logger.log_success(f"Brave found {len(results)} result(s) for: {query}")
             return results
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as e:
             self._brave_fails += 1
             logger.log_error(f"Brave search failed for {query}: {e}")
             return []
@@ -554,7 +554,7 @@ class ScraperService:
                 logger.log_success(f"Yahoo found {len(results)} result(s) for: {query}")
             return results
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as e:
             self._yahoo_fails += 1
             logger.log_error(f"Yahoo search failed for {query}: {e}")
             return []
@@ -609,7 +609,7 @@ class ScraperService:
                 logger.log_success(f"Startpage found {len(results)} result(s) for: {query}")
             return results
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as e:
             self._startpage_fails += 1
             logger.log_error(f"Startpage search failed for {query}: {e}")
             return []
@@ -1456,7 +1456,7 @@ class ScraperService:
                 tag = soup.find('meta', attrs={'name': 'twitter:image'})
             img_url = tag.get('content', '').strip() if tag else ''
             return img_url if img_url.startswith('http') else None
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError) as e:
             logger.log_detail(f"Avatar fetch failed for {url}: {e}")
             return None
 
