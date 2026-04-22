@@ -107,7 +107,7 @@ class GeoIntService:
                         result["lng"] = self._dms_to_decimal(lng_dms, lng_ref)
                         result["has_gps"] = True
 
-        except Exception as exc:
+        except (httpx.HTTPError, OSError, AttributeError, ValueError, KeyError) as exc:
             logger.log_warning(f"EXIF extraction failed for {image_url}: {exc}")
 
         return result
@@ -135,7 +135,7 @@ class GeoIntService:
                             "org": data.get("org"),
                             "timezone": data.get("timezone"),
                         }
-        except Exception as exc:
+        except (httpx.HTTPError, OSError, AttributeError, ValueError, KeyError) as exc:
             logger.log_warning(f"IP geolocation failed for {ip}: {exc}")
 
         return {"ip": ip, "lat": None, "lng": None, "error": "Geolocation failed"}
@@ -290,7 +290,7 @@ class GeoIntService:
                     data = resp.json()
                     if data:
                         return float(data[0]["lat"]), float(data[0]["lon"])
-        except Exception as e:
+        except (httpx.HTTPError, OSError, AttributeError, ValueError, KeyError) as e:
             logger.log_detail(f"Geocoding failed for '{place}': {e}")
         return None
 
