@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Globe, Crosshair, Camera, Wifi } from 'lucide-react';
 import type { GeoLocationData, TimezoneAnalysis } from '@/types/profile';
+import { showError } from '@/lib/toast';
 
 interface GeoLocation {
     lat: number;
@@ -33,6 +34,7 @@ async function geocode(query: string): Promise<{ lat: number; lng: number } | nu
         }
     } catch (e) {
         console.error('Geocoding failed:', e);
+        showError('Geocoding failed — could not resolve location coordinates.');
     }
     return null;
 }
