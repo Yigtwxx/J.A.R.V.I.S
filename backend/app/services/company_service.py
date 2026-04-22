@@ -409,7 +409,7 @@ class CompanyScraperService:
                     ),
                 ))
 
-        except Exception as exc:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as exc:
             logger.log_thought(f"[CompanyService/OpenCorporates] Başarısız: {exc}")
 
         return records
@@ -501,7 +501,7 @@ class CompanyScraperService:
                         ),
                     ))
 
-        except Exception as exc:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as exc:
             logger.log_thought(f"[CompanyService/SEC] Başarısız: {exc}")
 
         return records
@@ -564,7 +564,7 @@ class CompanyScraperService:
                     snippet=f"Officer record: {name} at {company_name} ({role_raw})",
                 ))
 
-        except Exception as exc:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as exc:
             logger.log_thought(f"[CompanyService/CompaniesHouse] Başarısız: {exc}")
 
         return records
@@ -604,7 +604,7 @@ class CompanyScraperService:
                         rec.confidence = min(1.0, rec.confidence + 0.10)
                 records.extend(extracted)
 
-        except Exception as exc:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as exc:
             logger.log_thought(f"[CompanyService/KAP] Başarısız: {exc}")
 
         return records
@@ -640,7 +640,7 @@ class CompanyScraperService:
                 )
                 records.extend(extracted)
 
-        except Exception as exc:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as exc:
             logger.log_thought(f"[CompanyService/TicaretSicil] Site erişilemez (kritik değil): {exc}")
 
         return records
@@ -699,7 +699,7 @@ class CompanyScraperService:
                         source_name="Web Arama",
                     )
                     records.extend(extracted)
-            except Exception as exc:
+            except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as exc:
                 logger.log_thought(f"[CompanyService/WebSearch] '{query[:50]}' başarısız: {exc}")
 
         return records
@@ -710,7 +710,7 @@ class CompanyScraperService:
         try:
             resp = self.session.get(url, timeout=self.timeout)
             resp.raise_for_status()
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError) as e:
             logger.log_detail(f"Yahoo fetch failed for query: {e}")
             return []
 
