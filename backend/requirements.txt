@@ -18,3 +18,4 @@ fpdf2~=2.7.0
 cachetools~=5.3.0
 pytest~=8.0.0
 pytest-asyncio~=0.23.0
+redis~=5.0
