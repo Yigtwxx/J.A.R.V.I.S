@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -45,8 +46,15 @@ class SocialUrlsMixin(BaseModel):
             return v
         for part in v.split(','):
             part = part.strip()
-            if part and not part.startswith(('http://', 'https://')):
-                raise ValueError(f"URL must start with http:// or https://, got: {part!r}")
+            if not part:
+                continue
+            parsed = urlparse(part)
+            if parsed.scheme not in ('http', 'https'):
+                raise ValueError(
+                    f"URL scheme must be http or https, got {parsed.scheme!r}: {part!r}"
+                )
+            if not parsed.netloc:
+                raise ValueError(f"URL is missing a host: {part!r}")
         return v
 
 
