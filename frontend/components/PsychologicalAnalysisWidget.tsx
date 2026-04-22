@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, Shield, Target, ChevronDown, ChevronUp, AlertTriangle, Crosshair, Eye } from 'lucide-react';
 import { PsychologicalAnalysis } from '@/types/profile';
+import { useTranslations } from 'next-intl';
 
 interface Props {
     analysis: PsychologicalAnalysis;
@@ -18,6 +19,7 @@ const riskColor = (level: string) => {
 };
 
 const PsychologicalAnalysisWidget: React.FC<Props> = ({ analysis }) => {
+    const t = useTranslations('psychAnalysis');
     const [isExpanded, setIsExpanded] = useState(false);
     const [showVectors, setShowVectors] = useState(false);
 
@@ -35,7 +37,7 @@ const PsychologicalAnalysisWidget: React.FC<Props> = ({ analysis }) => {
                 <div className="flex items-center gap-2">
                     <Brain size={16} className="text-red-400" />
                     <span className="text-xs font-mono font-bold text-red-300 tracking-wider uppercase">
-                        Psychological Warfare Analysis
+                        {t('title')}
                     </span>
                 </div>
                 <div className="flex items-center gap-3">
