@@ -84,7 +84,7 @@ class SearchService:
 
             return ""
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, KeyError, ValueError) as e:
             logger.log_warning(f"Failed to extract biographical image: {e}")
             return ""
 
@@ -127,14 +127,14 @@ class SearchService:
                             'url': real_url,
                             'snippet': snippet
                         })
-                except Exception as e:
+                except (AttributeError, ValueError, KeyError) as e:
                     logger.log_detail(f"Failed to parse search result: {e}")
                     continue
 
             logger.log_success(f"Extracted {len(results)} pertinent data packets.")
             return results
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as e:
             logger.log_error(f"Global grid access denied or timed out: {e}")
             return []
 
@@ -220,7 +220,7 @@ class SearchService:
 
             return clean_text[:8000]  # Expanded for deeper analysis
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError) as e:
             logger.log_warning(f"Data packet extraction failed for {url}: {str(e)}")
             return ""
 
@@ -241,7 +241,7 @@ class SearchService:
                     results = orcid_data.get('result', [])
                     if results:
                         academic_context += f"[ORCID] Verified researcher profile exists. Found {len(results)} potential ORCID matches.\n"
-            except Exception as e:
+            except (requests.exceptions.RequestException, OSError, ValueError, KeyError) as e:
                 logger.log_warning(f"Failed to query ORCID: {e}")
 
             # 2. Crossref API for Publications
@@ -268,14 +268,14 @@ class SearchService:
                             academic_context += f"  {i}. \"{title}\" ({year}) - {publisher}. URL: {url}\n"
                     else:
                         academic_context += "\n[Crossref] No major publications found under this exact name.\n"
-            except Exception as e:
+            except (requests.exceptions.RequestException, OSError, ValueError, KeyError) as e:
                 logger.log_warning(f"Failed to query Crossref: {e}")
 
             if academic_context:
                 logger.log_success("Academic intelligence retrieved.")
             return academic_context
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError) as e:
             logger.log_warning(f"Academic sweep failed: {e}")
             return ""
 
@@ -303,7 +303,7 @@ class SearchService:
                 logger.log_success("Patent intelligence retrieved.")
             return patent_context
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError) as e:
             logger.log_warning(f"Patent sweep failed: {e}")
             return ""
 
@@ -335,7 +335,7 @@ class SearchService:
                 logger.log_success("Corporate intelligence retrieved.")
             return official_context
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError) as e:
             logger.log_warning(f"Corporate registry sweep failed: {e}")
             return ""
 
