@@ -19,41 +19,40 @@ async def create_profile(profile: ProfileCreate, db: Session = Depends(get_db), 
     This is called after user approval from the frontend
     """
     try:
-        # Create new profile
-        db_profile = Profile(
-            name=profile.name,
-            github_url=profile.github_url,
-            instagram_url=profile.instagram_url,
-            twitter_url=profile.twitter_url,
-            linkedin_url=profile.linkedin_url,
-            spotify_url=profile.spotify_url,
-            tiktok_url=profile.tiktok_url,
-            snapchat_url=profile.snapchat_url,
-            tumblr_url=profile.tumblr_url,
-            youtube_url=profile.youtube_url,
-            reddit_url=profile.reddit_url,
-            facebook_url=profile.facebook_url,
-            pinterest_url=profile.pinterest_url,
-            medium_url=profile.medium_url,
-            threads_url=profile.threads_url,
-            steam_url=profile.steam_url,
-            tinder_mention=profile.tinder_mention,
-            bumble_mention=profile.bumble_mention,
-            discord_mention=profile.discord_mention,
-            phone_numbers=profile.phone_numbers,
-            description=profile.description,
-            additional_info=profile.additional_info,
-            similar_profiles=profile.similar_profiles,
-            cross_validation_issues=profile.cross_validation_issues,
-            network_connections=profile.network_connections,
-            email_addresses=profile.email_addresses,
-            data_breaches=profile.data_breaches,
-        )
+        # Use a savepoint so failures roll back only this operation, not the whole session
+        with db.begin_nested():
+            db_profile = Profile(
+                name=profile.name,
+                github_url=profile.github_url,
+                instagram_url=profile.instagram_url,
+                twitter_url=profile.twitter_url,
+                linkedin_url=profile.linkedin_url,
+                spotify_url=profile.spotify_url,
+                tiktok_url=profile.tiktok_url,
+                snapchat_url=profile.snapchat_url,
+                tumblr_url=profile.tumblr_url,
+                youtube_url=profile.youtube_url,
+                reddit_url=profile.reddit_url,
+                facebook_url=profile.facebook_url,
+                pinterest_url=profile.pinterest_url,
+                medium_url=profile.medium_url,
+                threads_url=profile.threads_url,
+                steam_url=profile.steam_url,
+                tinder_mention=profile.tinder_mention,
+                bumble_mention=profile.bumble_mention,
+                discord_mention=profile.discord_mention,
+                phone_numbers=profile.phone_numbers,
+                description=profile.description,
+                additional_info=profile.additional_info,
+                similar_profiles=profile.similar_profiles,
+                cross_validation_issues=profile.cross_validation_issues,
+                network_connections=profile.network_connections,
+                email_addresses=profile.email_addresses,
+                data_breaches=profile.data_breaches,
+            )
+            db.add(db_profile)
 
-        db.add(db_profile)
-        db.flush()
         db.refresh(db_profile)
-
         logger.log_success(f"Profile saved to database matrix: {profile.name}")
         return db_profile
 
