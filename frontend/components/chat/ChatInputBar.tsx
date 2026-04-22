@@ -8,11 +8,10 @@ import { Message } from '@/types/profile';
 import { useChatStore } from '@/store/chatStore';
 import VisionUpload from '@/components/chat/VisionUpload';
 import DepthSelector from '@/components/chat/DepthSelector';
-import { strings } from '@/lib/strings';
-
-const s = strings.chatInput;
+import { useTranslations } from 'next-intl';
 
 const ChatInputBar = () => {
+    const s = useTranslations('chatInput');
     const input = useChatStore(state => state.input);
     const setInput = useChatStore(state => state.setInput);
     const isLoading = useChatStore(state => state.isLoading);
@@ -142,7 +141,7 @@ const ChatInputBar = () => {
                 {/* Agent Mode Toggle */}
                 <button
                     onClick={() => setAgentMode(!isAgentMode)}
-                    title={isAgentMode ? s.switchToSearch : s.switchToAgent}
+                    title={isAgentMode ? s('switchToSearch') : s('switchToAgent')}
                     className={`relative z-10 rounded-xl w-11 h-11 p-0 flex items-center justify-center shrink-0 border-2 transition-all duration-300 ${
                         isAgentMode
                             ? 'border-purple-500/60 bg-purple-900/40 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.3)]'
@@ -169,7 +168,7 @@ const ChatInputBar = () => {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyPress}
-                    placeholder={isAgentMode ? s.placeholderAgent : s.placeholderSearch}
+                    placeholder={isAgentMode ? s('placeholderAgent') : s('placeholderSearch')}
                     disabled={isLoading}
                     className={`flex-1 input-jarvis h-14 rounded-2xl border-none shadow-none bg-black/20 focus:bg-black/40 placeholder:tracking-widest text-xl font-bold px-8 transition-all ${isAgentMode ? 'placeholder:text-purple-500/30' : ''}`}
                 />
