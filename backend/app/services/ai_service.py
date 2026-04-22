@@ -70,7 +70,7 @@ class AIService:
                             logger.stream_token(token)
                         if "</think>" in token:
                             in_thinking = False
-            except Exception as stream_err:
+            except (ConnectionError, OSError, ollama.ResponseError, json.JSONDecodeError) as stream_err:
                 logger.log_error(f"Stream interrupted: {str(stream_err)}")
             finally:
                 logger.stream_end()  # Signal frontend: AI stream finished
@@ -80,7 +80,7 @@ class AIService:
             logger.log_success("Model response synthesized.")
             return full_response
 
-        except Exception as e:
+        except (ConnectionError, OSError, ollama.ResponseError, ValueError) as e:
             logger.log_error(f"Core failure during model synthesis: {str(e)}")
             return f"JARVIS encountered an error: {str(e)}"
 
@@ -217,7 +217,7 @@ Return ONLY valid JSON, no other text."""
                 "email_addresses": []
             }
 
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError, KeyError, AttributeError) as e:
             logger.log_error(f"Data extraction node failed: {e}")
             return {
                 "name": query,
@@ -268,7 +268,7 @@ Return ONLY valid JSON, no other text."""
                 logger.log_action(
                     f"RAG context loaded from JSON knowledge base: {query_name}"
                 )
-            except Exception as e:
+            except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
                 logger.log_warning(f"Failed to load JSON context: {e}")
                 context_text = "ERROR: Context file could not be read."
         else:
@@ -342,7 +342,7 @@ CRITICAL RULES:
                     if "</think>" in token:
                         in_thinking = False
 
-        except Exception as e:
+        except (ConnectionError, OSError, ollama.ResponseError, json.JSONDecodeError, ValueError) as e:
             logger.log_error(f"Chatbot neural link failed: {e}")
             yield f"\n\n[SYSTEM ERROR: Neural reasoning engine failure. Details: {e}]"
 
@@ -430,7 +430,7 @@ TEXT TO ANALYZE:
                     "summary": parsed_data.get('summary', 'Analysis could not be completed.')
                 }
 
-        except Exception as e:
+        except (ConnectionError, OSError, ollama.ResponseError, json.JSONDecodeError, ValueError, KeyError) as e:
             logger.log_error(f"Sentiment analysis matrix failure: {e}")
 
         return {
