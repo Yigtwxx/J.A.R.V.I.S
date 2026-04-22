@@ -53,7 +53,7 @@ const PluginPanel = () => {
     return (
         <div className="flex flex-col h-full">
             <div className="p-4 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2">
-                <Puzzle className="w-5 h-5 text-orange-400" />
+                <Puzzle className="w-5 h-5 text-orange-400" aria-hidden="true" />
                 <ScrambleText text="Plugins" className="text-xs font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan" />
             </div>
 
@@ -73,9 +73,9 @@ const PluginPanel = () => {
                                     <span className="text-[12px] text-gray-200 font-medium">{p.name}</span>
                                     <button onClick={() => handleToggle(p.name)} role="switch" aria-checked={p.enabled} aria-label={`Toggle ${p.name}`} className="transition-colors">
                                         {p.enabled ? (
-                                            <ToggleRight className="w-5 h-5 text-green-400" />
+                                            <ToggleRight className="w-5 h-5 text-green-400" aria-hidden="true" />
                                         ) : (
-                                            <ToggleLeft className="w-5 h-5 text-gray-500" />
+                                            <ToggleLeft className="w-5 h-5 text-gray-500" aria-hidden="true" />
                                         )}
                                     </button>
                                 </div>
@@ -91,8 +91,8 @@ const PluginPanel = () => {
                                         {runTarget === p.name ? (
                                             <div className="flex gap-1">
                                                 <input value={runQuery} onChange={e => setRunQuery(e.target.value)} placeholder="Query..." className="flex-1 bg-black/40 border border-cyan-500/20 rounded px-2 py-1 text-[10px] text-gray-200 placeholder:text-cyan-500/30" />
-                                                <button onClick={() => handleRun(p.name)} disabled={runningPlugin === p.name} className="p-1 text-green-400 hover:text-green-300 disabled:opacity-40">
-                                                    {runningPlugin === p.name ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                                                <button onClick={() => handleRun(p.name)} disabled={runningPlugin === p.name} aria-label={`Run ${p.name}`} className="p-1 text-green-400 hover:text-green-300 disabled:opacity-40">
+                                                    {runningPlugin === p.name ? <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" /> : <Play className="w-3 h-3" aria-hidden="true" />}
                                                 </button>
                                             </div>
                                         ) : (
