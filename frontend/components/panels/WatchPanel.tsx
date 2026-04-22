@@ -67,7 +67,7 @@ const WatchPanel = () => {
         <div className="flex flex-col h-full">
             <div className="p-4 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <Eye className="w-5 h-5 text-green-400" />
+                    <Eye className="w-5 h-5 text-green-400" aria-hidden="true" />
                     <ScrambleText text="Watch Mode" className="text-xs font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan" />
                 </div>
                 {activeWatches.length > 0 && (
@@ -91,7 +91,7 @@ const WatchPanel = () => {
                             <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Target name or name/username" className="w-full bg-black/40 border border-cyan-500/20 rounded-lg px-3 py-1.5 text-xs text-gray-200 placeholder:text-cyan-500/30 focus:outline-none focus:border-cyan-400/50" />
                             <div className="flex items-center justify-between">
                                 <span className="text-[10px] text-cyan-500/60">Interval: {interval} min</span>
-                                <input type="range" min={5} max={1440} step={5} value={interval} onChange={e => setInterval_(+e.target.value)} className="w-28 accent-cyan-500" />
+                                <input type="range" min={5} max={1440} step={5} value={interval} onChange={e => setInterval_(+e.target.value)} aria-label="Watch interval in minutes" className="w-28 accent-cyan-500" />
                             </div>
                             <button onClick={handleStart} disabled={loading || !query.trim()} className="w-full py-1.5 bg-green-900/40 hover:bg-green-800/40 border border-green-500/30 rounded-lg text-xs text-green-300 font-mono transition-colors disabled:opacity-40">
                                 {loading ? 'Starting...' : 'Start Watch'}
@@ -119,8 +119,8 @@ const WatchPanel = () => {
                                         <div className={`w-2 h-2 rounded-full ${w.is_active ? 'bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.6)] animate-pulse' : 'bg-gray-500'}`} />
                                         <span className="text-[12px] text-gray-200 font-medium truncate">{w.query}</span>
                                     </div>
-                                    <button onClick={() => handleStop(w.query)} className="opacity-0 group-hover:opacity-100 p-1 text-cyan-700 hover:text-red-400 transition-all">
-                                        <StopCircle className="w-3.5 h-3.5" />
+                                    <button onClick={() => handleStop(w.query)} aria-label={`Stop watching ${w.query}`} className="opacity-0 group-hover:opacity-100 p-1 text-cyan-700 hover:text-red-400 transition-all">
+                                        <StopCircle className="w-3.5 h-3.5" aria-hidden="true" />
                                     </button>
                                 </div>
                                 <div className="flex items-center gap-3 text-[9px] text-cyan-500/50 font-mono">
