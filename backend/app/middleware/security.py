@@ -179,3 +179,88 @@ class PersistentRateLimitMiddleware(BaseHTTPMiddleware):
         response.headers["X-RateLimit-Limit"] = str(self.max_requests)
         response.headers["X-RateLimit-Remaining"] = str(remaining)
         return response
+
+
+# ---------------------------------------------------------------------------
+# 4. Redis-backed Rate Limiting Middleware (optional — requires Redis)
+# ---------------------------------------------------------------------------
+
+class RedisRateLimitMiddleware(BaseHTTPMiddleware):
+    """
+    Redis-backed sliding-window rate limiter using a sorted set per IP.
+    Survives restarts and works across multiple worker processes.
+    Requires REDIS_URL to be set in config.
+    """
+
+    _EXEMPT_PATHS = frozenset({"/", "/health", "/docs", "/openapi.json", "/redoc"})
+
+    def __init__(self, app, max_requests: int = 30, window_seconds: int = 60, redis_url: str = "redis://localhost:6379"):
+        super().__init__(app)
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self._redis_url = redis_url
+        self._redis = None
+
+    def _get_redis(self):
+        if self._redis is None:
+            try:
+                import redis as _redis
+                self._redis = _redis.from_url(self._redis_url, decode_responses=True)
+                self._redis.ping()
+            except Exception as e:
+                raise RuntimeError(
+                    f"Redis rate limiter cannot connect to {self._redis_url}: {e}. "
+                    "Set RATE_LIMIT_BACKEND=memory to fall back to in-memory limiting."
+                ) from e
+        return self._redis
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if path in self._EXEMPT_PATHS or path.startswith("/docs") or path.startswith("/redoc"):
+            return await call_next(request)
+
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        cutoff = now - self.window_seconds
+        key = f"ratelimit:{client_ip}"
+        remaining = self.max_requests
+
+        try:
+            r = self._get_redis()
+            pipe = r.pipeline()
+            pipe.zremrangebyscore(key, "-inf", cutoff)
+            pipe.zcard(key)
+            pipe.zadd(key, {str(now): now})
+            pipe.expire(key, self.window_seconds * 2)
+            _, count, *_ = pipe.execute()
+
+            if count >= self.max_requests:
+                logger.log_warning(
+                    f"Rate limit exceeded for IP {client_ip} (redis) — "
+                    f"{self.max_requests} req/{self.window_seconds}s"
+                )
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "detail": (
+                            f"Rate limit exceeded. Maximum {self.max_requests} "
+                            f"requests per {self.window_seconds} seconds."
+                        ),
+                    },
+                    headers={
+                        "Retry-After": str(self.window_seconds),
+                        "X-RateLimit-Limit": str(self.max_requests),
+                        "X-RateLimit-Remaining": "0",
+                    },
+                )
+
+            remaining = max(0, self.max_requests - count - 1)
+        except RuntimeError:
+            raise
+        except Exception as e:
+            logger.log_warning(f"Redis rate limit error (allowing request): {e}")
+
+        response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(self.max_requests)
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        return response
