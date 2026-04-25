@@ -3,7 +3,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export default function LoadingAnimation() {
+interface LoadingAnimationProps {
+    subText?: string;
+}
+
+export default function LoadingAnimation({ subText }: LoadingAnimationProps) {
     return (
         <div className="flex flex-col items-center justify-center gap-6 py-4">
             {/* Refined Arc Reactor Loading */}
@@ -43,7 +47,7 @@ export default function LoadingAnimation() {
             </div>
 
             {/* Loading Text */}
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col items-center gap-2">
                 <motion.p
                     className="text-cyan-400 font-mono text-xs tracking-[0.2em] uppercase"
                     animate={{ opacity: [0.4, 1, 0.4] }}
@@ -61,6 +65,17 @@ export default function LoadingAnimation() {
                         />
                     ))}
                 </div>
+                {subText && (
+                    <motion.p
+                        key={subText}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.6 }}
+                        transition={{ duration: 0.4 }}
+                        className="text-cyan-600 font-mono text-[10px] tracking-wider max-w-xs text-center truncate"
+                    >
+                        {subText}
+                    </motion.p>
+                )}
             </div>
         </div>
     );
