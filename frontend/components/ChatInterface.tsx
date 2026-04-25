@@ -60,7 +60,7 @@ export default function ChatInterface() {
         let intentionalClose = false;
         let active = true;
         let reconnectCount = 0;
-        const MAX_RECONNECTS = 3;
+        const MAX_RECONNECTS = 1;
 
         if (isLoading) {
             resetSearchState(); // Reset RAG and Live status
@@ -90,9 +90,12 @@ export default function ChatInterface() {
             };
 
             eventSource.onerror = () => {
+                if (!active || intentionalClose) {
+                    eventSource?.close();
+                    return;
+                }
                 reconnectCount++;
-                // Close after max reconnects or if intentionally closed
-                if (reconnectCount > MAX_RECONNECTS || intentionalClose || eventSource?.readyState === EventSource.CLOSED) {
+                if (reconnectCount > MAX_RECONNECTS || eventSource?.readyState === EventSource.CLOSED) {
                     eventSource?.close();
                 }
             };
