@@ -24,6 +24,7 @@
 </div>
 
 <br />
+
 ---
 
 ## 1. Project Overview & Philosophy
