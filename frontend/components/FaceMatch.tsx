@@ -108,7 +108,7 @@ export default function FaceMatch({ report }: FaceMatchProps) {
                         <div className="flex items-center gap-2 mb-1">
                             <ScanFace className="w-4 h-4 text-cyan-400" />
                             <h3 className="text-sm font-orbitron font-bold text-white tracking-widest uppercase">
-                                Identity Verification
+                                {t('title')}
                             </h3>
                         </div>
                         <div className={`flex items-center gap-1.5 text-xs font-bold tracking-wide ${statusColor}`}>
