@@ -463,3 +463,129 @@ h6,
   animation: glitch 0.4s steps(1) reverse forwards;
   left: -2px;
 }
+
+/* ── Command Center App Shell ────────────────────────────────────────────── */
+
+/* 3-column grid shell: [ nav rail | workspace | intel dock ] */
+.jarvis-shell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  height: 100vh;
+  width: 100%;
+  position: relative;
+  z-index: 10;
+}
+
+/* Thin themed scrollbar for dock / drawer / panels */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--jarvis-cyan-glow);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--jarvis-cyan-muted);
+}
+
+/* Arc reactor ambient orb (referenced by Background.tsx — previously undefined) */
+.arc-reactor {
+  width: 180px;
+  height: 180px;
+  border-radius: 9999px;
+  background: radial-gradient(circle,
+      rgba(0, 255, 255, 0.22) 0%,
+      rgba(10, 102, 255, 0.12) 42%,
+      transparent 70%);
+  border: 1px solid rgba(0, 255, 255, 0.12);
+  box-shadow:
+    0 0 60px rgba(0, 255, 255, 0.14),
+    inset 0 0 50px rgba(0, 255, 255, 0.08);
+}
+.arc-reactor::after {
+  content: '';
+  position: absolute;
+  inset: 38%;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 255, 255, 0.25);
+  box-shadow: 0 0 18px rgba(0, 255, 255, 0.3);
+}
+
+/* Nav rail item — collapsed icon → expands label on hover/active */
+.nav-rail-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.85rem;
+  color: rgba(0, 255, 255, 0.45);
+  border: 1px solid transparent;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+.nav-rail-item:hover {
+  color: var(--jarvis-cyan);
+  background: rgba(0, 255, 255, 0.06);
+  border-color: rgba(0, 255, 255, 0.18);
+}
+.nav-rail-item[data-active="true"] {
+  color: var(--jarvis-cyan);
+  background: rgba(0, 255, 255, 0.1);
+  border-color: rgba(0, 255, 255, 0.4);
+  box-shadow: inset 0 0 14px rgba(0, 255, 255, 0.12), 0 0 14px rgba(0, 255, 255, 0.08);
+}
+.nav-rail-item[data-active="true"]::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  border-radius: 4px;
+  background: var(--jarvis-cyan);
+  box-shadow: 0 0 10px var(--jarvis-cyan);
+}
+
+/* Welcome capability card */
+.capability-card {
+  position: relative;
+  border-radius: 1rem;
+  border: 1px solid rgba(0, 255, 255, 0.14);
+  background: linear-gradient(150deg, rgba(0, 255, 255, 0.05) 0%, rgba(10, 102, 255, 0.02) 100%);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.3s ease, box-shadow 0.3s ease;
+  overflow: hidden;
+}
+.capability-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(0, 255, 255, 0.4);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 22px rgba(0, 255, 255, 0.1);
+}
+.capability-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(0, 255, 255, 0.1), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.capability-card:hover::after {
+  opacity: 1;
+}
+
+/* Example search chip */
+.example-chip {
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  background: rgba(0, 255, 255, 0.04);
+  transition: all 0.2s ease;
+}
+.example-chip:hover {
+  background: rgba(0, 255, 255, 0.14);
+  border-color: rgba(0, 255, 255, 0.5);
+  box-shadow: 0 0 16px rgba(0, 255, 255, 0.15);
+}
