@@ -1,16 +1,32 @@
 import contextlib
 import difflib
+import json
+import re
 import time
 import unicodedata
 import urllib.parse
+from threading import Lock
 
 import requests
 import urllib3
 from bs4 import BeautifulSoup
+from cachetools import TTLCache, cached
+from cachetools.keys import hashkey
 
 from app.utils.logger import logger
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Service-level cache for Wikipedia images — same person is often re-queried at
+# different search depths; the image rarely changes. Thread-safe (calls run in
+# executor threads). Keyed on the normalized query, ignoring the bound instance.
+_wiki_image_cache: TTLCache = TTLCache(maxsize=256, ttl=3600)
+_wiki_image_lock = Lock()
+
+# Image-search cache — recent public photos for a subject. Shorter TTL than the
+# Wikipedia portrait cache since "latest images" should stay reasonably fresh.
+_image_search_cache: TTLCache = TTLCache(maxsize=128, ttl=900)
+_image_search_lock = Lock()
 
 class SearchService:
     """Service for web search using Google scraping"""
@@ -21,6 +37,11 @@ class SearchService:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
 
+    @cached(
+        cache=_wiki_image_cache,
+        key=lambda self, query: hashkey(query.lower().strip()),
+        lock=_wiki_image_lock,
+    )
     def search_wikipedia_image(self, query: str) -> str:
         """
         Query Wikipedia API to find a high-quality main image for the person
@@ -88,6 +109,98 @@ class SearchService:
             logger.log_warning(f"Failed to extract biographical image: {e}")
             return ""
 
+    @cached(
+        cache=_image_search_cache,
+        key=lambda self, query, limit=8: hashkey(query.lower().strip(), limit),
+        lock=_image_search_lock,
+    )
+    def search_images(self, query: str, limit: int = 8) -> list[dict[str, str]]:
+        """Find recent publicly published images for a person or place.
+
+        Tries DuckDuckGo image search first (best recency/coverage), then
+        Openverse (CC-licensed media, keyless), then the Wikipedia portrait as a
+        last resort. Every source is wrapped so one failing never zeroes the rest.
+
+        Returns a list of ``{image_url, thumbnail, source_url, title}``.
+        """
+        logger.log_action("Sweeping public image grid", target=query)
+
+        images = self._ddg_images(query, limit)
+        if not images:
+            images = self._openverse_images(query, limit)
+        if not images:
+            wiki = self.search_wikipedia_image(query)
+            if wiki:
+                images = [{"image_url": wiki, "thumbnail": wiki, "source_url": "", "title": query}]
+
+        if images:
+            logger.log_success(f"Retrieved {len(images)} public image(s) for '{query}'")
+        else:
+            logger.log_warning(f"No public images located for '{query}'")
+        return images[:limit]
+
+    def _ddg_images(self, query: str, limit: int) -> list[dict[str, str]]:
+        """DuckDuckGo image search — extract the vqd token, then hit i.js."""
+        try:
+            token_resp = self.session.get(
+                "https://duckduckgo.com/", params={"q": query}, timeout=10
+            )
+            match = re.search(r'vqd=["\']?([\d-]+)', token_resp.text)
+            if not match:
+                return []
+            vqd = match.group(1)
+
+            resp = self.session.get(
+                "https://duckduckgo.com/i.js",
+                params={"l": "us-en", "o": "json", "q": query, "vqd": vqd, "p": "1"},
+                headers={"Referer": "https://duckduckgo.com/"},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = json.loads(resp.text)
+
+            images: list[dict[str, str]] = []
+            for r in data.get("results", [])[:limit]:
+                img_url = r.get("image", "")
+                if img_url:
+                    images.append({
+                        "image_url": img_url,
+                        "thumbnail": r.get("thumbnail", "") or img_url,
+                        "source_url": r.get("url", ""),
+                        "title": r.get("title", ""),
+                    })
+            return images
+        except (requests.exceptions.RequestException, OSError, ValueError, KeyError) as e:
+            logger.log_warning(f"DuckDuckGo image search failed: {e}")
+            return []
+
+    def _openverse_images(self, query: str, limit: int) -> list[dict[str, str]]:
+        """Openverse API — free, keyless CC-licensed image search (fallback)."""
+        try:
+            resp = self.session.get(
+                "https://api.openverse.org/v1/images/",
+                params={"q": query, "page_size": limit},
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                return []
+            data = resp.json()
+
+            images: list[dict[str, str]] = []
+            for r in data.get("results", [])[:limit]:
+                img_url = r.get("url", "")
+                if img_url:
+                    images.append({
+                        "image_url": img_url,
+                        "thumbnail": r.get("thumbnail", "") or img_url,
+                        "source_url": r.get("foreign_landing_url", ""),
+                        "title": r.get("title", ""),
+                    })
+            return images
+        except (requests.exceptions.RequestException, OSError, ValueError, KeyError) as e:
+            logger.log_warning(f"Openverse image search failed: {e}")
+            return []
+
     def search_yahoo(self, query: str, num_results: int = 5) -> list[dict[str, str]]:
         """
         Search Yahoo and return scraped results
@@ -102,28 +215,43 @@ class SearchService:
             soup = BeautifulSoup(response.text, 'html.parser')
             results = []
 
-            # Find result divs
-            search_divs = soup.find_all('div', class_='algo')
+            # Find result containers. Yahoo periodically rotates its result CSS;
+            # try the known variants in order so a single markup change does not
+            # silently zero out the entire web-search pipeline.
+            search_divs = soup.select('div.algo, div.algo-sr, div.Sr, li div.dd.algo')
 
             for div in search_divs[:num_results]:
                 try:
-                    # Extract title, link, snippet
-                    title_elem = div.find('h3', class_='title')
-                    link_elem = div.find('a', href=True)
-                    snippet_elem = div.find('div', class_='compTitle')
+                    # Title: 'h3.title' (classic) → any 'h3 a' → first algo anchor.
+                    title_elem = (
+                        div.find('h3', class_='title')
+                        or div.find('h3')
+                        or div.select_one('a.ac-algo-fst')
+                    )
+                    link_elem = (div.find('a', href=True) if title_elem is None
+                                 else (title_elem.find('a', href=True) or div.find('a', href=True)))
 
                     if title_elem and link_elem:
                         href = link_elem.get('href', '')
                         real_url = href
 
+                        # Yahoo wraps outbound links in a redirector containing RU=<encoded url>
                         if 'RU=' in href:
                             with contextlib.suppress(Exception):
                                 real_url = urllib.parse.unquote(href.split('RU=')[1].split('/R')[0])
 
-                        snippet = snippet_elem.find_next_sibling('div').text.strip() if snippet_elem and snippet_elem.find_next_sibling('div') else ''
+                        # Snippet: classic sibling of compTitle, else the comp text block.
+                        snippet = ''
+                        snippet_elem = div.find('div', class_='compTitle')
+                        if snippet_elem and snippet_elem.find_next_sibling('div'):
+                            snippet = snippet_elem.find_next_sibling('div').text.strip()
+                        else:
+                            alt = div.select_one('div.compText, p, .fc-falcon')
+                            if alt:
+                                snippet = alt.get_text(strip=True)
 
                         results.append({
-                            'title': title_elem.text.strip(),
+                            'title': title_elem.get_text(strip=True),
                             'url': real_url,
                             'snippet': snippet
                         })
@@ -131,11 +259,63 @@ class SearchService:
                     logger.log_detail(f"Failed to parse search result: {e}")
                     continue
 
+            if not results:
+                logger.log_warning(
+                    f"Yahoo yielded 0 parsable results for '{query}' — rerouting to DuckDuckGo."
+                )
+                return self._search_duckduckgo(query, num_results)
+
             logger.log_success(f"Extracted {len(results)} pertinent data packets.")
             return results
 
         except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as e:
-            logger.log_error(f"Global grid access denied or timed out: {e}")
+            # Yahoo aggressively rate-limits/blocks scrapers (5xx). Never let a
+            # single engine's block take down the whole search pipeline.
+            logger.log_warning(f"Yahoo access failed ({e}) — rerouting to DuckDuckGo.")
+            return self._search_duckduckgo(query, num_results)
+
+    def _search_duckduckgo(self, query: str, num_results: int = 5) -> list[dict[str, str]]:
+        """Fallback web search via DuckDuckGo's HTML endpoint (scraper-friendly).
+
+        Invoked when Yahoo errors out or returns zero results so the search
+        pipeline never goes fully dark on a single engine's block.
+        """
+        try:
+            logger.log_action("Rerouting through alternate data grid (DuckDuckGo)", target=query)
+            resp = self.session.post(
+                "https://html.duckduckgo.com/html/",
+                data={"q": query},
+                timeout=10,
+            )
+            resp.raise_for_status()
+
+            soup = BeautifulSoup(resp.text, "html.parser")
+            results: list[dict[str, str]] = []
+
+            for block in soup.select("div.result, div.web-result")[:num_results]:
+                link = block.select_one("a.result__a")
+                if not link:
+                    continue
+                href = link.get("href", "")
+                # DDG sometimes wraps outbound links: //duckduckgo.com/l/?uddg=<encoded>
+                if "uddg=" in href:
+                    with contextlib.suppress(Exception):
+                        href = urllib.parse.unquote(href.split("uddg=")[1].split("&")[0])
+                snippet_el = block.select_one("a.result__snippet, .result__snippet")
+                results.append({
+                    "title": link.get_text(strip=True),
+                    "url": href,
+                    "snippet": snippet_el.get_text(strip=True) if snippet_el else "",
+                })
+
+            if results:
+                logger.log_success(f"DuckDuckGo grid yielded {len(results)} data packet(s).")
+            else:
+                logger.log_warning(f"DuckDuckGo also returned 0 results for '{query}'.")
+            return results
+
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as e:
+            logger.log_error(f"DuckDuckGo fallback failed: {e}")
             return []
 
     def _is_relevant(self, title: str, snippet: str, query: str, threshold: float = 0.85) -> bool:
