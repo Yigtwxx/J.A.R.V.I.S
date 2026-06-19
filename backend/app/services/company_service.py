@@ -359,11 +359,24 @@ class CompanyScraperService:
         """
         records: list[CompanyRecord] = []
         try:
+            from app.config import get_settings
+            params = {"q": name, "per_page": 20}
+            token = get_settings().opencorporates_api_token
+            if token:
+                params["api_token"] = token
+
             resp = self.session.get(
                 self.OPENCORPORATES_SEARCH,
-                params={"q": name, "per_page": 20},
+                params=params,
                 timeout=self.timeout,
             )
+            # 401/403 → no API token configured; skip silently (other sources cover this)
+            if resp.status_code in (401, 403):
+                logger.log_thought(
+                    "[CompanyService/OpenCorporates] API token gerekli (401/403) — "
+                    "diğer kaynaklara (SEC/Companies House/web) devrediliyor."
+                )
+                return records
             resp.raise_for_status()
             data = resp.json()
 
