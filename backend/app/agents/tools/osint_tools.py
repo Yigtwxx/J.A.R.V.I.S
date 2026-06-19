@@ -97,11 +97,10 @@ async def scrape_social(username: str) -> str:
 
 async def search_companies(name: str) -> str:
     """Search for company/corporate registrations associated with a name."""
-    from app.services.company_service import CompanyService
+    from app.services.company_service import company_service
     loop = asyncio.get_running_loop()
     try:
-        svc = CompanyService()
-        records = await loop.run_in_executor(None, svc.search_companies, name)
+        records = await loop.run_in_executor(None, company_service.search_companies, name)
         if not records:
             return f"No company records found for '{name}'."
         return _truncate(json.dumps(records, ensure_ascii=False, indent=1))
@@ -117,6 +116,76 @@ async def analyze_image(image_url: str, prompt: str = "Describe this image in de
         return _truncate(result)
     except Exception as exc:
         return f"Vision analysis error: {exc}"
+
+
+async def get_location_cameras(place: str) -> str:
+    """Find PUBLIC live webcams near a place — returns latest frames + watch links.
+
+    Public, publisher-streamed cameras only (traffic / tourism / weather / harbor
+    cams via Windy Webcams or public live-cam pages). Never private/exposed cameras.
+    """
+    from app.services.webcam_service import webcam_service
+    try:
+        data = await webcam_service.find_public_webcams(place)
+        cams = data.get("webcams", [])
+        if not cams:
+            return f"No public webcams found near '{place}'."
+
+        lines = [
+            f"### Public live cameras near {data.get('place', place)}  "
+            f"(source: {data.get('source', 'web')})",
+            "",
+        ]
+        for c in cams[:12]:
+            title = c.get("title", "Webcam")
+            page = c.get("page_url", "")
+            img = c.get("image_current") or c.get("image_daylight") or ""
+            if img:
+                lines.append(f"**{title}**")
+                lines.append(f"![{title}]({img})")
+                if page:
+                    lines.append(f"[▶ Watch live]({page})")
+            elif page:
+                lines.append(f"- **{title}** — [▶ Watch live]({page})")
+            lines.append("")
+        return _truncate("\n".join(lines), 6000)
+    except Exception as exc:
+        return f"Location camera lookup error: {exc}"
+
+
+async def get_latest_images(query: str, analyze: bool = False) -> str:
+    """Fetch the most recent publicly published images for a person or place."""
+    loop = asyncio.get_running_loop()
+    try:
+        images = await loop.run_in_executor(None, _search.search_images, query)
+        if not images:
+            return f"No public images found for '{query}'."
+
+        lines = [f"### Latest public images for {query}", ""]
+        for im in images[:8]:
+            url = im.get("image_url", "")
+            src = im.get("source_url", "")
+            title = im.get("title") or query
+            if url:
+                lines.append(f"![{title}]({url})")
+                if src:
+                    lines.append(f"[source]({src})")
+                lines.append("")
+
+        if analyze and images:
+            from app.services.vision_service import vision_service
+            try:
+                caption = await vision_service.analyze_image(
+                    images[0]["image_url"],
+                    "Briefly describe this image and any location or identity clues.",
+                )
+                lines.append(f"**Vision analysis (top image):** {caption}")
+            except Exception as exc:  # noqa: BLE001 — vision is optional enrichment
+                logger.log_warning(f"Optional vision analysis skipped: {exc}")
+
+        return _truncate("\n".join(lines), 6000)
+    except Exception as exc:
+        return f"Latest images error: {exc}"
 
 
 async def run_plugin(plugin_name: str, query: str) -> str:
@@ -214,6 +283,40 @@ def build_osint_registry() -> ToolRegistry:
             "required": ["image_url"],
         },
         handler=analyze_image,
+    ))
+
+    registry.register(Tool(
+        name="get_location_cameras",
+        description=(
+            "Find PUBLIC live webcams near a location (city, landmark, or address) and return "
+            "their latest camera frames plus 'watch live' links. Use this when the user asks "
+            "what a place looks like right now or wants live/recent camera views of a PLACE. "
+            "Public, publisher-streamed cameras only."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {"place": {"type": "string", "description": "Place name, city, landmark, or address"}},
+            "required": ["place"],
+        },
+        handler=get_location_cameras,
+    ))
+
+    registry.register(Tool(
+        name="get_latest_images",
+        description=(
+            "Fetch the most recent publicly published images/photos for a person or place via "
+            "web image search. Use when the user wants the latest pictures or a visual of a subject. "
+            "Set analyze=true to also describe the top image with the vision model."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Person name or place to fetch recent public images for"},
+                "analyze": {"type": "boolean", "description": "If true, run the top image through the vision model for a description"},
+            },
+            "required": ["query"],
+        },
+        handler=get_latest_images,
     ))
 
     registry.register(Tool(
