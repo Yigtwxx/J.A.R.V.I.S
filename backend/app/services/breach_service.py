@@ -43,37 +43,42 @@ def _normalize_breach(raw: dict[str, Any], email: str) -> dict[str, Any]:
     """
     Map a raw XposedOrNot breach object to the SecurityScanWidget shape.
 
-    XON field reference:
-      breachID      → breach name
-      domain        → e.g. "linkedin.com"
-      xposed        → pwned record count
-      xposedData    → semicolon-separated data types: "Email;Password"
-      verified      → bool
-      sensitive     → bool
-      year          → int (breach year)
-      logo          → logo URL
-      passwordRisk  → "Plaintext" | "easytocrack" | "unknown" ...
+    XON `breach-analytics` field reference (ExposedBreaches.breaches_details[]):
+      breach         → breach name (e.g. "LinkedIn")
+      domain         → e.g. "linkedin.com"
+      xposed_records → pwned record count (int)
+      xposed_data    → semicolon-separated data types: "Email;Password"
+      xposed_date    → breach year (int, e.g. 2016)
+      verified       → bool
+      password_risk  → "plaintext" | "easytocrack" | "hardtocrack" | "unknown" ...
+      details        → human-readable breach description
+      logo           → logo URL
+
+    Field names are read with ``or`` fallbacks so both the snake_case
+    ``breach-analytics`` shape and the older camelCase ``/breaches`` shape work.
     """
-    xposed_data: str = raw.get("xposedData") or raw.get("exposedData") or ""
+    xposed_data: str = raw.get("xposed_data") or raw.get("xposedData") or raw.get("exposedData") or ""
     data_classes = [d.strip() for d in xposed_data.split(";") if d.strip()]
 
-    year = raw.get("year")
+    # Breach year — `xposed_date` (new API) or `year` (legacy)
+    year = raw.get("xposed_date") or raw.get("year")
     breach_date = f"{year}-01-01" if year else ""
 
-    name = raw.get("breachID") or raw.get("breach") or ""
+    name = raw.get("breach") or raw.get("breachID") or ""
 
     return {
         "Name":        name,
         "Title":       name,
         "Domain":      raw.get("domain", "unknown"),
         "BreachDate":  breach_date,
-        "PwnCount":    raw.get("xposed") or raw.get("xposedRecords") or 0,
+        "PwnCount":    raw.get("xposed_records") or raw.get("xposed") or raw.get("xposedRecords") or 0,
         "DataClasses": data_classes,
         "IsVerified":  bool(raw.get("verified", False)),
         "IsSensitive": bool(raw.get("sensitive", False)),
         "IsSpamList":  False,
         "IsFabricated": False,
-        "Description": "",
+        "Description": raw.get("details") or raw.get("description") or "",
+        "PasswordRisk": raw.get("password_risk") or raw.get("passwordRisk") or "",
         "LogoPath":    raw.get("logo", ""),
         "TargetEmail": email,
     }
