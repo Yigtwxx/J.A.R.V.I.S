@@ -45,6 +45,18 @@ jest.mock('lucide-react', () => ({
   Search: (props: any) => <svg data-testid="search-icon" {...props} />,
 }));
 
+// Mock next-intl — return real English copy so translation-dependent assertions hold
+// (next-intl ships ESM that Jest can't parse, and there is no provider in the test tree)
+jest.mock('next-intl', () => {
+  const messages = require('@/messages/en.json');
+  return {
+    useTranslations: (namespace: string) => (key: string) => {
+      const ns = (messages as Record<string, Record<string, string>>)[namespace] || {};
+      return ns[key] ?? key;
+    },
+  };
+});
+
 import ChatInputBar from '@/components/chat/ChatInputBar';
 
 const initialState = useChatStore.getState();
@@ -52,6 +64,9 @@ const initialState = useChatStore.getState();
 beforeEach(() => {
   useChatStore.setState(initialState, true);
   jest.clearAllMocks();
+  // A successful search calls window.history.replaceState('?q=...'); reset the
+  // URL so the ?q= auto-search effect does not fire across subsequent tests.
+  window.history.replaceState(null, '', '/');
 });
 
 describe('ChatInputBar', () => {
