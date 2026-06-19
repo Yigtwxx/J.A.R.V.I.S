@@ -177,6 +177,47 @@ export const compareFacesVisual = async (imageUrlA: string, imageUrlB: string, s
     return response.data;
 };
 
+// ─── Visual Intelligence API (public webcams + latest images) ───────────────
+
+export interface WebcamItem {
+    title: string;
+    lat: number | null;
+    lng: number | null;
+    image_current: string;
+    image_daylight: string;
+    page_url: string;
+    source: string;
+}
+
+export interface LocationCamerasResponse {
+    place: string;
+    coords: { lat: number; lng: number; display_name: string } | null;
+    source: string;
+    webcams: WebcamItem[];
+}
+
+export interface ImageItem {
+    image_url: string;
+    thumbnail: string;
+    source_url: string;
+    title: string;
+}
+
+export interface LatestImagesResponse {
+    images: ImageItem[];
+    query: string;
+}
+
+export const getLocationCameras = async (query: string, signal?: AbortSignal): Promise<LocationCamerasResponse> => {
+    const response = await api.post<LocationCamerasResponse>('/api/visual-intel/cameras', { query }, { signal });
+    return response.data;
+};
+
+export const getLatestImages = async (query: string, signal?: AbortSignal): Promise<LatestImagesResponse> => {
+    const response = await api.post<LatestImagesResponse>('/api/visual-intel/images', { query }, { signal });
+    return response.data;
+};
+
 // ─── Memory API ─────────────────────────────────────────────
 
 export const createMemory = async (
