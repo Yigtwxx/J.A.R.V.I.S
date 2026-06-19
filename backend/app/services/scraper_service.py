@@ -5,6 +5,7 @@ import time
 import unicodedata
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -12,8 +13,16 @@ if TYPE_CHECKING:
 
 import requests
 from bs4 import BeautifulSoup
+from cachetools import TTLCache, cached
+from cachetools.keys import hashkey
 
 from app.utils.logger import logger
+
+# Service-level cache for username → social-profile lookups. The same username
+# is checked across multiple investigation phases; this collapses the repeated
+# parallel HTTP sweeps. Thread-safe (sweeps run in executor threads).
+_social_profiles_cache: TTLCache = TTLCache(maxsize=256, ttl=1800)
+_social_profiles_lock = Lock()
 
 
 class ScraperService:
@@ -1383,6 +1392,11 @@ class ScraperService:
             and username.lower() not in self.INSTAGRAM_RESERVED_PATHS
         )
 
+    @cached(
+        cache=_social_profiles_cache,
+        key=lambda self, username: hashkey(username.lower().strip()),
+        lock=_social_profiles_lock,
+    )
     def find_profiles_by_username(self, username: str) -> dict[str, list]:
         """
         Verify a username via HTTP check on platforms that support it.
