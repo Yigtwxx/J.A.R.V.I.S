@@ -29,6 +29,7 @@ from app.routes import (
     version_history_router,
     system_router,
     vision_router,
+    visual_intel_router,
     watch_router,
 )
 from app.utils.logger import logger
@@ -278,6 +279,7 @@ app.include_router(watch_router)
 app.include_router(plugins_router)
 app.include_router(agent_router)
 app.include_router(vision_router)
+app.include_router(visual_intel_router)
 app.include_router(system_router)
 app.include_router(health_router)
 app.include_router(audit_router)
