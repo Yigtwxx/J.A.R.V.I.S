@@ -129,26 +129,40 @@ class DarkWebService:
 
             await asyncio.sleep(1)
 
-            # BreachDirectory public search
+            # ProxyNova COMB — free combolist search (replaces the now Cloudflare-walled
+            # BreachDirectory endpoint). Returns leaked "identifier:secret" lines.
+            # We surface only the EXPOSURE COUNT and a masked sample — never raw secrets.
             try:
                 resp = await client.get(
-                    "https://breachdirectory.org/api/search",
-                    params={"term": username},
+                    "https://api.proxynova.com/comb",
+                    params={"query": username, "limit": "15"},
                     headers={"user-agent": _USER_AGENT},
                     timeout=_TIMEOUT,
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    if data.get("result"):
-                        for entry in data["result"][:10]:
-                            results.append({
-                                "source": "BreachDirectory",
-                                "found": True,
-                                "details": entry.get("source", "Unknown breach"),
-                                "hash_password": entry.get("has_password", False),
-                            })
+                    lines = data.get("lines") or []
+                    if lines:
+                        # Distinct identifiers that actually match the target
+                        matched = [ln for ln in lines if username.lower() in ln.lower()]
+                        sample = matched or lines
+                        identifiers = sorted({ln.split(":", 1)[0] for ln in sample[:15] if ln})
+                        results.append({
+                            "source": "ProxyNova COMB",
+                            "found": True,
+                            "details": (
+                                f"'{username}' appears in {data.get('count', len(lines))} leaked "
+                                f"credential record(s) across breach combolists"
+                            ),
+                            "count": data.get("count", len(lines)),
+                            "exposed_identifiers": identifiers[:10],
+                            "hash_password": True,
+                        })
+                        logger.log_warning(
+                            f"COMB EXPOSURE: '{username}' found in {data.get('count', len(lines))} leaked record(s)"
+                        )
             except (httpx.RequestError, Exception) as e:
-                logger.log_warning(f"BreachDirectory search failed: {e}")
+                logger.log_warning(f"ProxyNova COMB search failed: {e}")
 
         return results
 
