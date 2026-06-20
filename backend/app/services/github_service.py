@@ -1,10 +1,19 @@
 
+from threading import Lock
+
 import requests
+from cachetools import TTLCache, cached
+from cachetools.keys import hashkey
 
 from app.config import get_settings
 from app.utils.logger import logger
 
 settings = get_settings()
+
+# Service-level cache for resolved GitHub profiles. Short TTL keeps data fresh
+# while collapsing duplicate lookups during a single investigation. Thread-safe.
+_github_user_cache: TTLCache = TTLCache(maxsize=256, ttl=900)
+_github_user_lock = Lock()
 
 
 class GitHubService:
@@ -21,6 +30,11 @@ class GitHubService:
             self.session.headers['Authorization'] = f'token {settings.github_token}'
             logger.log_success("GitHub authentication protocol loaded.")
 
+    @cached(
+        cache=_github_user_cache,
+        key=lambda self, username: hashkey(username.lower().strip()),
+        lock=_github_user_lock,
+    )
     def search_user(self, username: str) -> dict | None:
         """
         Search for GitHub user by username
