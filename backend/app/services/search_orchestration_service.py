@@ -336,6 +336,24 @@ class SearchOrchestrationService:
             response.psychological_analysis = post['psychological_analysis']
         if post.get('prediction_data'):
             response.prediction_data = post['prediction_data']
+        if post.get('domain_intel'):
+            response.domain_intel = post['domain_intel']
+        if post.get('claims'):
+            response.claims = post['claims']
+        if post.get('archive_snapshots'):
+            response.archive_snapshots = post['archive_snapshots']
+        if post.get('scholarly_records'):
+            response.scholarly_records = post['scholarly_records']
+        if post.get('sanctions_hits'):
+            response.sanctions_hits = post['sanctions_hits']
+        if post.get('timeline'):
+            response.timeline = post['timeline']
+        if post.get('subject_confidence') is not None:
+            response.subject_confidence = post['subject_confidence']
+        if post.get('alternative_candidates'):
+            response.alternative_candidates = post['alternative_candidates']
+        if post.get('relationships'):
+            response.relationships = post['relationships']
 
         return response
 
