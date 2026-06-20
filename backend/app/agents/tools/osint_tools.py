@@ -8,9 +8,13 @@ from typing import Any
 
 from app.agents.tool_registry import Tool, ToolRegistry
 from app.plugins import plugin_manager
+from app.services.archive_service import archive_service
 from app.services.breach_service import BreachService
 from app.services.darkweb_service import DarkWebService
+from app.services.domain_intel_service import domain_intel_service
 from app.services.github_service import GitHubService
+from app.services.sanctions_service import sanctions_service
+from app.services.scholarly_service import scholarly_service
 from app.services.scraper_service import ScraperService
 from app.services.search_service import SearchService
 from app.utils.logger import logger
@@ -79,6 +83,50 @@ async def scan_darkweb(query: str) -> str:
         return _truncate(json.dumps(results, ensure_ascii=False, indent=1))
     except Exception as exc:
         return f"Dark web scan error: {exc}"
+
+
+async def domain_lookup(domain: str) -> str:
+    """Look up public infrastructure intel for a domain (RDAP/DNS/crt.sh)."""
+    try:
+        results = await domain_intel_service.aggregate([domain])
+        if not results:
+            return f"No public domain intel found for '{domain}'."
+        return _truncate(json.dumps(results, ensure_ascii=False, indent=1))
+    except Exception as exc:
+        return f"Domain lookup error: {exc}"
+
+
+async def archive_lookup(url: str) -> str:
+    """Find historical Wayback Machine snapshots for a public URL."""
+    try:
+        results = await archive_service.aggregate([url])
+        if not results:
+            return f"No archive snapshots found for '{url}'."
+        return _truncate(json.dumps(results, ensure_ascii=False, indent=1))
+    except Exception as exc:
+        return f"Archive lookup error: {exc}"
+
+
+async def scholarly_lookup(name: str) -> str:
+    """Find public scholarly records (Semantic Scholar / arXiv / Crossref) for a name."""
+    try:
+        results = await scholarly_service.aggregate(name)
+        if not results:
+            return f"No scholarly records found for '{name}'."
+        return _truncate(json.dumps(results, ensure_ascii=False, indent=1))
+    except Exception as exc:
+        return f"Scholarly lookup error: {exc}"
+
+
+async def sanctions_check(name: str) -> str:
+    """Screen a name against public sanctions lists (OFAC SDN). Informational only."""
+    try:
+        results = await sanctions_service.check(name)
+        if not results:
+            return f"No sanctions matches found for '{name}'."
+        return _truncate(json.dumps(results, ensure_ascii=False, indent=1))
+    except Exception as exc:
+        return f"Sanctions check error: {exc}"
 
 
 async def scrape_social(username: str) -> str:
@@ -247,6 +295,64 @@ def build_osint_registry() -> ToolRegistry:
             "required": ["query"],
         },
         handler=scan_darkweb,
+    ))
+
+    registry.register(Tool(
+        name="domain_lookup",
+        description=(
+            "Look up PUBLIC infrastructure intelligence for a domain via RDAP/WHOIS, "
+            "DNS-over-HTTPS, and Certificate Transparency (crt.sh). Returns registrar, "
+            "registration/expiry dates, nameservers, DNS records, and observed subdomains. "
+            "Public registry data only."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {"domain": {"type": "string", "description": "Domain name to look up (e.g. example.com)"}},
+            "required": ["domain"],
+        },
+        handler=domain_lookup,
+    ))
+
+    registry.register(Tool(
+        name="archive_lookup",
+        description=(
+            "Find PUBLIC historical snapshots of a URL in the Internet Archive "
+            "(Wayback Machine). Returns snapshot links + capture dates."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {"url": {"type": "string", "description": "Public URL to look up history for"}},
+            "required": ["url"],
+        },
+        handler=archive_lookup,
+    ))
+
+    registry.register(Tool(
+        name="scholarly_lookup",
+        description=(
+            "Find PUBLIC scholarly records (papers/authorship) for a person via "
+            "Semantic Scholar, arXiv, and Crossref."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {"name": {"type": "string", "description": "Person's full name"}},
+            "required": ["name"],
+        },
+        handler=scholarly_lookup,
+    ))
+
+    registry.register(Tool(
+        name="sanctions_check",
+        description=(
+            "Screen a name against PUBLIC sanctions lists (OFAC SDN). Informational "
+            "only — returns possible matches with a match_score that must be verified."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {"name": {"type": "string", "description": "Person or entity name to screen"}},
+            "required": ["name"],
+        },
+        handler=sanctions_check,
     ))
 
     registry.register(Tool(
