@@ -25,6 +25,8 @@ class ReportService:
                 "generated_at": datetime.now(UTC).isoformat(),
                 "generator": "J.A.R.V.I.S Intelligence Platform",
                 "version": "1.0.0",
+                "provenance": "Public-source OSINT",
+                "authorized_use": "Authorized use only",
             },
             "target": {
                 "name": profile.get("name"),
@@ -51,6 +53,17 @@ class ReportService:
             "sentiment_analysis": profile.get("sentiment_analysis"),
             "face_match_results": profile.get("face_match_results"),
             "ai_analysis": profile.get("ai_response"),
+            "intelligence_depth": {
+                "domain_intel": profile.get("domain_intel", []),
+                "archive_snapshots": profile.get("archive_snapshots", []),
+                "scholarly_records": profile.get("scholarly_records", []),
+                "sanctions_hits": profile.get("sanctions_hits", []),
+                "relationships": profile.get("relationships", []),
+                "timeline": profile.get("timeline", []),
+                "subject_confidence": profile.get("subject_confidence"),
+                "alternative_candidates": profile.get("alternative_candidates", []),
+            },
+            "claims": profile.get("claims", []),
             "sources": profile.get("sources", []),
         }
         return json.dumps(export_data, ensure_ascii=False, indent=2, default=str)
@@ -116,6 +129,61 @@ class ReportService:
                 breach.get("Domain", breach.get("domain", "")),
             ])
 
+        # Sanctions screening (informational — possible name matches)
+        for hit in profile.get("sanctions_hits", []):
+            writer.writerow([
+                f"Sanctions: {hit.get('name', 'N/A')}",
+                f"{hit.get('list_name', '')} ({hit.get('program', '')})",
+                "Sanctions", hit.get("match_score", ""),
+                hit.get("source_url", ""),
+            ])
+
+        # Scholarly publications
+        for rec in profile.get("scholarly_records", []):
+            writer.writerow([
+                f"Publication: {rec.get('title', 'N/A')}",
+                str(rec.get("year", "")),
+                "Scholarly", rec.get("confidence", ""),
+                rec.get("source_url", ""),
+            ])
+
+        # Domain / infrastructure intel
+        for dom in profile.get("domain_intel", []):
+            writer.writerow([
+                f"Domain: {dom.get('domain', 'N/A')}",
+                dom.get("registrar", "") or "",
+                "Infrastructure", dom.get("confidence", ""),
+                dom.get("source_url", ""),
+            ])
+
+        # Relationships (typed edges)
+        for rel in profile.get("relationships", []):
+            writer.writerow([
+                f"Relationship: {rel.get('from', '')} -> {rel.get('to', '')}",
+                rel.get("type", ""),
+                "Relationship", "",
+                rel.get("source_url", ""),
+            ])
+
+        # Provenance — public-source citations behind structured claims (Faz 3.1)
+        for claim in profile.get("claims", []):
+            citations = claim.get("citations", []) or []
+            first = citations[0] if citations else {}
+            writer.writerow([
+                f"Provenance: {claim.get('field', '')}",
+                claim.get("value", ""),
+                "Provenance", first.get("retrieved_at", ""),
+                first.get("url", ""),
+            ])
+
+        # Provenance / authorization stamp (Faz 4.3)
+        stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+        writer.writerow([])
+        writer.writerow([
+            "# Public-source OSINT", f"Generated {stamp}",
+            "Authorized use only", "", "",
+        ])
+
         return output.getvalue()
 
     # -- PDF Export ---------------------------------------------------------
@@ -159,6 +227,8 @@ class ReportService:
         pdf.set_text_color(150, 150, 170)
         pdf.cell(0, 8, f"Generated: {generated}", ln=True, align="C")
         pdf.cell(0, 8, "Classification: CONFIDENTIAL", ln=True, align="C")
+        pdf.cell(0, 8, "Source: Public-source OSINT", ln=True, align="C")
+        pdf.cell(0, 8, "AUTHORIZED USE ONLY", ln=True, align="C")
 
         # --- Content Pages ---
         pdf.add_page()
@@ -268,6 +338,70 @@ class ReportService:
             _section_header(pdf, "10. INTELLIGENCE SOURCES")
             for i, src in enumerate(sources[:20], 1):
                 _field(pdf, f"[{i}] {src.get('title', 'N/A')[:60]}", src.get("url", ""))
+            pdf.ln(5)
+
+        # Section 11: Sanctions / Watchlist Screening (informational)
+        sanctions = profile.get("sanctions_hits", [])
+        if sanctions:
+            _section_header(pdf, "11. SANCTIONS / WATCHLIST SCREENING")
+            pdf.set_font("Helvetica", "I", 9)
+            pdf.set_text_color(255, 180, 50)
+            pdf.multi_cell(0, 5, _safe(
+                "Informational only - possible name matches, verification required."
+            ))
+            pdf.set_x(pdf.l_margin)  # multi_cell leaves x at the right margin
+            pdf.set_text_color(220, 220, 220)
+            for hit in sanctions[:20]:
+                score = hit.get("match_score")
+                score_str = f" ({round(score * 100)}%)" if isinstance(score, (int, float)) else ""
+                _field(pdf, hit.get("name", "N/A"),
+                       f"{hit.get('list_name', '')} | {hit.get('program', '')}{score_str}")
+            pdf.ln(5)
+
+        # Section 12: Scholarly Publications
+        scholarly = profile.get("scholarly_records", [])
+        if scholarly:
+            _section_header(pdf, "12. SCHOLARLY PUBLICATIONS")
+            for rec in scholarly[:20]:
+                _field(pdf, str(rec.get("title", "N/A"))[:70],
+                       f"{rec.get('year', '')} | {rec.get('venue', '')}")
+            pdf.ln(5)
+
+        # Section 13: Domain / Infrastructure Intel
+        domains = profile.get("domain_intel", [])
+        if domains:
+            _section_header(pdf, "13. DOMAIN / INFRASTRUCTURE INTEL")
+            for dom in domains[:15]:
+                _field(pdf, dom.get("domain", "N/A"),
+                       f"Registrar: {dom.get('registrar', 'N/A')} | Created: {dom.get('created', 'N/A')}")
+            pdf.ln(5)
+
+        # Section 14: Activity Timeline
+        timeline = profile.get("timeline", [])
+        if timeline:
+            _section_header(pdf, "14. ACTIVITY TIMELINE")
+            for ev in timeline[:25]:
+                _field(pdf, str(ev.get("date", ""))[:10], str(ev.get("event", "")))
+            pdf.ln(5)
+
+        # Section 15: Provenance Appendix — public sources behind each claim (Faz 3.1)
+        claims = profile.get("claims", [])
+        if claims:
+            _section_header(pdf, "15. PROVENANCE APPENDIX")
+            for claim in claims[:40]:
+                pdf.set_x(pdf.l_margin)  # multi_cell leaves x at the right margin
+                pdf.set_font("Helvetica", "B", 9)
+                pdf.set_text_color(0, 200, 200)
+                pdf.multi_cell(0, 5, _safe(f"{claim.get('field', '')}: {claim.get('value', '')}"))
+                pdf.set_font("Helvetica", "", 8)
+                pdf.set_text_color(180, 180, 200)
+                for c in (claim.get("citations", []) or [])[:5]:
+                    conf = c.get("confidence")
+                    conf_str = f" | conf {round(conf * 100)}%" if isinstance(conf, (int, float)) else ""
+                    pdf.set_x(pdf.l_margin)
+                    pdf.multi_cell(0, 5, _safe(
+                        f"   - {c.get('url', '')} ({c.get('retrieved_at', '')}{conf_str})"
+                    ))
             pdf.ln(5)
 
         # Footer on all pages
