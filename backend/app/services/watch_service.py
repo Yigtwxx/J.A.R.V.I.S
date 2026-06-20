@@ -10,6 +10,7 @@ import asyncio
 from datetime import UTC, datetime
 from typing import Any, Callable
 
+from app.services.version_history_service import TRACKED_INTEL_SIGS, _intel_signatures
 from app.utils.logger import logger
 
 
@@ -149,6 +150,20 @@ class WatchService:
                     "field": field,
                     "old_value": str(old_val)[:200] if old_val else None,
                     "new_value": str(new_val)[:200] if new_val else None,
+                    "detected_at": datetime.now(UTC).isoformat(),
+                })
+
+        # New intel fields — compare timestamp-free signatures so re-scans only
+        # alert on meaningful changes (new domain/sanction/relationship), not the
+        # `retrieved_at` that changes every scan (Faz 3.3).
+        old_sigs = _intel_signatures(lambda k: old.get(k))
+        new_sigs = _intel_signatures(lambda k: new.get(k))
+        for key, label in TRACKED_INTEL_SIGS.items():
+            if old_sigs.get(key) != new_sigs.get(key):
+                changes.append({
+                    "field": key,
+                    "old_value": str(old_sigs.get(key))[:200] if old_sigs.get(key) else None,
+                    "new_value": str(new_sigs.get(key))[:200] if new_sigs.get(key) else None,
                     "detected_at": datetime.now(UTC).isoformat(),
                 })
 
