@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     # House / web search, so this stays optional)
     opencorporates_api_token: str = ""
 
+    # OpenSanctions (optional API key — https://api.opensanctions.org). When set,
+    # SanctionsService queries the OpenSanctions search API in addition to the
+    # keyless OFAC SDN list; when empty it relies on OFAC SDN alone.
+    opensanctions_api_token: str = ""
+
     # Windy Webcams (optional API key — https://api.windy.com/webcams). When set,
     # WebcamService queries the official public-webcam directory for nearby live
     # cameras with latest frames; when empty it falls back to a keyless web search
@@ -58,6 +63,12 @@ class Settings(BaseSettings):
 
     # Computer Control (disabled by default for security)
     enable_computer_control: bool = False
+
+    # Inference modules — psychological & predictive analysis run on PUBLIC data.
+    # Enabled by default (preserves current behaviour); set False to gate them off.
+    # The UI always shows an authorized-use disclaimer before these sections.
+    enable_psychological_analysis: bool = True
+    enable_predictive_analysis: bool = True
 
     # Cache (in-memory TTL cache for search results)
     search_cache_ttl_seconds: int = 300   # 5 minutes
