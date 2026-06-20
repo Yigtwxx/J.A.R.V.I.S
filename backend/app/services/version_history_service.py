@@ -42,6 +42,18 @@ TRACKED_SNAPSHOT_KEYS = {
     "discord_mention": "Discord Mention",
 }
 
+# Computed, timestamp-free intel signatures (Faz 3.3). Stored in snapshot_data and
+# diffed like dynamic fields, but exclude `retrieved_at` so re-scans surface only
+# meaningful changes (new domain / sanction hit / relationship), not timestamp churn.
+TRACKED_INTEL_SIGS = {
+    "domain_intel_sig": "Alan Adı İstihbaratı",
+    "sanctions_sig": "Yaptırım Eşleşmeleri",
+    "scholarly_sig": "Akademik Kayıtlar",
+    "archive_sig": "Arşiv Anlık Görüntüleri",
+    "relationships_sig": "İlişki Ağı",
+    "subject_confidence_sig": "Özne Güven Skoru",
+}
+
 
 def _normalize_query(query: str) -> str:
     """Normalize a query string for consistent matching."""
@@ -55,6 +67,47 @@ def _val_to_str(value) -> str | None:
         return None
     s = str(value).strip()
     return s if s else None
+
+
+def _intel_signatures(get) -> dict[str, str | None]:
+    """Build timestamp-free, stable signatures for the new intel fields so the
+    version diff surfaces *meaningful* changes (a new domain / sanction hit /
+    relationship) instead of churning on `retrieved_at`, which changes on every
+    scan (Faz 3.3). `get` is an accessor that works on a model or dict.
+    """
+    def _items(field) -> list:
+        v = get(field)
+        return v if isinstance(v, list) else []
+
+    domains = sorted(
+        d.get("domain", "") for d in _items("domain_intel") if isinstance(d, dict)
+    )
+    sanctions = sorted(
+        f"{h.get('name', '')}|{h.get('list_name', '')}"
+        for h in _items("sanctions_hits") if isinstance(h, dict)
+    )
+    scholarly = sorted(
+        str(r.get("title", "")) for r in _items("scholarly_records") if isinstance(r, dict)
+    )
+    relationships = sorted(
+        f"{r.get('from', '')}>{r.get('to', '')}:{r.get('type', '')}"
+        for r in _items("relationships") if isinstance(r, dict)
+    )
+    archive_count = len(_items("archive_snapshots"))
+    subj = get("subject_confidence")
+
+    domains = [d for d in domains if d]
+    sanctions = [s for s in sanctions if s.strip("|")]
+    relationships = [r for r in relationships if r.strip(">:")]
+
+    return {
+        "domain_intel_sig": ", ".join(domains) or None,
+        "sanctions_sig": ", ".join(sanctions) or None,
+        "scholarly_sig": (f"{len(scholarly)} kayıt: " + "; ".join(scholarly[:10])) if scholarly else None,
+        "archive_sig": f"{archive_count} anlık görüntü" if archive_count else None,
+        "relationships_sig": ", ".join(relationships) or None,
+        "subject_confidence_sig": str(round(subj, 2)) if isinstance(subj, (int, float)) else None,
+    }
 
 
 def save_snapshot(db: Session, query_name: str, search_response) -> ProfileSnapshot:
@@ -71,8 +124,9 @@ def save_snapshot(db: Session, query_name: str, search_response) -> ProfileSnaps
             return search_response.get(field)
         return None
 
-    # Build snapshot_data with dynamic fields
+    # Build snapshot_data with dynamic fields + timestamp-free intel signatures
     snapshot_data = {key: _get(key) for key in TRACKED_SNAPSHOT_KEYS}
+    snapshot_data.update(_intel_signatures(_get))
 
     additional_info = _get("additional_info")
 
@@ -175,6 +229,19 @@ def generate_change_report(db: Session, query_name: str) -> ChangeReport | None:
     curr_data = current.snapshot_data or {}
 
     for key, label in TRACKED_SNAPSHOT_KEYS.items():
+        old_val = _val_to_str(prev_data.get(key))
+        new_val = _val_to_str(curr_data.get(key))
+
+        if old_val != new_val:
+            changes.append(FieldChange(
+                field=key,
+                field_label=label,
+                old_value=old_val,
+                new_value=new_val,
+            ))
+
+    # Compare computed intel signatures (Faz 3.3) — new domains/sanctions/etc.
+    for key, label in TRACKED_INTEL_SIGS.items():
         old_val = _val_to_str(prev_data.get(key))
         new_val = _val_to_str(curr_data.get(key))
 
