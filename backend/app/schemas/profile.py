@@ -125,6 +125,22 @@ class ProfileResponse(ProfileDataMixin):
         from_attributes = True
 
 
+class Citation(BaseModel):
+    """A single public-source citation backing a claim."""
+    url: str
+    title: str | None = None
+    retrieved_at: str | None = None  # ISO8601 UTC
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class Claim(BaseModel):
+    """A structured assertion about the subject, backed by public citations."""
+    field: str  # e.g. "domain", "location_city"
+    value: str
+    citations: list[Citation] = []
+    corroboration_count: int = 0  # how many independent sources corroborated
+
+
 class GeoLocationData(BaseModel):
     """A single geographic intelligence point."""
     lat: float
@@ -202,3 +218,13 @@ class SearchResponse(ProfileDataMixin):
     prediction_data: PredictiveAnalysis | None = None
     search_depth: int | None = None
     search_tier: str | None = None
+    # --- Public-source intelligence depth (additive) ---
+    domain_intel: list[dict[str, Any]] | None = None
+    claims: list[Claim] | None = None
+    timeline: list[dict[str, Any]] | None = None
+    subject_confidence: float | None = None
+    alternative_candidates: list[dict[str, Any]] | None = None
+    archive_snapshots: list[dict[str, Any]] | None = None
+    scholarly_records: list[dict[str, Any]] | None = None
+    sanctions_hits: list[dict[str, Any]] | None = None
+    relationships: list[dict[str, Any]] | None = None
