@@ -320,6 +320,7 @@ class CompanyScraperService:
             "OpenCorporates":        lambda: self._search_opencorporates(name),
             "SEC EDGAR (US)":        lambda: self._search_sec_edgar(name),
             "Companies House (UK)":  lambda: self._search_companies_house(name),
+            "Wikidata":              lambda: self._search_wikidata(name),
             "KAP (TR)":              lambda: self._search_kap(name),
             "Ticaret Sicili (TR)":   lambda: self._search_ticaret_sicil(name),
             "Web Arama":             lambda: self._search_via_web(name),
@@ -455,6 +456,81 @@ class CompanyScraperService:
         }
         base = code.split("_")[0].lower() if code else ""
         return mapping.get(base)
+
+    # ── Wikidata (global, keyless) ────────────────────────────────────────────
+
+    def _search_wikidata(self, name: str) -> list[CompanyRecord]:
+        """
+        Wikidata public knowledge graph — links notable people to organizations
+        via employer (P108) and member-of (P463). Fully public, keyless.
+        """
+        records: list[CompanyRecord] = []
+        api = "https://www.wikidata.org/w/api.php"
+        try:
+            # 1) Resolve the person to a QID
+            sr = self.session.get(api, params={
+                "action": "wbsearchentities", "search": name, "language": "en",
+                "format": "json", "type": "item", "limit": 1,
+            }, timeout=self.timeout)
+            sr.raise_for_status()
+            hits = sr.json().get("search", [])
+            if not hits:
+                return records
+            qid = hits[0].get("id")
+            if not qid:
+                return records
+
+            # 2) Fetch the person's claims
+            cr = self.session.get(api, params={
+                "action": "wbgetentities", "ids": qid, "props": "claims", "format": "json",
+            }, timeout=self.timeout)
+            cr.raise_for_status()
+            claims = cr.json().get("entities", {}).get(qid, {}).get("claims", {})
+
+            org_qids: list[str] = []
+            for prop in ("P108", "P463"):  # employer, member of
+                for snak in claims.get(prop, []):
+                    try:
+                        oid = snak["mainsnak"]["datavalue"]["value"]["id"]
+                        if oid not in org_qids:
+                            org_qids.append(oid)
+                    except (KeyError, TypeError):
+                        continue
+            org_qids = org_qids[:8]
+            if not org_qids:
+                return records
+
+            # 3) Batch-resolve organization labels
+            lr = self.session.get(api, params={
+                "action": "wbgetentities", "ids": "|".join(org_qids),
+                "props": "labels", "languages": "en", "format": "json",
+            }, timeout=self.timeout)
+            lr.raise_for_status()
+            entities = lr.json().get("entities", {})
+
+            person_url = f"https://www.wikidata.org/wiki/{qid}"
+            for oid in org_qids:
+                label = (
+                    entities.get(oid, {}).get("labels", {}).get("en", {}).get("value")
+                )
+                if not label:
+                    continue
+                records.append(CompanyRecord(
+                    company_name=label,
+                    company_type=self._extract_company_type(label),
+                    role="Affiliation (employer / member)",
+                    role_category="unknown",
+                    status="unknown",
+                    source_url=person_url,
+                    source_name="Wikidata",
+                    confidence=0.68,
+                    registry_id=oid,
+                    risk_flags=self._detect_risks(label),
+                    snippet=f"{name} linked to {label} via Wikidata ({qid}).",
+                ))
+        except (requests.exceptions.RequestException, OSError, AttributeError, ValueError, KeyError) as exc:
+            logger.log_thought(f"[CompanyService/Wikidata] Başarısız: {exc}")
+        return records
 
     # ── SEC EDGAR (USA) ───────────────────────────────────────────────────────
 
