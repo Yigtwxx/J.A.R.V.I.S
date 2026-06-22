@@ -1,11 +1,71 @@
 {
+  "domainIntel": {
+    "title": "Alan Adı İstihbaratı",
+    "registrar": "Kayıt Şirketi",
+    "created": "Oluşturma",
+    "expires": "Bitiş",
+    "nameservers": "Ad Sunucuları",
+    "subdomains": "Alt Alan Adları",
+    "dns": "DNS",
+    "publicNote": "Halka açık RDAP / DNS / CT kaynağı"
+  },
+  "provenance": {
+    "title": "Kaynaklar / Köken",
+    "source": "Kaynak",
+    "retrievedAt": "Alındı",
+    "confidence": "Güven"
+  },
+  "sanctions": {
+    "title": "Yaptırım / İzleme Listesi Taraması",
+    "matchScore": "Eşleşme",
+    "program": "Program",
+    "list": "Liste",
+    "disclaimer": "Yalnız bilgilendirme — olası isim eşleşmesi, doğrulanması gerekir.",
+    "viewSource": "Kaynağı gör"
+  },
+  "archive": {
+    "title": "Arşiv / Geçmiş Anlık Görüntüler",
+    "captured": "Kayıt",
+    "viewSnapshot": "Anlık görüntüyü gör"
+  },
+  "scholarly": {
+    "title": "Akademik Yayınlar",
+    "year": "Yıl",
+    "venue": "Mecra",
+    "viewSource": "Kaynağı gör"
+  },
+  "timeline": {
+    "title": "Etkinlik Zaman Çizelgesi",
+    "source": "Kaynak"
+  },
+  "disambiguation": {
+    "title": "Olası kimlik çakışması",
+    "warning": "Düşük eşleşme güveni — {count} alternatif aday tespit edildi.",
+    "confidence": "Özne güveni",
+    "candidate": "Aday"
+  },
+  "governance": {
+    "title": "Yalnız yetkili kullanım",
+    "note": "Aşağıdaki çıkarım modülleri halka açık veriye dayanır. Yalnız yetkili amaçlarla kullanın; çıktıları kesin değil olasılıksal kabul edin."
+  },
   "faceMatch": {
+    "title": "Kimlik Doğrulama",
     "unverified": "DOĞRULANAMADI",
     "highConfidence": "YÜKSEK GÜVENILIRLIK",
     "partialMatch": "KISMİ EŞLEŞME",
     "photosAnalyzed": "{count} platform fotoğrafı karşılaştırıldı.",
     "pairwiseTitle": "İkili DeepFace Analizi",
     "noComparison": "Başarılı karşılaştırma yapılamadı."
+  },
+  "liveCameras": {
+    "title": "Canlı Görsel İstihbarat",
+    "camerasHeader": "Halka Açık Canlı Kameralar",
+    "imagesHeader": "En Güncel Halka Açık Görseller",
+    "watchLive": "Canlı izle",
+    "loading": "Halka açık kamera ağı taranıyor...",
+    "noCameras": "Bu konum için halka açık kamera bulunamadı.",
+    "noImages": "Halka açık görsel bulunamadı.",
+    "publicNote": "Yalnızca yayıncının herkese açtığı kameralar."
   },
   "versionHistory": {
     "changeReport": "Değişim Raporu",
@@ -44,5 +104,42 @@
     "weaknessesLabel": "Zayıf Yönler",
     "recommendationsLabel": "Taktik Öneriler",
     "vectorsLabel": "Sosyal Mühendislik Vektörleri"
+  },
+  "welcome": {
+    "tagline": "Just A Rather Very Intelligent System",
+    "intro": "Bir isim ya da kullanıcı adı girin; J.A.R.V.I.S açık kaynak istihbaratı tarasın — sosyal izler, veri ihlalleri, konum ve eksiksiz bir psikolojik dosya.",
+    "examplesLabel": "Bir arama deneyin",
+    "modulesLabel": "Her dosyada otomatik üretilir",
+    "cards": {
+      "search": { "title": "Derin Arama", "desc": "Tam OSINT taraması için bir isim veya kullanıcı adı yazın." },
+      "agent": { "title": "Ajan Modu", "desc": "Yapay zekâ OSINT araçlarını kendi seçip araştırsın." },
+      "vision": { "title": "Görsel Analiz", "desc": "Giriş çubuğundan fotoğraf veya ekran görüntüsü yükleyin." },
+      "memory": { "title": "Hafıza", "desc": "JARVIS'in oturumlar arası hatırlayacağı bilgileri saklayın." },
+      "watch": { "title": "İzleme", "desc": "Bir hedefi periyodik izleyin, değişimde uyarı alın." },
+      "plugins": { "title": "Eklentiler", "desc": "Özel istihbarat eklentilerini etkinleştirip çalıştırın." },
+      "system": { "title": "Sistem Eylemleri", "desc": "Komut, uygulama ve URL'leri onay kuyruğuyla yönetin." },
+      "health": { "title": "Sağlık", "desc": "Sağlık verisi girin, yapay zekâ önerileri alın." }
+    },
+    "modSocial": "Sosyal Graf",
+    "modBreach": "İhlal Taraması",
+    "modGeo": "GeoInt Harita",
+    "modCameras": "Canlı Kameralar",
+    "modFace": "Yüz Eşleştirme",
+    "modNetwork": "Ağ Grafiği",
+    "modSentiment": "Duygu",
+    "modPredictive": "Öngörü",
+    "modExport": "Dışa Aktar"
+  },
+  "onboarding": {
+    "title": "Hoş geldiniz",
+    "next": "İleri",
+    "back": "Geri",
+    "done": "Anladım",
+    "skip": "Atla",
+    "steps": {
+      "nav": { "title": "Navigasyon Rayı", "body": "Logs, Memory, Watch, Plugins, System ve Health'i soldaki raydan açın." },
+      "search": { "title": "Komut Girişi", "body": "Aramak için isim yazın; Ajan modunu açın, derinlik ayarlayın veya görsel yükleyin." },
+      "dock": { "title": "Intel Dock", "body": "Canlı durum, sosyal düğümler, hava durumu ve analiz göstergeleri sağda belirir." }
+    }
   }
 }
