@@ -1,11 +1,71 @@
 {
+  "domainIntel": {
+    "title": "Domain Intelligence",
+    "registrar": "Registrar",
+    "created": "Created",
+    "expires": "Expires",
+    "nameservers": "Nameservers",
+    "subdomains": "Subdomains",
+    "dns": "DNS",
+    "publicNote": "Public RDAP / DNS / CT source"
+  },
+  "provenance": {
+    "title": "Sources / Provenance",
+    "source": "Source",
+    "retrievedAt": "Retrieved",
+    "confidence": "Confidence"
+  },
+  "sanctions": {
+    "title": "Sanctions / Watchlist Screening",
+    "matchScore": "Match",
+    "program": "Program",
+    "list": "List",
+    "disclaimer": "Informational only — possible name match, verification required.",
+    "viewSource": "View source"
+  },
+  "archive": {
+    "title": "Archive / Historical Snapshots",
+    "captured": "Captured",
+    "viewSnapshot": "View snapshot"
+  },
+  "scholarly": {
+    "title": "Scholarly Publications",
+    "year": "Year",
+    "venue": "Venue",
+    "viewSource": "View source"
+  },
+  "timeline": {
+    "title": "Activity Timeline",
+    "source": "Source"
+  },
+  "disambiguation": {
+    "title": "Possible identity collision",
+    "warning": "Low match confidence — {count} alternative candidate(s) detected.",
+    "confidence": "Subject confidence",
+    "candidate": "Candidate"
+  },
+  "governance": {
+    "title": "Authorized use only",
+    "note": "The following inference modules operate on public data. Use for authorized purposes only; treat outputs as probabilistic, not definitive."
+  },
   "faceMatch": {
+    "title": "Identity Verification",
     "unverified": "UNVERIFIED",
     "highConfidence": "HIGH CONFIDENCE",
     "partialMatch": "PARTIAL MATCH",
     "photosAnalyzed": "{count} platform photos cross-analyzed.",
     "pairwiseTitle": "Pairwise DeepFace Analysis",
     "noComparison": "No successful comparison could be made."
+  },
+  "liveCameras": {
+    "title": "Live Visual Intelligence",
+    "camerasHeader": "Public Live Cameras",
+    "imagesHeader": "Latest Public Images",
+    "watchLive": "Watch live",
+    "loading": "Scanning public camera grid...",
+    "noCameras": "No public cameras found for this location.",
+    "noImages": "No public images found.",
+    "publicNote": "Public publisher-streamed cameras only."
   },
   "versionHistory": {
     "changeReport": "Change Report",
@@ -44,5 +104,42 @@
     "weaknessesLabel": "Weaknesses",
     "recommendationsLabel": "Tactical Recommendations",
     "vectorsLabel": "Social Engineering Vectors"
+  },
+  "welcome": {
+    "tagline": "Just A Rather Very Intelligent System",
+    "intro": "Enter a name or username and let J.A.R.V.I.S sweep open-source intelligence — social footprints, breaches, location and a full psychological dossier.",
+    "examplesLabel": "Try a search",
+    "modulesLabel": "Auto-generated in every dossier",
+    "cards": {
+      "search": { "title": "Deep Search", "desc": "Type a name or username to launch a full OSINT sweep." },
+      "agent": { "title": "Agent Mode", "desc": "Let the AI autonomously pick OSINT tools and investigate." },
+      "vision": { "title": "Vision Analysis", "desc": "Upload a photo or screenshot from the input bar to analyze." },
+      "memory": { "title": "Memory", "desc": "Store facts and preferences JARVIS remembers across sessions." },
+      "watch": { "title": "Watch", "desc": "Monitor a target on a schedule and get change alerts." },
+      "plugins": { "title": "Plugins", "desc": "Enable and run custom intelligence extensions." },
+      "system": { "title": "System Actions", "desc": "Approve commands, launches and URLs with a review queue." },
+      "health": { "title": "Health", "desc": "Log health metrics and get AI-driven suggestions." }
+    },
+    "modSocial": "Social Graph",
+    "modBreach": "Breach Scan",
+    "modGeo": "GeoInt Map",
+    "modCameras": "Live Cameras",
+    "modFace": "Face Match",
+    "modNetwork": "Network Graph",
+    "modSentiment": "Sentiment",
+    "modPredictive": "Predictive",
+    "modExport": "Export"
+  },
+  "onboarding": {
+    "title": "Welcome aboard",
+    "next": "Next",
+    "back": "Back",
+    "done": "Got it",
+    "skip": "Skip",
+    "steps": {
+      "nav": { "title": "Navigation Rail", "body": "Open Logs, Memory, Watch, Plugins, System and Health from the left rail." },
+      "search": { "title": "Command Input", "body": "Type a name to search, toggle Agent mode, set depth, or upload an image." },
+      "dock": { "title": "Intel Dock", "body": "Live status, social nodes, weather and analysis gauges appear on the right." }
+    }
   }
 }
