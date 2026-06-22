@@ -4,10 +4,223 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from app.config import get_settings
+from app.schemas.profile import Citation, Claim
+from app.services.archive_service import archive_service
+from app.services.domain_intel_service import domain_intel_service
+from app.services.sanctions_service import sanctions_service
+from app.services.scholarly_service import scholarly_service
 from app.utils.logger import logger
 
 from .base import PipelineStep
 from .context import PipelineContext
+
+
+def _collect_social_urls(social_profiles: dict, github_data: dict | None) -> list[str]:
+    """Flatten discovered public profile URLs (social + GitHub) for archive lookup."""
+    urls: list[str] = []
+    if github_data and github_data.get('profile_url'):
+        urls.append(github_data['profile_url'])
+    for items in (social_profiles or {}).values():
+        if isinstance(items, list):
+            for item in items:
+                if isinstance(item, dict) and item.get('url'):
+                    urls.append(item['url'])
+                elif isinstance(item, str) and item.startswith('http'):
+                    urls.append(item)
+        elif isinstance(items, str) and items.startswith('http'):
+            urls.append(items)
+    # de-dup, keep order
+    seen: set[str] = set()
+    out: list[str] = []
+    for u in urls:
+        if u not in seen:
+            seen.add(u)
+            out.append(u)
+    return out
+
+
+def _norm(text: str) -> str:
+    import unicodedata
+    if not text:
+        return ""
+    decomposed = unicodedata.normalize("NFKD", text)
+    stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
+    return " ".join(stripped.lower().split())
+
+
+def _claim(field: str, value: str, url: str, title: str | None,
+           retrieved_at: str | None, confidence: float, corroboration: int = 1) -> dict:
+    return Claim(
+        field=field,
+        value=value,
+        corroboration_count=corroboration,
+        citations=[Citation(url=url, title=title, retrieved_at=retrieved_at, confidence=confidence)],
+    ).model_dump()
+
+
+def _build_claims(structured_data, company_records, data_breaches,
+                  sanctions_hits, scholarly_records, all_issues) -> list[dict]:
+    """Build provenance claims for fields that carry a public source URL (Faz 2.2/2.3)."""
+    claims: list[dict] = []
+    try:
+        for rec in (company_records or []):
+            url = rec.get("source_url") if isinstance(rec, dict) else None
+            name = rec.get("company_name") if isinstance(rec, dict) else None
+            if url and name:
+                claims.append(_claim(
+                    "company", name, url, rec.get("source_name"),
+                    rec.get("retrieved_at"), float(rec.get("confidence", 0.6) or 0.6),
+                ))
+        for hit in (sanctions_hits or []):
+            if hit.get("source_url") and hit.get("name"):
+                claims.append(_claim(
+                    "sanctions", hit["name"], hit["source_url"], hit.get("list_name"),
+                    hit.get("retrieved_at"), float(hit.get("match_score", 0.5) or 0.5),
+                ))
+        for rec in (scholarly_records or []):
+            if rec.get("source_url") and rec.get("title"):
+                claims.append(_claim(
+                    "publication", rec["title"], rec["source_url"], rec.get("venue"),
+                    rec.get("retrieved_at"), float(rec.get("confidence", 0.7) or 0.7),
+                ))
+        for b in (data_breaches or []):
+            # paste exposures carry a public URL; XON breaches reference the screening source
+            url = b.get("Id") or b.get("url")
+            name = b.get("Title") or b.get("Name") or b.get("Source")
+            if name and (url or b.get("TargetEmail")):
+                claims.append(_claim(
+                    "breach", str(name), url or "https://xposedornot.com",
+                    b.get("Source"), None, 0.6,
+                ))
+        # conflict signal (Faz 2.3): lower corroboration when cross-validation flagged issues
+        if all_issues:
+            for c in claims:
+                if c.get("corroboration_count", 1) > 0 and any(
+                    _norm(c["value"]) in _norm(str(i)) for i in all_issues
+                ):
+                    c["corroboration_count"] = 0
+    except Exception as exc:  # noqa: BLE001
+        logger.log_warning(f"Claim assembly failed (non-critical): {exc}")
+    return claims
+
+
+def _date_key(value: str) -> str:
+    """Best-effort sortable key from a date-ish string (ISO date, year, etc.)."""
+    s = "".join(ch for ch in (value or "") if ch.isdigit())
+    return s[:8].ljust(8, "0") if s else "00000000"
+
+
+def _build_timeline(github_data, data_breaches, company_records, archive_snapshots) -> list[dict]:
+    """Assemble dated public events into a sorted timeline (Faz 2.5)."""
+    events: list[dict] = []
+    try:
+        if github_data and github_data.get("recent_commits"):
+            profile = github_data.get("profile_url", "")
+            for c in github_data["recent_commits"]:
+                if c.get("date"):
+                    msg = (c.get("message") or "").splitlines()[0][:60]
+                    events.append({
+                        "date": c["date"],
+                        "event": f"GitHub commit: {msg} ({c.get('repo', '')})",
+                        "source_url": profile,
+                    })
+        for b in (data_breaches or []):
+            date = b.get("BreachDate") or b.get("Date")
+            name = b.get("Title") or b.get("Name") or b.get("Source")
+            if date and name:
+                events.append({
+                    "date": str(date),
+                    "event": f"Data exposure: {name}",
+                    "source_url": b.get("Id") or b.get("url") or "https://xposedornot.com",
+                })
+        for snap in (archive_snapshots or []):
+            if snap.get("timestamp"):
+                events.append({
+                    "date": snap["timestamp"],
+                    "event": f"Archive snapshot: {snap.get('url', '')}",
+                    "source_url": snap.get("snapshot_url", ""),
+                })
+        events.sort(key=lambda e: _date_key(e.get("date", "")))
+    except Exception as exc:  # noqa: BLE001
+        logger.log_warning(f"Timeline assembly failed (non-critical): {exc}")
+    return events
+
+
+def _assess_disambiguation(real_name, raw_sources, structured_data) -> tuple[float | None, list]:
+    """Score how well public sources match the subject; surface alternative candidates (Faz 2.4)."""
+    try:
+        sources = raw_sources or []
+        if not sources:
+            return None, []
+        q_tokens = {t for t in _norm(real_name).split() if len(t) > 1}
+        if not q_tokens:
+            return None, []
+
+        relevant = 0
+        candidate_pool: dict[str, str] = {}
+        for s in sources:
+            text = _norm(f"{s.get('title', '')} {s.get('snippet', '')}")
+            text_tokens = set(text.split())
+            if q_tokens <= text_tokens:
+                relevant += 1
+            else:
+                # collect capitalized name-like phrases from the original title as candidates
+                title = s.get("title", "") or ""
+                words = [w for w in title.split() if w[:1].isupper() and w.isalpha()]
+                for i in range(len(words) - 1):
+                    cand = f"{words[i]} {words[i + 1]}"
+                    if not (q_tokens <= set(_norm(cand).split())) and len(cand) > 5:
+                        candidate_pool.setdefault(_norm(cand), s.get("url", ""))
+
+        confidence = round(relevant / len(sources), 2)
+
+        alternatives: list = []
+        if confidence < 0.6:
+            for norm_name, url in list(candidate_pool.items())[:3]:
+                alternatives.append({
+                    "name": norm_name.title(),
+                    "reason": "Appears in results but does not match the subject name",
+                    "source_url": url,
+                })
+        return confidence, alternatives
+    except Exception as exc:  # noqa: BLE001
+        logger.log_warning(f"Disambiguation failed (non-critical): {exc}")
+        return None, []
+
+
+def _build_relationships(structured_data, company_records, sanctions_hits) -> list[dict]:
+    """Derive typed relationship edges with sources where available (Faz 3.2)."""
+    rels: list[dict] = []
+    subject = structured_data.get("name") or ""
+    try:
+        for conn in (structured_data.get("network_connections") or []):
+            if isinstance(conn, dict) and conn.get("name"):
+                rels.append({
+                    "from": subject,
+                    "to": conn["name"],
+                    "type": conn.get("relation") or conn.get("role") or "associate",
+                    "source_url": "",
+                })
+        for rec in (company_records or []):
+            if isinstance(rec, dict) and rec.get("company_name"):
+                rels.append({
+                    "from": subject,
+                    "to": rec["company_name"],
+                    "type": rec.get("role") or "affiliation",
+                    "source_url": rec.get("source_url", ""),
+                })
+        for hit in (sanctions_hits or []):
+            if hit.get("name"):
+                rels.append({
+                    "from": subject,
+                    "to": hit["name"],
+                    "type": f"sanctions:{hit.get('list_name', '')}",
+                    "source_url": hit.get("source_url", ""),
+                })
+    except Exception as exc:  # noqa: BLE001
+        logger.log_warning(f"Relationship assembly failed (non-critical): {exc}")
+    return rels
 
 
 class PostAnalysisRunnerStep(PipelineStep):
@@ -39,6 +252,7 @@ class PostAnalysisRunnerStep(PipelineStep):
         from app.agents.security_agent import SecurityAgent
         from app.agents.social_media_agent import SocialMediaAgent
 
+        settings = get_settings()
         orch_result = ctx.orch_result
         github_data = ctx.github_data
         social_profiles = orch_result.social_profiles
@@ -112,7 +326,8 @@ class PostAnalysisRunnerStep(PipelineStep):
             return g_data, tz
 
         async def _run_psychological() -> Any:
-            if not (self._psych and ctx.context):
+            # Governance gate (Faz 4.1) — enabled by default, toggleable via config.
+            if not (self._psych and ctx.context and settings.enable_psychological_analysis):
                 return None
             return await self._psych.analyze(
                 context=ctx.context,
@@ -122,7 +337,8 @@ class PostAnalysisRunnerStep(PipelineStep):
             )
 
         async def _run_predictive() -> Any:
-            if not self._predictor:
+            # Governance gate (Faz 4.1) — enabled by default, toggleable via config.
+            if not (self._predictor and settings.enable_predictive_analysis):
                 return None
             return await self._predictor.generate_predictions(
                 github_data=github_data,
@@ -133,15 +349,48 @@ class PostAnalysisRunnerStep(PipelineStep):
                 deep_context=ctx.deep_context or "",
             )
 
-        breach_result, darkweb_result, geoint_result, psych_result, pred_result = (
-            await asyncio.gather(
-                _run_breach(),
-                _run_darkweb(),
-                _run_geoint(),
-                _run_psychological(),
-                _run_predictive(),
-                return_exceptions=True,
+        def _derived_domains() -> list:
+            return domain_intel_service.derive_domains(
+                structured_data.get('email_addresses', []),
+                (github_data or {}).get('blog'),
             )
+
+        async def _run_domain() -> list:
+            domains = _derived_domains()
+            if not domains:
+                return []
+            return await domain_intel_service.aggregate(domains)
+
+        async def _run_archive() -> list:
+            social_urls = _collect_social_urls(social_profiles, github_data)
+            urls = archive_service.derive_urls(
+                social_urls, (github_data or {}).get('blog'), _derived_domains()
+            )
+            if not urls:
+                return []
+            return await archive_service.aggregate(urls)
+
+        async def _run_scholarly() -> list:
+            return await scholarly_service.aggregate(ctx.real_name)
+
+        async def _run_sanctions() -> list:
+            return await sanctions_service.check(ctx.real_name)
+
+        (
+            breach_result, darkweb_result, geoint_result,
+            psych_result, pred_result, domain_result,
+            archive_result, scholarly_result, sanctions_result,
+        ) = await asyncio.gather(
+            _run_breach(),
+            _run_darkweb(),
+            _run_geoint(),
+            _run_psychological(),
+            _run_predictive(),
+            _run_domain(),
+            _run_archive(),
+            _run_scholarly(),
+            _run_sanctions(),
+            return_exceptions=True,
         )
 
         # Unpack breach
@@ -195,6 +444,67 @@ class PostAnalysisRunnerStep(PipelineStep):
         else:
             prediction_data = pred_result
 
+        # Unpack domain intel + derive provenance claims (Citation/Claim foundation)
+        domain_intel: list = []
+        claims: list = []
+        if isinstance(domain_result, Exception):
+            logger.log_warning(f"Domain intel failed (non-critical): {domain_result}")
+        elif domain_result:
+            domain_intel = domain_result
+            for rec in domain_intel:
+                claims.append(
+                    Claim(
+                        field="domain",
+                        value=rec.get("domain", ""),
+                        corroboration_count=1,
+                        citations=[
+                            Citation(
+                                url=rec.get("source_url", ""),
+                                title=rec.get("registrar") or rec.get("domain"),
+                                retrieved_at=rec.get("retrieved_at"),
+                                confidence=rec.get("confidence", 0.8),
+                            )
+                        ],
+                    ).model_dump()
+                )
+            logger.log_success(f"Domain intel: {len(domain_intel)} domain(s) mapped")
+
+        # Unpack archive snapshots
+        archive_snapshots: list = []
+        if isinstance(archive_result, Exception):
+            logger.log_warning(f"Archive intel failed (non-critical): {archive_result}")
+        elif archive_result:
+            archive_snapshots = archive_result
+
+        # Unpack scholarly records
+        scholarly_records: list = []
+        if isinstance(scholarly_result, Exception):
+            logger.log_warning(f"Scholarly intel failed (non-critical): {scholarly_result}")
+        elif scholarly_result:
+            scholarly_records = scholarly_result
+
+        # Unpack sanctions hits
+        sanctions_hits: list = []
+        if isinstance(sanctions_result, Exception):
+            logger.log_warning(f"Sanctions screening failed (non-critical): {sanctions_result}")
+        elif sanctions_result:
+            sanctions_hits = sanctions_result
+
+        # --- Provenance, timeline, disambiguation, relationships (Faz 2.2–2.5, 3.2) ---
+        claims.extend(_build_claims(
+            structured_data, orch_result.company_records, data_breaches,
+            sanctions_hits, scholarly_records, all_issues,
+        ))
+        timeline = _build_timeline(
+            github_data, data_breaches, orch_result.company_records, archive_snapshots,
+        )
+        subject_confidence, alternative_candidates = _assess_disambiguation(
+            ctx.real_name, raw_sources, structured_data,
+        )
+        relationships = _build_relationships(
+            structured_data, orch_result.company_records, sanctions_hits,
+        )
+
         logger.log_success("Post-analysis complete")
 
         ctx.post_analysis = {
@@ -210,5 +520,14 @@ class PostAnalysisRunnerStep(PipelineStep):
             'timezone_analysis': timezone_analysis,
             'psychological_analysis': psychological_analysis,
             'prediction_data': prediction_data,
+            'domain_intel': domain_intel,
+            'claims': claims,
+            'archive_snapshots': archive_snapshots,
+            'scholarly_records': scholarly_records,
+            'sanctions_hits': sanctions_hits,
+            'timeline': timeline,
+            'subject_confidence': subject_confidence,
+            'alternative_candidates': alternative_candidates,
+            'relationships': relationships,
         }
         return ctx
