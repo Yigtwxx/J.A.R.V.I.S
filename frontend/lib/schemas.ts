@@ -187,6 +187,77 @@ const SharedProfileFieldsSchema = z.object({
     company_records: z.array(CompanyRecordSchema).optional(),
 });
 
+// ─── Public-source intelligence depth ────────────────────────
+
+export const CitationSchema = z.object({
+    url: z.string(),
+    title: z.string().nullable().optional(),
+    retrieved_at: z.string().nullable().optional(),
+    confidence: z.number().optional(),
+});
+
+export const ClaimSchema = z.object({
+    field: z.string(),
+    value: z.string(),
+    citations: z.array(CitationSchema).optional(),
+    corroboration_count: z.number().optional(),
+});
+
+export const DomainIntelSchema = z.object({
+    domain: z.string(),
+    registrar: z.string().nullable().optional(),
+    created: z.string().nullable().optional(),
+    expires: z.string().nullable().optional(),
+    nameservers: z.array(z.string()).optional(),
+    statuses: z.array(z.string()).optional(),
+    dns: z.object({
+        a: z.array(z.string()).optional(),
+        mx: z.array(z.string()).optional(),
+        txt: z.array(z.string()).optional(),
+        ns: z.array(z.string()).optional(),
+    }).optional(),
+    subdomains: z.array(z.string()).optional(),
+    source_url: z.string().optional(),
+    retrieved_at: z.string().optional(),
+    confidence: z.number().optional(),
+});
+
+export const ArchiveSnapshotSchema = z.object({
+    url: z.string(),
+    snapshot_url: z.string(),
+    timestamp: z.string().nullable().optional(),
+    source_url: z.string().optional(),
+    retrieved_at: z.string().optional(),
+});
+
+export const ScholarlyRecordSchema = z.object({
+    title: z.string(),
+    year: z.number().nullable().optional(),
+    venue: z.string().nullable().optional(),
+    authors: z.array(z.string()).optional(),
+    source_url: z.string().optional(),
+    retrieved_at: z.string().optional(),
+    confidence: z.number().optional(),
+});
+
+export const SanctionsHitSchema = z.object({
+    name: z.string(),
+    list_name: z.string().optional(),
+    program: z.string().nullable().optional(),
+    entity_type: z.string().nullable().optional(),
+    match_score: z.number().optional(),
+    source_url: z.string().optional(),
+    retrieved_at: z.string().optional(),
+    note: z.string().optional(),
+});
+
+export const RelationshipSchema = z.object({
+    from: z.string(),
+    to: z.string(),
+    type: z.string().optional(),
+    source_url: z.string().optional(),
+});
+
 // ─── Top-level schemas ───────────────────────────────────────
 
 export const ProfileDataSchema = SharedProfileFieldsSchema.extend({
@@ -222,6 +293,16 @@ export const SearchResponseSchema = SharedProfileFieldsSchema.extend({
     prediction_data: PredictiveAnalysisSchema.optional(),
     search_depth: z.number().optional(),
     search_tier: z.string().optional(),
+    // --- Public-source intelligence depth (additive) ---
+    domain_intel: z.array(DomainIntelSchema).optional(),
+    claims: z.array(ClaimSchema).optional(),
+    timeline: z.array(z.record(z.string(), z.unknown())).optional(),
+    subject_confidence: z.number().nullable().optional(),
+    alternative_candidates: z.array(z.record(z.string(), z.unknown())).optional(),
+    archive_snapshots: z.array(ArchiveSnapshotSchema).optional(),
+    scholarly_records: z.array(ScholarlyRecordSchema).optional(),
+    sanctions_hits: z.array(SanctionsHitSchema).optional(),
+    relationships: z.array(RelationshipSchema).optional(),
 });
 
 export const SearchHistoryItemSchema = z.object({
