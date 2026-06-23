@@ -128,12 +128,12 @@ const ChatInputBar = () => {
 
     return (
         <motion.div
-            initial={{ y: 100 }}
-            animate={{ y: 0 }}
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-            className="fixed bottom-10 left-0 w-full pl-[300px] pr-[280px] flex justify-center z-50 pointer-events-none"
+            className="shrink-0 w-full px-4 pb-6 pt-2 flex justify-center z-30"
         >
-            <div className="pointer-events-auto w-full max-w-4xl glass-strong p-4 rounded-3xl flex gap-3 items-center border-2 border-cyan-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-visible group hover:border-cyan-400/60 transition-all duration-500">
+            <div className="w-full max-w-4xl glass-strong p-4 rounded-3xl flex gap-3 items-center border-2 border-cyan-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-visible group hover:border-cyan-400/60 transition-all duration-500">
                 <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
                     <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                 </div>
