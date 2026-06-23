@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import { SearchResponse } from '@/types/profile';
 import { User, Users, ChevronRight, Activity, AlertTriangle, FileText, FileJson, FileSpreadsheet, Download } from 'lucide-react';
@@ -23,6 +24,7 @@ function extractUsername(url: string): string {
 const NetworkGraph = dynamic(() => import('@/components/NetworkGraph'), { ssr: false });
 const SecurityScanWidget = dynamic(() => import('@/components/SecurityScanWidget'), { ssr: false });
 const GeoIntMap = dynamic(() => import('@/components/GeoIntMap'), { ssr: false });
+const LiveCamerasWidget = dynamic(() => import('@/components/LiveCamerasWidget'), { ssr: false });
 const PsychologicalAnalysisWidget = dynamic(() => import('@/components/PsychologicalAnalysisWidget'), { ssr: false });
 const PredictiveAnalysisWidget = dynamic(() => import('@/components/PredictiveAnalysisWidget'), { ssr: false });
 
@@ -31,6 +33,10 @@ interface ProfileCardProps {
 }
 
 function ProfileCard({ profile }: ProfileCardProps) {
+    const t = useTranslations('provenance');
+    const tTimeline = useTranslations('timeline');
+    const tDisamb = useTranslations('disambiguation');
+    const tGov = useTranslations('governance');
     const [exporting, setExporting] = useState<string | null>(null);
     const [showExport, setShowExport] = useState(false);
 
@@ -130,6 +136,39 @@ function ProfileCard({ profile }: ProfileCardProps) {
                     </div>
                 </div>
 
+                {/* Disambiguation warning — low subject confidence + alternative candidates */}
+                {typeof profile.subject_confidence === 'number' && profile.subject_confidence < 0.6 &&
+                 profile.alternative_candidates && profile.alternative_candidates.length > 0 && (
+                    <div className="mb-6 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 relative overflow-hidden">
+                        <div className="flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                            <div className="space-y-2 flex-1">
+                                <h4 className="text-amber-300 font-orbitron font-bold text-xs tracking-[0.1em] uppercase">
+                                    {tDisamb('title')}
+                                </h4>
+                                <p className="text-amber-200/90 text-xs font-mono">
+                                    {tDisamb('warning', { count: profile.alternative_candidates.length })}
+                                    {` · ${tDisamb('confidence')}: ${Math.round(profile.subject_confidence * 100)}%`}
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {profile.alternative_candidates.map((c, i) => {
+                                        const cand = c as { name?: string; source_url?: string };
+                                        return cand.source_url ? (
+                                            <a key={i} href={cand.source_url} target="_blank" rel="noopener noreferrer"
+                                               className="px-2.5 py-1 rounded-md bg-amber-900/30 border border-amber-500/30 text-[11px] font-mono text-amber-100 hover:bg-amber-800/40 transition-colors">
+                                                {cand.name || tDisamb('candidate')}
+                                            </a>
+                                        ) : (
+                                            <span key={i} className="px-2.5 py-1 rounded-md bg-amber-900/30 border border-amber-500/30 text-[11px] font-mono text-amber-100">
+                                                {cand.name || tDisamb('candidate')}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Content Area */}
                 <div className="flex flex-col gap-10 relative">
@@ -234,6 +273,7 @@ function ProfileCard({ profile }: ProfileCardProps) {
                                     targetName={profile.name || 'Unknown'}
                                     connections={profile.network_connections ?? []}
                                     platforms={platformNodes}
+                                    relationships={profile.relationships ?? []}
                                 />
                             </div>
                         );
@@ -248,11 +288,32 @@ function ProfileCard({ profile }: ProfileCardProps) {
                         timezoneAnalysis={profile.timezone_analysis}
                     />
 
+                    {/* Live Visual Intelligence — public webcams + latest public images */}
+                    <LiveCamerasWidget
+                        place={profile.location_city || profile.location_country}
+                        query={profile.name}
+                    />
+
                     {/* Threat Intelligence / Dark Web Monitoring */}
                     <SecurityScanWidget
                         emails={profile.email_addresses}
                         dataBreaches={profile.data_breaches}
                     />
+
+                    {/* Governance disclaimer — shown before inference modules (Faz 4.1) */}
+                    {(profile.psychological_analysis || profile.prediction_data) && (
+                        <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2.5">
+                            <AlertTriangle className="w-4 h-4 text-amber-400/80 shrink-0 mt-0.5" />
+                            <div>
+                                <span className="text-amber-300/90 font-orbitron font-bold text-[10px] tracking-[0.1em] uppercase block">
+                                    {tGov('title')}
+                                </span>
+                                <span className="text-amber-200/70 text-[11px] font-mono leading-relaxed">
+                                    {tGov('note')}
+                                </span>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Psychological Warfare Analysis */}
                     {profile.psychological_analysis && (
@@ -262,6 +323,83 @@ function ProfileCard({ profile }: ProfileCardProps) {
                     {/* Predictive Analytics Matrix */}
                     {profile.prediction_data && (
                         <PredictiveAnalysisWidget analysis={profile.prediction_data} />
+                    )}
+
+                    {/* Sources / Provenance — public-source citations behind structured claims */}
+                    {profile.claims && profile.claims.length > 0 && (
+                        <div>
+                            <div className="flex items-center gap-2 mb-4">
+                                <ChevronRight className="w-5 h-5 text-cyan-400 glow-cyan" />
+                                <h4 className="text-white font-orbitron font-bold text-sm tracking-[0.15em] uppercase flex items-center gap-2 drop-shadow-md glow-cyan">
+                                    <FileText className="w-4 h-4 text-cyan-400" />
+                                    {t('title')}
+                                </h4>
+                            </div>
+                            <div className="space-y-2.5 pl-6">
+                                {profile.claims.map((claim, idx) => (
+                                    <div key={idx} className="bg-black/30 border border-cyan-500/15 rounded-lg p-3">
+                                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                                            <span className="text-[13px] font-mono font-bold text-white truncate">{claim.value}</span>
+                                            <span className="text-[10px] font-mono uppercase text-cyan-500/70 tracking-tighter shrink-0">{claim.field}</span>
+                                        </div>
+                                        <ul className="space-y-1">
+                                            {(claim.citations ?? []).map((c, ci) => (
+                                                <li key={ci} className="flex items-center justify-between gap-2">
+                                                    <a
+                                                        href={c.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-[11px] font-mono text-cyan-400/80 hover:text-cyan-300 underline truncate"
+                                                    >
+                                                        {c.title || c.url}
+                                                    </a>
+                                                    <span className="text-[9px] font-mono text-white/50 shrink-0 text-right">
+                                                        {c.retrieved_at ? `${t('retrievedAt')} ${c.retrieved_at.slice(0, 10)}` : ''}
+                                                        {typeof c.confidence === 'number' ? ` · ${t('confidence')} ${Math.round(c.confidence * 100)}%` : ''}
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Timeline — dated public events with sources (Faz 2.5 / 2.6) */}
+                    {profile.timeline && profile.timeline.length > 0 && (
+                        <div>
+                            <div className="flex items-center gap-2 mb-4">
+                                <ChevronRight className="w-5 h-5 text-cyan-400 glow-cyan" />
+                                <h4 className="text-white font-orbitron font-bold text-sm tracking-[0.15em] uppercase flex items-center gap-2 drop-shadow-md glow-cyan">
+                                    <Activity className="w-4 h-4 text-cyan-400" />
+                                    {tTimeline('title')}
+                                </h4>
+                            </div>
+                            <div className="space-y-2.5 pl-6 border-l border-cyan-500/20 ml-2">
+                                {profile.timeline.map((raw, idx) => {
+                                    const ev = raw as { date?: string; event?: string; source_url?: string };
+                                    return (
+                                        <div key={idx} className="bg-black/30 border border-cyan-500/15 rounded-lg p-3">
+                                            <div className="flex items-center justify-between gap-2 mb-1">
+                                                <span className="text-[13px] font-mono text-white/90">{ev.event}</span>
+                                                <span className="text-[10px] font-mono uppercase text-cyan-500/70 tracking-tighter shrink-0">{ev.date ? ev.date.slice(0, 10) : ''}</span>
+                                            </div>
+                                            {ev.source_url && (
+                                                <a
+                                                    href={ev.source_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[11px] font-mono text-cyan-400/80 hover:text-cyan-300 underline truncate"
+                                                >
+                                                    {tTimeline('source')}
+                                                </a>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>
