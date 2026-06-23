@@ -29,10 +29,18 @@ interface GraphNode {
     y?: number;
 }
 
+interface RelationshipEdge {
+    from: string;
+    to: string;
+    type?: string;
+    source_url?: string;
+}
+
 interface NetworkGraphProps {
     targetName: string;
     connections: NetworkConnection[];
     platforms?: PlatformNode[];
+    relationships?: RelationshipEdge[];
 }
 
 function isValidUrl(url: string): boolean {
@@ -44,7 +52,7 @@ function isValidUrl(url: string): boolean {
     }
 }
 
-export default function NetworkGraph({ targetName, connections, platforms }: NetworkGraphProps) {
+export default function NetworkGraph({ targetName, connections, platforms, relationships }: NetworkGraphProps) {
     const fgRef = useRef<any>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const containerRef = useRef<HTMLDivElement>(null);
@@ -60,8 +68,13 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
             { id: 'target', name: targetName, group: 1, val: 20 }
         ];
 
-        // Explicit typing for links array
-        const links: Array<{ source: string, target: string, name: string }> = [];
+        // Explicit typing for links array (url carries an optional public source)
+        const links: Array<{ source: string, target: string, name: string, url?: string }> = [];
+
+        // name → node id, so relationships can de-dup against existing nodes
+        const nameToId = new Map<string, string>();
+        const norm = (s: string) => s.trim().toLowerCase();
+        if (targetName) nameToId.set(norm(targetName), 'target');
 
         validConnections.forEach((conn, index) => {
             const nodeId = `node_${index}`;
@@ -72,6 +85,7 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
                 val: 10,
                 relation: conn.relation
             });
+            nameToId.set(norm(conn.name), nodeId);
 
             links.push({
                 source: 'target',
@@ -93,8 +107,28 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
             links.push({ source: 'target', target: nodeId, name: platform.name });
         });
 
+        // Typed relationship edges (Faz 3.2) — each carries an optional public source
+        (relationships ?? []).forEach((rel, index) => {
+            const toName = (rel.to || '').trim();
+            if (!toName) return;
+            let toId = nameToId.get(norm(toName));
+            if (!toId) {
+                toId = `rel_${index}`;
+                nodes.push({ id: toId, name: toName, group: 4, val: 9, relation: rel.type });
+                nameToId.set(norm(toName), toId);
+            }
+            const fromId = nameToId.get(norm(rel.from || '')) ?? 'target';
+            const validUrl = rel.source_url && isValidUrl(rel.source_url) ? rel.source_url : undefined;
+            links.push({
+                source: fromId,
+                target: toId,
+                name: rel.type || 'related',
+                url: validUrl,
+            });
+        });
+
         return { nodes, links, validCount: validConnections.length };
-    }, [targetName, connections, platforms]);
+    }, [targetName, connections, platforms, relationships]);
 
     // Reset engine config flag when graph data changes
     useEffect(() => {
@@ -132,7 +166,7 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
         }
     }, []);
 
-    if ((!connections || graphData.validCount === 0) && (!platforms || platforms.length === 0)) {
+    if ((!connections || graphData.validCount === 0) && (!platforms || platforms.length === 0) && (!relationships || relationships.length === 0)) {
         return (
             <div className="border border-[#00f3ff]/10 rounded-xl p-4 mt-6 flex flex-col items-center gap-1 bg-black/20">
                 <Network size={16} className="text-[#00f3ff]/30" />
@@ -167,16 +201,22 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
                         nodeColor={(node: any) =>
                             node.group === 1 ? '#00f3ff' :
                             node.group === 3 ? '#bf00ff' :
+                            node.group === 4 ? '#ffb020' :
                             '#00ffd0'
                         }
                         nodeRelSize={4}
-                        linkColor={() => 'rgba(0, 243, 255, 0.3)'}
+                        linkColor={(link: any) =>
+                            typeof link.name === 'string' && link.name.startsWith('sanctions:') ? 'rgba(255, 60, 60, 0.55)' :
+                            link.url ? 'rgba(255, 176, 32, 0.45)' :
+                            'rgba(0, 243, 255, 0.3)'
+                        }
+                        linkLabel={(link: any) => link.name ?? ''}
                         linkWidth={1}
                         linkDirectionalParticles={2}
                         linkDirectionalParticleSpeed={0.005}
                         linkDirectionalParticleWidth={2}
                         backgroundColor="#00050a"
-                        showPointerCursor={(obj: any) => obj && obj.group === 3 && !!obj.url}
+                        showPointerCursor={(obj: any) => !!(obj && obj.url)}
                         onEngineStop={handleEngineStop}
                         onNodeClick={(node: any) => {
                             if (node.group === 3 && node.url) {
@@ -185,6 +225,9 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
                                 fgRef.current.centerAt(node.x, node.y, 1000);
                                 fgRef.current.zoom(1.5, 2000);
                             }
+                        }}
+                        onLinkClick={(link: any) => {
+                            if (link.url) window.open(link.url, '_blank', 'noopener,noreferrer');
                         }}
                     />
                 )}
@@ -203,6 +246,12 @@ export default function NetworkGraph({ targetName, connections, platforms }: Net
                         <div className="w-2 h-2 rounded-full bg-[#bf00ff] shadow-[0_0_5px_#bf00ff]"></div>
                         <span>Platform Node</span>
                     </div>
+                    {relationships && relationships.length > 0 && (
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-[#ffb020] shadow-[0_0_5px_#ffb020]"></div>
+                            <span>Relationship (click edge → source)</span>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
