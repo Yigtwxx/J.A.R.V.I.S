@@ -50,9 +50,14 @@ next-env.d.ts
 .vscode/
 .idea/
 .claude/
+
+# Claude project rules (local only, not pushed)
+/CLAUDE.md
+CLAUDE.local.md
 *.swp
 *.swo
 *~
+shared-docs/
 
 # OS & Misc
 .DS_Store
