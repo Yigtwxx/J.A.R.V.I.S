@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TerminalSquare, Github, Instagram, Twitter, Linkedin, Globe, MapPin, Thermometer, Cloud, Sun, Wind, Search, ChevronRight, ChevronLeft, Bot, Radar } from 'lucide-react';
+import { TerminalSquare, Github, Instagram, Twitter, Linkedin, Globe, MapPin, Thermometer, Cloud, Sun, Wind, Search, ChevronRight, ChevronLeft, Bot, Radar, ShieldAlert, Archive, GraduationCap } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useChatStore } from '@/store/chatStore';
 import ScrambleText from '@/components/ui/ScrambleText';
@@ -409,6 +410,217 @@ function WeatherPanel({ lastProfile }: { lastProfile: SearchResponse }) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
+ * Domain Intel panel — public RDAP/WHOIS + DNS + Certificate Transparency
+ * intelligence for domains derived from the subject's email/website.
+ * ────────────────────────────────────────────────────────────────────────── */
+function DomainIntelPanel({ lastProfile }: { lastProfile: SearchResponse }) {
+    const t = useTranslations('domainIntel');
+    const domains = lastProfile.domain_intel;
+    if (!domains || domains.length === 0) return null;
+
+    const fmtDate = (iso?: string | null) => (iso ? iso.slice(0, 10) : '—');
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="w-full glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden pointer-events-auto"
+        >
+            {/* Header */}
+            <div className="p-3 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full animate-[shimmer_5s_infinite]" />
+                <Globe className="w-4 h-4 text-cyan-400" />
+                <span className="text-[10px] font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan">{t('title')}</span>
+            </div>
+
+            <div className="p-3 flex flex-col gap-3 max-h-[26rem] overflow-y-auto custom-scrollbar">
+                {domains.map((d, i) => (
+                    <div key={`${d.domain}-${i}`} className="rounded-xl bg-black/30 border border-white/5 p-2.5 flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5">
+                            <Globe className="w-3 h-3 text-cyan-400 shrink-0" />
+                            <span className="text-[11px] font-black font-orbitron tracking-wide text-white truncate">{d.domain}</span>
+                        </div>
+
+                        {d.registrar && (
+                            <div className="flex justify-between gap-2">
+                                <span className="text-[9px] font-mono uppercase text-cyan-500/80 tracking-tighter">{t('registrar')}</span>
+                                <span className="text-[10px] font-mono text-white/90 truncate text-right">{d.registrar}</span>
+                            </div>
+                        )}
+
+                        <div className="flex justify-between gap-2">
+                            <span className="text-[9px] font-mono uppercase text-cyan-500/80 tracking-tighter">{t('created')}</span>
+                            <span className="text-[10px] font-mono text-white/90">{fmtDate(d.created)}</span>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                            <span className="text-[9px] font-mono uppercase text-cyan-500/80 tracking-tighter">{t('expires')}</span>
+                            <span className="text-[10px] font-mono text-white/90">{fmtDate(d.expires)}</span>
+                        </div>
+
+                        {d.nameservers && d.nameservers.length > 0 && (
+                            <div className="pt-1 border-t border-cyan-500/10">
+                                <span className="text-[9px] font-mono uppercase text-cyan-500/80 tracking-tighter">{t('nameservers')}</span>
+                                <div className="text-[10px] font-mono text-white/80 break-all">{d.nameservers.join(', ')}</div>
+                            </div>
+                        )}
+
+                        {d.dns?.a && d.dns.a.length > 0 && (
+                            <div className="flex justify-between gap-2">
+                                <span className="text-[9px] font-mono uppercase text-cyan-500/80 tracking-tighter">{t('dns')} A</span>
+                                <span className="text-[10px] font-mono text-white/90 break-all text-right">{d.dns.a.join(', ')}</span>
+                            </div>
+                        )}
+
+                        {d.subdomains && d.subdomains.length > 0 && (
+                            <div className="pt-1 border-t border-cyan-500/10">
+                                <span className="text-[9px] font-mono uppercase text-cyan-500/80 tracking-tighter">{t('subdomains')} ({d.subdomains.length})</span>
+                                <div className="text-[10px] font-mono text-white/70 break-all max-h-20 overflow-y-auto custom-scrollbar">
+                                    {d.subdomains.slice(0, 15).join(', ')}
+                                </div>
+                            </div>
+                        )}
+
+                        {d.source_url && (
+                            <a
+                                href={d.source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[9px] font-mono text-cyan-400/70 hover:text-cyan-300 underline truncate"
+                            >
+                                {t('publicNote')}
+                            </a>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </motion.div>
+    );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Sanctions panel — possible matches against PUBLIC watchlists (OFAC SDN).
+ * Informational only; every hit carries a match score + verify note.
+ * ────────────────────────────────────────────────────────────────────────── */
+function SanctionsPanel({ lastProfile }: { lastProfile: SearchResponse }) {
+    const t = useTranslations('sanctions');
+    const hits = lastProfile.sanctions_hits;
+    if (!hits || hits.length === 0) return null;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="w-full glass-strong rounded-[1.5rem] border border-red-500/30 bg-red-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(255,0,0,0.08)] flex flex-col overflow-hidden pointer-events-auto"
+        >
+            <div className="p-3 border-b border-red-500/30 bg-red-900/40 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-red-400" />
+                <span className="text-[10px] font-bold font-mono tracking-widest text-red-300 uppercase">{t('title')}</span>
+            </div>
+            <div className="p-3 flex flex-col gap-2 max-h-[26rem] overflow-y-auto custom-scrollbar">
+                <p className="text-[9px] font-mono text-amber-300/80 italic">{t('disclaimer')}</p>
+                {hits.map((h, i) => (
+                    <div key={`${h.name}-${i}`} className="rounded-xl bg-black/30 border border-red-500/15 p-2.5 flex flex-col gap-1">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-black font-orbitron text-white truncate">{h.name}</span>
+                            {typeof h.match_score === 'number' && (
+                                <span className="text-[10px] font-mono text-red-300 shrink-0">{t('matchScore')} {Math.round(h.match_score * 100)}%</span>
+                            )}
+                        </div>
+                        <div className="flex justify-between gap-2">
+                            <span className="text-[9px] font-mono uppercase text-red-500/70">{t('list')}</span>
+                            <span className="text-[10px] font-mono text-white/90 truncate text-right">{h.list_name || '—'}</span>
+                        </div>
+                        {h.program && (
+                            <div className="flex justify-between gap-2">
+                                <span className="text-[9px] font-mono uppercase text-red-500/70">{t('program')}</span>
+                                <span className="text-[10px] font-mono text-white/80 truncate text-right">{h.program}</span>
+                            </div>
+                        )}
+                        {h.source_url && (
+                            <a href={h.source_url} target="_blank" rel="noopener noreferrer" className="text-[9px] font-mono text-red-400/70 hover:text-red-300 underline truncate">{t('viewSource')}</a>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </motion.div>
+    );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Archive panel — public Wayback Machine snapshots of the subject's URLs.
+ * ────────────────────────────────────────────────────────────────────────── */
+function ArchivePanel({ lastProfile }: { lastProfile: SearchResponse }) {
+    const t = useTranslations('archive');
+    const snaps = lastProfile.archive_snapshots;
+    if (!snaps || snaps.length === 0) return null;
+    const fmt = (iso?: string | null) => (iso ? iso.slice(0, 10) : '—');
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="w-full glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden pointer-events-auto"
+        >
+            <div className="p-3 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2">
+                <Archive className="w-4 h-4 text-cyan-400" />
+                <span className="text-[10px] font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan">{t('title')}</span>
+            </div>
+            <div className="p-3 flex flex-col gap-2 max-h-[26rem] overflow-y-auto custom-scrollbar">
+                {snaps.map((s, i) => (
+                    <div key={`${s.snapshot_url}-${i}`} className="rounded-xl bg-black/30 border border-white/5 p-2.5 flex flex-col gap-1">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-mono text-white/90 truncate">{s.url}</span>
+                            <span className="text-[9px] font-mono text-cyan-400/70 shrink-0">{t('captured')} {fmt(s.timestamp)}</span>
+                        </div>
+                        <a href={s.snapshot_url} target="_blank" rel="noopener noreferrer" className="text-[9px] font-mono text-cyan-400/70 hover:text-cyan-300 underline truncate">{t('viewSnapshot')}</a>
+                    </div>
+                ))}
+            </div>
+        </motion.div>
+    );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Scholarly panel — public academic records (Semantic Scholar/arXiv/Crossref).
+ * ────────────────────────────────────────────────────────────────────────── */
+function ScholarlyPanel({ lastProfile }: { lastProfile: SearchResponse }) {
+    const t = useTranslations('scholarly');
+    const records = lastProfile.scholarly_records;
+    if (!records || records.length === 0) return null;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="w-full glass-strong rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 backdrop-blur-md shadow-[0_0_20px_rgba(0,255,255,0.05)] flex flex-col overflow-hidden pointer-events-auto"
+        >
+            <div className="p-3 border-b border-cyan-500/20 bg-cyan-900/40 flex items-center gap-2">
+                <GraduationCap className="w-4 h-4 text-cyan-400" />
+                <span className="text-[10px] font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan">{t('title')}</span>
+            </div>
+            <div className="p-3 flex flex-col gap-2 max-h-[26rem] overflow-y-auto custom-scrollbar">
+                {records.map((r, i) => (
+                    <div key={`${r.title}-${i}`} className="rounded-xl bg-black/30 border border-white/5 p-2.5 flex flex-col gap-1">
+                        <span className="text-[11px] font-bold text-white leading-snug">{r.title}</span>
+                        <div className="flex items-center gap-2 text-[9px] font-mono text-cyan-400/70">
+                            {r.year && <span>{t('year')} {r.year}</span>}
+                            {r.venue && <span className="truncate">· {r.venue}</span>}
+                        </div>
+                        {r.source_url && (
+                            <a href={r.source_url} target="_blank" rel="noopener noreferrer" className="text-[9px] font-mono text-cyan-400/70 hover:text-cyan-300 underline truncate">{t('viewSource')}</a>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </motion.div>
+    );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
  * Intel Dock — consolidated right column. Replaces the previously scattered
  * fixed-position widgets (live monitor, network nodes, weather, gauges, agent).
  * ────────────────────────────────────────────────────────────────────────── */
@@ -473,6 +685,18 @@ export default function IntelDock() {
                     {!isLoading && lastProfile && (
                         <>
                             <NetworkNodesPanel lastProfile={lastProfile} />
+                            {lastProfile.sanctions_hits && lastProfile.sanctions_hits.length > 0 && (
+                                <SanctionsPanel lastProfile={lastProfile} />
+                            )}
+                            {lastProfile.domain_intel && lastProfile.domain_intel.length > 0 && (
+                                <DomainIntelPanel lastProfile={lastProfile} />
+                            )}
+                            {lastProfile.archive_snapshots && lastProfile.archive_snapshots.length > 0 && (
+                                <ArchivePanel lastProfile={lastProfile} />
+                            )}
+                            {lastProfile.scholarly_records && lastProfile.scholarly_records.length > 0 && (
+                                <ScholarlyPanel lastProfile={lastProfile} />
+                            )}
                             {lastProfile.weather_info && <WeatherPanel lastProfile={lastProfile} />}
                             {typeof lastProfile.social_media_score !== 'undefined' && (
                                 <SocialGauge
