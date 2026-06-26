@@ -115,6 +115,8 @@ Write 4-6 sentences providing a comprehensive overview: who this person is, thei
 List each confirmed account on its own line using this format:
 - **Platform**: [username](URL) — key metrics, activity level, and notable observations
 
+If the SOCIAL MEDIA context is split into "PRIMARY TARGET" and "SAME-NAME CANDIDATES" groups, list the PRIMARY TARGET accounts first. Then, under a separate subheading "**Same-name accounts (unverified — possibly different people):**", list the SAME-NAME CANDIDATE accounts and append [UNVERIFIED — possibly different person] to each. Do NOT describe these candidate accounts in any other section.
+
 After the list, write a short paragraph analyzing their overall digital footprint: How many platforms are they active on? Is their presence consistent or fragmented? Do they use the same username/identity across platforms? What does their platform choice tell us about them?
 
 Mark anything unverified with [UNVERIFIED]. Do not list platforms where you found no evidence.
@@ -129,8 +131,8 @@ Write 2-3 paragraphs analyzing: their online activity patterns and frequency, th
 Write a thorough assessment of 3-5 sentences covering: overall data confidence level (HIGH / MEDIUM / LOW) with specific justification for that rating, any inconsistencies or contradictions found between different sources, significant gaps in the available information, and recommendations for what additional data sources could fill those gaps.
 
 STRICT RULES:
-1. IDENTITY LOCK: Analyze ONLY '{query}'. If context contains data about multiple people with this name, isolate the primary target using profession, location, or username clues. Never merge different individuals into one profile.
-2. ZERO HALLUCINATION: Only report what the provided context directly supports. Do NOT invent accounts, relationships, work history, or biographical details. If you are unsure, say so explicitly rather than guessing.
+1. IDENTITY LOCK: The subject is ALWAYS '{query}'. Use the [CONFIRMED SUBJECT ANCHOR] block (when present) as ground truth for who the target is. This applies to EVERY source — web search and deep context included, not just social media. Web/deep results are frequently dominated by a more famous DIFFERENT person who shares part of the name (e.g. for a query 'Yigit Erdogan', results about 'Yigit Bulut' or about President 'Erdogan' are NOT the subject). Never adopt such a person as the subject, and never rename the subject to a different full name or surname than '{query}'. The SOCIAL MEDIA context may be pre-grouped into "PRIMARY TARGET" and "SAME-NAME CANDIDATES" sections; write Summary, Professional Profile, and Behavioral Patterns using ONLY the PRIMARY TARGET accounts plus GitHub/web/deep data that genuinely matches the anchor. Treat every SAME-NAME CANDIDATE and every differently-named web/deep entity as a DIFFERENT person: never attribute their job, location, bio, or activity to the target, and never blend their facts into the prose. When the anchor data is sparse and web/deep context is about other people, follow the SPARSE DATA PROTOCOL and report only the little that genuinely belongs to '{query}' — do NOT pad the report with a famous namesake. When unsure whether a fact belongs to the target, leave it out and note the ambiguity in Analyst Notes.
+2. ZERO HALLUCINATION: Only report what the provided context directly supports. Do NOT invent accounts, relationships, work history, or biographical details. If you are unsure, say so explicitly rather than guessing. Academic publications, patents, and institutional records that match only by name are NOT proof of identity — do not present them as the subject's work unless the confirmed anchor (GitHub/social accounts) corroborates them; otherwise omit them or clearly mark them [UNVERIFIED].
 3. SPARSE DATA PROTOCOL: If you have fewer than 5 concrete data points, write ONLY the Summary and Analyst Notes sections. Even with limited data, be thorough in analyzing what you do have. A detailed truthful report from limited data is always better than a fabricated comprehensive one.
 4. TURKISH NAMES: Preserve Turkish characters exactly as they appear (ı, İ, ö, ü, ç, ş, ğ). Write your analysis in English but keep proper nouns in their original form.
 5. LINKS: Format all URLs as clickable markdown links: [visible text](URL).
@@ -141,17 +143,32 @@ STRICT RULES:
         if context:
             context_str = "\n\n=== INTELLIGENCE CONTEXT ==="
 
+            if context.get('anchor'):
+                context_str += (
+                    f"\n\n[CONFIRMED SUBJECT ANCHOR]\nThe subject is '{query}'. "
+                    f"Verified identity signals: {context['anchor']}. "
+                    "Any source below (web, deep context, or social) describing a person whose "
+                    f"name does NOT match '{query}' is a DIFFERENT individual and unrelated noise — "
+                    "never make them the subject and never rename the subject to theirs."
+                )
+
             if context.get('github'):
                 context_str += f"\n\n[GITHUB DATA]\n{context['github']}"
 
             if context.get('web_search'):
-                context_str += f"\n\n[WEB SEARCH]\n{context['web_search']}"
+                context_str += (
+                    "\n\n[WEB SEARCH] (may include unrelated namesakes — attribute only what matches the anchor)\n"
+                    f"{context['web_search']}"
+                )
 
             if context.get('social_media'):
                 context_str += f"\n\n[SOCIAL MEDIA]\n{context['social_media']}"
 
             if context.get('deep_context'):
-                context_str += f"\n\n[DEEP CONTEXT]\n{context['deep_context']}"
+                context_str += (
+                    "\n\n[DEEP CONTEXT] (may include unrelated namesakes — attribute only what matches the anchor)\n"
+                    f"{context['deep_context']}"
+                )
 
             user_prompt += context_str
 
@@ -164,9 +181,9 @@ STRICT RULES:
         # Ask AI to structure the data
         extraction_prompt = f"""Based on this information about "{query}",
 extract and return ONLY a JSON object with these fields:
-- name: string
-- description: string (Write 2-3 detailed paragraphs that paint a complete picture of who this person is. First paragraph: Start with their full name, primary professional identity, and where they are based. Describe their current role, organization, and core area of expertise. Second paragraph: Discuss their most notable skills, projects, achievements, or professional contributions. Mention specific technologies, platforms, or fields they work in. If they have a visible career trajectory, describe it. Third paragraph: Analyze what makes this person distinctive — their online presence patterns, professional reputation indicators, or unique characteristics that emerge from the data. Write in third person, present tense. Do not use vague praise like "highly skilled" or "passionate" — instead state specific, concrete facts. Do not include information that is not in the source data. Example tone: "Ahmet Yilmaz is a backend engineer based in Istanbul, currently working at Trendyol where he focuses on the platform's microservices infrastructure. With over 6 years of professional experience visible through his LinkedIn profile, he has built a career centered around distributed systems and cloud-native architectures. His GitHub profile reveals 47 public repositories, predominantly in Go and Python, with notable contributions to several open-source service mesh projects.")
-- similar_profiles: array of strings (names of similar people)
+- name: string (the subject is "{query}"; use this exact name or a directly-confirmed variant of it. NEVER return a different person's name — e.g. a more famous namesake or a differently-surnamed individual who only appeared in unrelated web/deep results)
+- description: string (Write 2-3 detailed paragraphs that paint a complete picture of who this person is. First paragraph: Start with their full name, primary professional identity, and where they are based. Describe their current role, organization, and core area of expertise. Second paragraph: Discuss their most notable skills, projects, achievements, or professional contributions. Mention specific technologies, platforms, or fields they work in. If they have a visible career trajectory, describe it. Third paragraph: Analyze what makes this person distinctive — their online presence patterns, professional reputation indicators, or unique characteristics that emerge from the data. Write in third person, present tense. Do not use vague praise like "highly skilled" or "passionate" — instead state specific, concrete facts. Do not include information that is not in the source data. CRITICAL: Describe ONLY the single primary target. If the source data references multiple people who share this name (e.g. accounts grouped as same-name candidates, or conflicting professions/locations), use ONLY facts about the primary target and never blend a namesake's job, employer, or location into this description. When a fact's owner is uncertain, omit it. Example tone: "Ahmet Yilmaz is a backend engineer based in Istanbul, currently working at Trendyol where he focuses on the platform's microservices infrastructure. With over 6 years of professional experience visible through his LinkedIn profile, he has built a career centered around distributed systems and cloud-native architectures. His GitHub profile reveals 47 public repositories, predominantly in Go and Python, with notable contributions to several open-source service mesh projects.")
+- similar_profiles: array of strings (names or handles of same-name people who appear in the data but are likely DIFFERENT individuals from the target — capture them here instead of merging them into the description)
 - estimated_location: string (guessed country)
 - capital_city: string (capital of that country)
 - social_media_score: integer (0-100, estimate based on number of linked accounts and recency of posts/activity)
