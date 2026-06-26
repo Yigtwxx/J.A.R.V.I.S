@@ -73,7 +73,7 @@ async def search_person(
 
         # 3. Process results
         context, deep_context, github_url, raw_sources = orchestration.process_results(
-            orch_result, github_data, search_results
+            orch_result, github_data, search_results, real_name
         )
 
         # 4. Save context (JSON + ChromaDB)
