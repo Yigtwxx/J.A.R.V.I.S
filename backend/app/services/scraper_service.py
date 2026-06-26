@@ -1474,23 +1474,75 @@ class ScraperService:
             logger.log_detail(f"Avatar fetch failed for {url}: {e}")
             return None
 
-    def format_social_profiles(self, profiles: dict[str, list]) -> str:
-        """Format social media profiles and their bios for AI context"""
+    def format_social_profiles(self, profiles: dict[str, list], classification: dict | None = None) -> str:
+        """Format social media profiles and their bios for AI context.
+
+        When ``classification`` (output of ``identity_resolver.classify_profiles``)
+        is provided AND it found same-name candidates, the output is split into a
+        PRIMARY TARGET group and a SAME-NAME CANDIDATES group so the AI can avoid
+        merging different people into one description. Otherwise the legacy flat
+        listing is used. Every account is always listed — none are dropped.
+        """
+        if classification and classification.get('has_others'):
+            return self._format_grouped_profiles(classification)
+
+        # Legacy flat listing (single identity, or no classification available).
+        source = classification['profiles'] if classification else profiles
         formatted = "Social Media Profiles and Bios:\n"
 
         found_any = False
-        for platform, items in profiles.items():
+        for platform, items in source.items():
             if items:
                 found_any = True
-                label = "MENTION" if platform in ('tinder', 'bumble', 'discord') else platform.upper()
-                formatted += f"[{label}: {platform.upper()}]\n"
-                for item in items:
-                    formatted += f"- URL: {item['url']}\n"
-                    if item.get('bio'):
-                        formatted += f"  Bio/Snippet: {item['bio']}\n"
-                formatted += "\n"
+                formatted += self._format_platform_block(platform, items)
 
         if not found_any:
             formatted += "No social media profiles found.\n"
+
+        return formatted
+
+    def _format_platform_block(self, platform: str, items: list[dict]) -> str:
+        """Render a single platform's profiles as text."""
+        label = "MENTION" if platform in ('tinder', 'bumble', 'discord') else platform.upper()
+        block = f"[{label}: {platform.upper()}]\n"
+        for item in items:
+            block += f"- URL: {item['url']}\n"
+            if item.get('bio'):
+                block += f"  Bio/Snippet: {item['bio']}\n"
+        return block + "\n"
+
+    def _format_grouped_profiles(self, classification: dict) -> str:
+        """Render profiles split into PRIMARY TARGET and SAME-NAME CANDIDATES groups."""
+        profiles = classification['profiles']
+        anchor = classification.get('anchor', 'no strong anchor signals')
+
+        primary: dict[str, list[dict]] = {}
+        others: dict[str, list[dict]] = {}
+        for platform, items in profiles.items():
+            for item in items or []:
+                bucket = primary if item.get('match') == 'primary' else others
+                bucket.setdefault(platform, []).append(item)
+
+        formatted = (
+            "Social Media Profiles and Bios:\n"
+            f"ANCHOR IDENTITY (the confirmed target): {anchor}\n\n"
+            "=== PRIMARY TARGET — use ONLY these accounts for the description ===\n"
+        )
+        if primary:
+            for platform, items in primary.items():
+                formatted += self._format_platform_block(platform, items)
+        else:
+            formatted += "(no high-confidence accounts matched the anchor)\n\n"
+
+        formatted += (
+            "=== SAME-NAME CANDIDATES — likely DIFFERENT people, do NOT attribute "
+            "their facts to the target ===\n"
+        )
+        for platform, items in others.items():
+            divergent = [i for i in items if i.get('match') == 'divergent']
+            note = "  [likely different person]\n" if len(divergent) == len(items) else ""
+            formatted += self._format_platform_block(platform, items)
+            if note:
+                formatted += note
 
         return formatted
