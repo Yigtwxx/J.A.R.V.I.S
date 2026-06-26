@@ -79,6 +79,38 @@ def test_assess_disambiguation_no_sources():
     assert _assess_disambiguation("John Smith", [], {}) == (None, [])
 
 
+def test_assess_disambiguation_social_namesake_lowers_confidence():
+    """Strong web match but a divergent same-name social account must still warn."""
+    sources = [
+        {"title": "Yigit Erdogan profile", "snippet": "about yigit erdogan", "url": "u1"},
+        {"title": "Yigit Erdogan talk", "snippet": "yigit erdogan again", "url": "u2"},
+    ]
+    github = {"login": "yigtwx", "name": "Yigit Erdogan", "location": "Istanbul"}
+    social = {
+        "instagram": [{"url": "https://instagram.com/yigtwx", "bio": "dev, Istanbul"}],
+        "twitter": [{"url": "https://twitter.com/cooldoctor99", "bio": "surgeon in Berlin"}],
+    }
+    conf, alts = _assess_disambiguation("Yigit Erdogan", sources, {}, social, github)
+    assert conf is not None and conf < 0.6, f"expected a warning-triggering confidence, got {conf}"
+    assert any("twitter" in (a["name"].lower()) for a in alts), "divergent twitter account should surface"
+    assert all(a["source_url"] or a["name"] for a in alts)
+
+
+def test_assess_disambiguation_single_identity_unchanged():
+    """When social profiles all match the anchor, only the web signal applies."""
+    sources = [
+        {"title": "Yigit Erdogan profile", "snippet": "about yigit erdogan", "url": "u1"},
+    ]
+    github = {"login": "yigtwx", "name": "Yigit Erdogan", "location": "Istanbul"}
+    social = {
+        "instagram": [{"url": "https://instagram.com/yigtwx", "bio": "dev"}],
+        "twitter": [{"url": "https://twitter.com/yigtwx", "bio": "dev"}],
+    }
+    conf, alts = _assess_disambiguation("Yigit Erdogan", sources, {}, social, github)
+    assert conf == 1.0, f"single consistent identity should keep web confidence, got {conf}"
+    assert alts == []
+
+
 def test_build_relationships_typed_edges():
     rels = _build_relationships(
         structured_data={"name": "Subject", "network_connections": [
