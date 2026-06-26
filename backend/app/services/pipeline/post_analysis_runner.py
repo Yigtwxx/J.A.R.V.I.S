@@ -8,6 +8,7 @@ from app.config import get_settings
 from app.schemas.profile import Citation, Claim
 from app.services.archive_service import archive_service
 from app.services.domain_intel_service import domain_intel_service
+from app.services.identity_resolver import classify_profiles
 from app.services.sanctions_service import sanctions_service
 from app.services.scholarly_service import scholarly_service
 from app.utils.logger import logger
@@ -147,43 +148,104 @@ def _build_timeline(github_data, data_breaches, company_records, archive_snapsho
     return events
 
 
-def _assess_disambiguation(real_name, raw_sources, structured_data) -> tuple[float | None, list]:
-    """Score how well public sources match the subject; surface alternative candidates (Faz 2.4)."""
-    try:
-        sources = raw_sources or []
-        if not sources:
-            return None, []
-        q_tokens = {t for t in _norm(real_name).split() if len(t) > 1}
-        if not q_tokens:
-            return None, []
+def _web_disambiguation(real_name, raw_sources) -> tuple[float | None, list]:
+    """Score how well web search results match the subject name (Faz 2.4)."""
+    sources = raw_sources or []
+    if not sources:
+        return None, []
+    q_tokens = {t for t in _norm(real_name).split() if len(t) > 1}
+    if not q_tokens:
+        return None, []
 
-        relevant = 0
-        candidate_pool: dict[str, str] = {}
-        for s in sources:
-            text = _norm(f"{s.get('title', '')} {s.get('snippet', '')}")
-            text_tokens = set(text.split())
-            if q_tokens <= text_tokens:
-                relevant += 1
-            else:
-                # collect capitalized name-like phrases from the original title as candidates
-                title = s.get("title", "") or ""
-                words = [w for w in title.split() if w[:1].isupper() and w.isalpha()]
-                for i in range(len(words) - 1):
-                    cand = f"{words[i]} {words[i + 1]}"
-                    if not (q_tokens <= set(_norm(cand).split())) and len(cand) > 5:
-                        candidate_pool.setdefault(_norm(cand), s.get("url", ""))
+    relevant = 0
+    candidate_pool: dict[str, str] = {}
+    for s in sources:
+        text = _norm(f"{s.get('title', '')} {s.get('snippet', '')}")
+        text_tokens = set(text.split())
+        if q_tokens <= text_tokens:
+            relevant += 1
+        else:
+            # collect capitalized name-like phrases from the original title as candidates
+            title = s.get("title", "") or ""
+            words = [w for w in title.split() if w[:1].isupper() and w.isalpha()]
+            for i in range(len(words) - 1):
+                cand = f"{words[i]} {words[i + 1]}"
+                if not (q_tokens <= set(_norm(cand).split())) and len(cand) > 5:
+                    candidate_pool.setdefault(_norm(cand), s.get("url", ""))
 
-        confidence = round(relevant / len(sources), 2)
+    confidence = round(relevant / len(sources), 2)
 
-        alternatives: list = []
-        if confidence < 0.6:
-            for norm_name, url in list(candidate_pool.items())[:3]:
+    alternatives: list = []
+    if confidence < 0.6:
+        for norm_name, url in list(candidate_pool.items())[:3]:
+            alternatives.append({
+                "name": norm_name.title(),
+                "reason": "Appears in results but does not match the subject name",
+                "source_url": url,
+            })
+    return confidence, alternatives
+
+
+def _social_disambiguation(real_name, social_profiles, github_data) -> tuple[float | None, list]:
+    """Score subject confidence from same-name social profiles and surface divergent
+    accounts as alternative candidates (Faz 2.4, social signal)."""
+    if not social_profiles:
+        return None, []
+    classification = classify_profiles(social_profiles, github_data, real_name)
+    if not classification.get("has_others"):
+        # Either a single confident identity or no anchor to split on — no social signal.
+        return None, []
+
+    counts = {"primary": 0, "candidate": 0, "divergent": 0}
+    alternatives: list = []
+    for platform, items in classification["profiles"].items():
+        for item in items or []:
+            match = item.get("match", "primary")
+            counts[match] = counts.get(match, 0) + 1
+            if match == "divergent":
+                url = item.get("url", "") or ""
+                handle = url.rstrip("/").rsplit("/", 1)[-1].lstrip("@") if url else ""
+                label = f"{platform.title()} ({handle})" if handle else platform.title()
                 alternatives.append({
-                    "name": norm_name.title(),
-                    "reason": "Appears in results but does not match the subject name",
+                    "name": label,
+                    "reason": "Same-name social account, likely a different person",
                     "source_url": url,
                 })
-        return confidence, alternatives
+
+    total = sum(counts.values())
+    if total == 0:
+        return None, []
+    confidence = round(counts["primary"] / total, 2)
+    return confidence, alternatives
+
+
+def _assess_disambiguation(
+    real_name, raw_sources, structured_data, social_profiles=None, github_data=None
+) -> tuple[float | None, list]:
+    """Combine web- and social-derived disambiguation signals.
+
+    ``subject_confidence`` is the minimum of the available signals (worst case), and
+    alternative candidates from both sources are merged and de-duplicated. Returns
+    ``(None, [])`` only when neither signal is available, preserving legacy behaviour
+    for callers that pass no social data.
+    """
+    try:
+        web_conf, web_alts = _web_disambiguation(real_name, raw_sources)
+        social_conf, social_alts = _social_disambiguation(real_name, social_profiles, github_data)
+
+        confidences = [c for c in (web_conf, social_conf) if c is not None]
+        if not confidences:
+            return None, []
+        confidence = min(confidences)
+
+        alternatives: list = []
+        seen: set[str] = set()
+        for alt in [*web_alts, *social_alts]:
+            key = _norm(alt.get("name", ""))
+            if key and key not in seen:
+                seen.add(key)
+                alternatives.append(alt)
+        return confidence, alternatives[:5]
     except Exception as exc:  # noqa: BLE001
         logger.log_warning(f"Disambiguation failed (non-critical): {exc}")
         return None, []
@@ -499,7 +561,7 @@ class PostAnalysisRunnerStep(PipelineStep):
             github_data, data_breaches, orch_result.company_records, archive_snapshots,
         )
         subject_confidence, alternative_candidates = _assess_disambiguation(
-            ctx.real_name, raw_sources, structured_data,
+            ctx.real_name, raw_sources, structured_data, social_profiles, github_data,
         )
         relationships = _build_relationships(
             structured_data, orch_result.company_records, sanctions_hits,
