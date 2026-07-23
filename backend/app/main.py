@@ -11,7 +11,12 @@ from app.config import generate_api_key, get_settings
 from app.database import init_db
 from app.middleware.audit import AuditMiddleware
 from app.middleware.csrf import CSRFMiddleware
-from app.middleware.security import PersistentRateLimitMiddleware, RateLimitMiddleware, RedisRateLimitMiddleware, verify_api_key
+from app.middleware.security import (
+    PersistentRateLimitMiddleware,
+    RateLimitMiddleware,
+    RedisRateLimitMiddleware,
+    verify_api_key,
+)
 from app.plugins import plugin_manager
 from app.services.self_healing_service import self_healing_service
 from app.routes import (
