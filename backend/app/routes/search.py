@@ -131,8 +131,13 @@ async def search_person(
     except HTTPException:
         raise
     except Exception as e:
+        # Log the raw error server-side, but do not leak internal exception
+        # details (paths, library internals) to the client.
         logger.log_error(f"Error during search: {e}")
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}") from e
+        raise HTTPException(
+            status_code=500,
+            detail="Search failed due to an internal error. Please try again.",
+        ) from e
 
 
 @router.get("/test")
