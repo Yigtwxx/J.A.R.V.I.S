@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # Ollama (default aligned with backend/.env OLLAMA_MODEL; tool-calling is
     # supported by qwen2.5 and qwen3 alike)
     ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen2.5"
+    ollama_model: str = "qwen3:8b"
 
     # Vision (multimodal)
     vision_model: str = "llama3.2-vision"
