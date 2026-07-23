@@ -146,7 +146,7 @@ function NetworkNodesPanel({ lastProfile }: { lastProfile: SearchResponse }) {
                 <ScrambleText text="Network Nodes" className="text-[10px] font-bold font-mono tracking-widest text-cyan-300 uppercase glow-cyan" />
                 <span className="ml-auto text-[8px] font-mono bg-cyan-400/10 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30">{socialEntries.length + searchEntries.length}</span>
             </div>
-            <div className="p-2.5 space-y-2">
+            <div className="p-2.5 space-y-2.5">
                 <AnimatePresence>
                     {/* Empty state when no social profiles found */}
                     {socialEntries.length === 0 && searchEntries.length > 0 && (
@@ -185,15 +185,15 @@ function NetworkNodesPanel({ lastProfile }: { lastProfile: SearchResponse }) {
                                     key={label}
                                     initial={{ opacity: 0, x: 20 }}
                                     animate={{ opacity: 1, x: 0 }}
-                                    className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${brandStyles}`}
+                                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all ${brandStyles}`}
                                 >
                                     <Icon className="w-4 h-4 shrink-0" />
-                                    <div className="flex flex-col overflow-hidden">
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-[11px] text-white font-bold font-mono tracking-wider drop-shadow-sm">{label}</span>
-                                            {isMention && <span className="text-[7px] font-mono bg-white/10 px-1 rounded">MENTION</span>}
+                                    <div className="flex flex-col overflow-hidden min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-xs text-white font-bold font-mono tracking-wider drop-shadow-sm">{label}</span>
+                                            {isMention && <span className="text-[9px] font-mono bg-white/10 px-1 py-0.5 rounded">MENTION</span>}
                                         </div>
-                                        <span className="text-[8px] opacity-60 font-mono truncate">{typeof urls === 'string' ? urls.substring(0, 40) : urls}</span>
+                                        <span className="text-[10px] opacity-60 font-mono truncate">{typeof urls === 'string' ? urls.substring(0, 40) : urls}</span>
                                     </div>
                                 </motion.div>
                             )];
@@ -217,13 +217,13 @@ function NetworkNodesPanel({ lastProfile }: { lastProfile: SearchResponse }) {
                                     initial={{ opacity: 0, x: 20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: idx * 0.05 }}
-                                    className={`flex items-center gap-2 p-2 rounded-xl border transition-all group/link ${brandStyles}`}
+                                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all group/link ${brandStyles}`}
                                     whileHover={{ x: -3, scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                 >
                                     <Icon className="w-4 h-4 transition-colors group-hover/link:text-white shrink-0" />
-                                    <span className="text-[11px] text-white font-bold font-mono tracking-wider drop-shadow-sm truncate">{displayLabel}</span>
-                                    <span className="text-[6px] font-mono bg-green-500/20 text-green-400 px-1 py-0.5 rounded ml-auto shrink-0 border border-green-500/30">FOUND</span>
+                                    <span className="text-xs text-white font-bold font-mono tracking-wider drop-shadow-sm truncate min-w-0">{displayLabel}</span>
+                                    <span className="text-[9px] font-mono bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded ml-auto shrink-0 border border-green-500/30">FOUND</span>
                                 </motion.a>
                             );
                         });
@@ -237,15 +237,15 @@ function NetworkNodesPanel({ lastProfile }: { lastProfile: SearchResponse }) {
                             animate={{ opacity: 1 }}
                             className="flex flex-col gap-1.5"
                         >
-                            <div className="pt-3 pb-1.5 border-t border-cyan-500/15 mt-2">
+                            <div className="pt-3.5 pb-1.5 border-t border-cyan-500/15 mt-2.5">
                                 <div className="flex items-center gap-2 px-1">
                                     <Search className="w-3 h-3 text-cyan-500/50" />
-                                    <span className="text-[8px] font-bold font-mono tracking-widest text-cyan-500/50 uppercase">Search on Platform</span>
+                                    <span className="text-[9px] font-bold font-mono tracking-widest text-cyan-500/50 uppercase">Search on Platform</span>
                                 </div>
                                 {nameVariations.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 px-1 mt-1">
+                                    <div className="flex flex-wrap gap-1 px-1 mt-1.5">
                                         {nameVariations.slice(0, 3).map((v, i) => (
-                                            <span key={i} className="text-[7px] font-mono bg-cyan-500/10 text-cyan-400/60 px-1 py-0.5 rounded border border-cyan-500/10">@{v}</span>
+                                            <span key={i} className="text-[9px] font-mono bg-cyan-500/10 text-cyan-400/60 px-1.5 py-0.5 rounded border border-cyan-500/10">@{v}</span>
                                         ))}
                                     </div>
                                 )}
@@ -259,12 +259,12 @@ function NetworkNodesPanel({ lastProfile }: { lastProfile: SearchResponse }) {
                                     initial={{ opacity: 0, x: 10 }}
                                     animate={{ opacity: 0.7, x: 0 }}
                                     transition={{ delay: idx * 0.03 }}
-                                    className="flex items-center gap-2 p-1.5 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] hover:opacity-100 hover:border-cyan-500/30 transition-all group/search"
+                                    className="flex items-center gap-2.5 p-2 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] hover:opacity-100 hover:border-cyan-500/30 transition-all group/search"
                                     whileHover={{ x: -2, scale: 1.02 }}
                                 >
-                                    <Icon className="w-3.5 h-3.5 opacity-50 group-hover/search:opacity-80 shrink-0" />
-                                    <span className="text-[10px] text-white/50 font-mono tracking-wider truncate group-hover/search:text-white/70">{label}</span>
-                                    <span className="text-[7px] font-mono bg-cyan-500/10 text-cyan-400/50 px-1.5 py-0.5 rounded ml-auto shrink-0 group-hover/search:bg-cyan-500/20 group-hover/search:text-cyan-400/80">SEARCH</span>
+                                    <Icon className="w-4 h-4 opacity-50 group-hover/search:opacity-80 shrink-0" />
+                                    <span className="text-[11px] text-white/50 font-mono tracking-wider truncate min-w-0 group-hover/search:text-white/70">{label}</span>
+                                    <span className="text-[9px] font-mono bg-cyan-500/10 text-cyan-400/50 px-1.5 py-0.5 rounded ml-auto shrink-0 group-hover/search:bg-cyan-500/20 group-hover/search:text-cyan-400/80">SEARCH</span>
                                 </motion.a>
                             ))}
                         </motion.div>
@@ -278,10 +278,10 @@ function NetworkNodesPanel({ lastProfile }: { lastProfile: SearchResponse }) {
                         exit={{ opacity: 0 }}
                         className="flex flex-col gap-2"
                     >
-                        <div className="pt-2 pb-1 border-t border-cyan-500/20 mt-2">
+                        <div className="pt-3.5 pb-1 border-t border-cyan-500/20 mt-2.5">
                             <div className="flex items-center gap-2 px-1">
                                 <TerminalSquare className="w-3.5 h-3.5 text-cyan-400" />
-                                <ScrambleText text="Intelligence Sources" className="text-[9px] font-bold font-mono tracking-widest text-cyan-500/80 uppercase" />
+                                <ScrambleText text="Intelligence Sources" className="text-[10px] font-bold font-mono tracking-widest text-cyan-500/80 uppercase" />
                             </div>
                         </div>
                         {lastProfile.sources && lastProfile.sources.length > 0 ? (
@@ -300,9 +300,9 @@ function NetworkNodesPanel({ lastProfile }: { lastProfile: SearchResponse }) {
                                 >
                                     <div className="flex items-center gap-1.5 overflow-hidden">
                                         <Globe className="w-3 h-3 text-cyan-500/60 group-hover/source:text-cyan-400" />
-                                        <span className="text-[10px] text-cyan-100/90 font-bold font-mono truncate">{source.title}</span>
+                                        <span className="text-[11px] text-cyan-100/90 font-bold font-mono truncate">{source.title}</span>
                                     </div>
-                                    <span className="text-[8px] text-cyan-500/50 truncate pl-4 font-mono">{(() => { try { return new URL(source.url).hostname; } catch { return source.url.substring(0, 30); } })()}</span>
+                                    <span className="text-[9px] text-cyan-500/50 truncate pl-4 font-mono">{(() => { try { return new URL(source.url).hostname; } catch { return source.url.substring(0, 30); } })()}</span>
                                 </motion.a>
                             ))
                         ) : (
@@ -658,7 +658,7 @@ export default function IntelDock() {
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
-            className={`h-screen flex flex-col ${isAgentMode ? 'w-[30rem]' : 'w-[21rem]'} shrink-0 pt-6 pb-6 pr-4 pl-1 z-20 transition-[width] duration-500`}
+            className={`h-screen flex flex-col ${isAgentMode ? 'w-[30rem]' : 'w-[22rem] xl:w-[23rem]'} shrink-0 pt-6 pb-6 pr-4 pl-1 z-20 transition-[width] duration-500`}
         >
             {/* Dock header / collapse control */}
             <div className="flex items-center gap-2 px-2 pb-3 shrink-0">
