@@ -3,79 +3,28 @@
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Send, Loader2, Wrench } from 'lucide-react';
-import { agentChatStream } from '@/services/api';
 import { useChatStore } from '@/store/chatStore';
-import { AgentMessage } from '@/types/profile';
+import { useAgentChat } from '@/hooks/useAgentChat';
 import ReactMarkdown from 'react-markdown';
 
 const AgentChatMode = () => {
     const agentMessages = useChatStore(state => state.agentMessages);
-    const setAgentMessages = useChatStore(state => state.setAgentMessages);
     const isAgentLoading = useChatStore(state => state.isAgentLoading);
-    const setIsAgentLoading = useChatStore(state => state.setIsAgentLoading);
     const streamingAgentContent = useChatStore(state => state.streamingAgentContent);
-    const setStreamingAgentContent = useChatStore(state => state.setStreamingAgentContent);
+    const { sendAgentMessage } = useAgentChat();
 
     const [input, setInput] = React.useState('');
     const scrollRef = useRef<HTMLDivElement>(null);
-    const abortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }, [agentMessages, streamingAgentContent]);
 
-    useEffect(() => {
-        return () => { abortControllerRef.current?.abort(); };
-    }, []);
-
-    const handleSend = async () => {
+    const handleSend = () => {
         if (!input.trim() || isAgentLoading) return;
-
-        // Cancel any in-flight stream
-        abortControllerRef.current?.abort();
-        const controller = new AbortController();
-        abortControllerRef.current = controller;
-
-        const userMsg: AgentMessage = { role: 'user', content: input.trim() };
-        setAgentMessages(prev => [...prev, userMsg]);
+        const query = input;
         setInput('');
-        setIsAgentLoading(true);
-        setStreamingAgentContent('');
-
-        try {
-            const response = await agentChatStream(input.trim(), [...agentMessages, userMsg], controller.signal);
-
-            if (!response.body) throw new Error('No response body');
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let full = '';
-
-            try {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    const chunk = decoder.decode(value, { stream: true });
-                    full += chunk;
-                    setStreamingAgentContent(full);
-                }
-            } catch (readError) {
-                if (readError instanceof DOMException && readError.name === 'AbortError') return;
-                console.error('Agent stream read failed:', readError);
-                if (!full) throw readError;
-                full += '\n\n[Stream interrupted]';
-            }
-
-            setAgentMessages(prev => [...prev, { role: 'assistant', content: full }]);
-            setStreamingAgentContent('');
-        } catch (error: unknown) {
-            if (error instanceof DOMException && error.name === 'AbortError') return;
-            const errMsg = error instanceof Error ? error.message : 'Unknown error';
-            setAgentMessages(prev => [...prev, { role: 'assistant', content: `[ERROR] Agent failed: ${errMsg}` }]);
-            setStreamingAgentContent('');
-        } finally {
-            setIsAgentLoading(false);
-        }
+        void sendAgentMessage(query);
     };
 
     return (
