@@ -30,6 +30,11 @@ async def verify_api_key(api_key: str | None = Security(_api_key_header)) -> str
     """
     FastAPI dependency that verifies the X-API-Key header.
     If API_KEY is not configured (empty), authentication is disabled.
+
+    The key is accepted only via the header — never as a URL query parameter —
+    so it is not exposed in access logs, browser history, or Referer headers.
+    Browser SSE consumers must therefore stream via ``fetch`` (which can set the
+    header) rather than the native ``EventSource`` API.
     """
     if not settings.api_key:
         return None  # Auth disabled
