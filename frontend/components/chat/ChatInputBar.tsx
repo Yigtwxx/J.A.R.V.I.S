@@ -6,6 +6,7 @@ import { Send, Loader2, Bot, Search } from 'lucide-react';
 import { searchPerson, getSearchHistory } from '@/services/api';
 import { Message } from '@/types/profile';
 import { useChatStore } from '@/store/chatStore';
+import { useAgentChat } from '@/hooks/useAgentChat';
 import VisionUpload from '@/components/chat/VisionUpload';
 import DepthSelector from '@/components/chat/DepthSelector';
 import { useTranslations } from 'next-intl';
@@ -24,6 +25,8 @@ const ChatInputBar = () => {
     const isAgentMode = useChatStore(state => state.isAgentMode);
     const setAgentMode = useChatStore(state => state.setAgentMode);
     const searchDepth = useChatStore(state => state.searchDepth);
+    const isAgentLoading = useChatStore(state => state.isAgentLoading);
+    const { sendAgentMessage } = useAgentChat();
     const abortControllerRef = useRef<AbortController | null>(null);
     const autoSearchFiredRef = useRef(false);
 
@@ -114,10 +117,25 @@ const ChatInputBar = () => {
         }
     };
 
+    // Agent mode: route the main bar to the autonomous agent instead of an OSINT
+    // search. The conversation is stored in the shared store (via useAgentChat),
+    // so it renders in the Agent Console (IntelDock) which reads the same state.
+    const triggerAgentChat = (queryOverride?: string) => {
+        const query = queryOverride ?? input;
+        if (!query.trim() || isAgentLoading) return;
+        setInput('');
+        void sendAgentMessage(query);
+    };
+
+    const handleSubmit = () => {
+        if (isAgentMode) triggerAgentChat();
+        else triggerSearch();
+    };
+
     const handleKeyPress = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            triggerSearch();
+            handleSubmit();
         }
     };
 
@@ -141,6 +159,7 @@ const ChatInputBar = () => {
                 {/* Agent Mode Toggle */}
                 <button
                     onClick={() => setAgentMode(!isAgentMode)}
+                    disabled={isLoading || isAgentLoading}
                     title={isAgentMode ? s('switchToSearch') : s('switchToAgent')}
                     className={`relative z-10 rounded-xl w-11 h-11 p-0 flex items-center justify-center shrink-0 border-2 transition-all duration-300 ${
                         isAgentMode
@@ -169,20 +188,20 @@ const ChatInputBar = () => {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyPress}
                     placeholder={isAgentMode ? s('placeholderAgent') : s('placeholderSearch')}
-                    disabled={isLoading}
+                    disabled={isLoading || isAgentLoading}
                     className={`flex-1 input-jarvis h-14 rounded-2xl border-none shadow-none bg-black/20 focus:bg-black/40 placeholder:tracking-widest text-xl font-bold px-8 transition-all ${isAgentMode ? 'placeholder:text-purple-500/30' : ''}`}
                 />
 
                 <button
-                    onClick={() => triggerSearch()}
-                    disabled={isLoading || !input.trim()}
+                    onClick={handleSubmit}
+                    disabled={isLoading || isAgentLoading || !input.trim()}
                     className={`relative z-10 btn-jarvis rounded-xl w-14 h-14 p-0 flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed group/btn border-2 transition-all ${
                         isAgentMode
                             ? 'hover:border-purple-300 bg-purple-950/40 border-purple-500/50'
                             : 'hover:border-cyan-300 bg-cyan-950/40 border-cyan-500/50'
                     }`}
                 >
-                    {isLoading ? (
+                    {(isAgentMode ? isAgentLoading : isLoading) ? (
                         <Loader2 className={`w-6 h-6 animate-spin ${isAgentMode ? 'text-purple-300' : 'text-cyan-300'}`} />
                     ) : (
                         <Send className={`w-6 h-6 group-hover/btn:text-white group-hover/btn:scale-110 transition-all ${isAgentMode ? 'text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]' : 'text-cyan-400 drop-shadow-[0_0_8px_rgba(0,255,255,0.8)]'}`} />
