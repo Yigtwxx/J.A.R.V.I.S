@@ -7,3 +7,6 @@ Sentry.init({
     enabled: !!DSN,
     tracesSampleRate: 0.2,
 });
+
+// Required by @sentry/nextjs to instrument client-side router navigations.
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
