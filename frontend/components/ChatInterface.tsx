@@ -4,7 +4,7 @@ import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TerminalSquare, Save, CheckCircle, Search, AlertTriangle, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { saveProfile, API_BASE_URL } from '@/services/api';
+import { saveProfile, streamStatus } from '@/services/api';
 import { Message, SearchResponse } from '@/types/profile';
 import ReactMarkdown from 'react-markdown';
 import dynamic from 'next/dynamic';
@@ -47,19 +47,14 @@ export default function ChatInterface() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        let eventSource: EventSource | null = null;
-        let intentionalClose = false;
         let active = true;
-        let reconnectCount = 0;
-        const MAX_RECONNECTS = 1;
+        const controller = new AbortController();
 
         if (isLoading) {
             resetSearchState(); // Reset RAG and Live status
-            eventSource = new EventSource(`${API_BASE_URL}/api/status/stream`);
 
-            eventSource.onmessage = (event) => {
+            const handleMessage = (data: string) => {
                 if (!active) return; // Guard against stale updates
-                const data = event.data as string;
 
                 if (data === '[STREAM_START]') {
                     // AI streaming is about to begin — clear any previous content
@@ -73,31 +68,26 @@ export default function ChatInterface() {
                 }
 
                 if (data.startsWith('[STREAM] ')) {
-                    const token = data.substring(9);
-                    addStreamingToken(token);
+                    addStreamingToken(data.substring(9));
                 } else {
                     addLiveStatus(data);
                 }
             };
 
-            eventSource.onerror = () => {
-                if (!active || intentionalClose) {
-                    eventSource?.close();
-                    return;
-                }
-                reconnectCount++;
-                if (reconnectCount > MAX_RECONNECTS || eventSource?.readyState === EventSource.CLOSED) {
-                    eventSource?.close();
-                }
-            };
+            // Fetch-based SSE so the API key travels in the X-API-Key header.
+            streamStatus(handleMessage, controller.signal).catch((err) => {
+                if (err instanceof DOMException && err.name === 'AbortError') return;
+                // Stream ended or failed: live status simply stops updating; the
+                // search itself completes via its own request.
+                console.error('Status stream error:', err);
+            });
         } else {
             setStreamingContent('');
         }
 
         return () => {
             active = false;
-            intentionalClose = true;
-            if (eventSource) eventSource.close();
+            controller.abort();
         };
     }, [isLoading, resetSearchState, addStreamingToken, addLiveStatus, setStreamingContent]);
 
