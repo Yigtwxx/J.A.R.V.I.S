@@ -21,6 +21,52 @@ export const getApiHeaders = (): Record<string, string> => ({
     ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
 });
 
+/**
+ * Stream the live-status SSE feed via ``fetch`` so the API key travels in the
+ * ``X-API-Key`` header instead of the URL (the native ``EventSource`` API cannot
+ * set headers, which would force the key into access logs / history / Referer).
+ *
+ * ``onMessage`` is invoked once per SSE event with its concatenated ``data``
+ * payload, mirroring ``EventSource.onmessage``. Resolves when the stream ends;
+ * abort via ``signal`` to close it.
+ */
+export const streamStatus = async (
+    onMessage: (data: string) => void,
+    signal?: AbortSignal,
+): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/api/status/stream`, {
+        method: 'GET',
+        headers: getApiHeaders(),
+        signal,
+    });
+    if (!response.ok || !response.body) {
+        throw new Error(`Status stream failed (HTTP ${response.status})`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE events are separated by a blank line; join each event's data lines.
+        let sep: number;
+        while ((sep = buffer.indexOf('\n\n')) !== -1) {
+            const rawEvent = buffer.slice(0, sep);
+            buffer = buffer.slice(sep + 2);
+            const data = rawEvent
+                .split('\n')
+                .filter(line => line.startsWith('data:'))
+                .map(line => line.replace(/^data: ?/, ''))
+                .join('\n');
+            if (data) onMessage(data);
+        }
+    }
+};
+
 const api = axios.create({
     baseURL: API_BASE_URL,
     timeout: 120_000,
@@ -119,18 +165,8 @@ export const exportCsv = async (profileId: number): Promise<Blob> => {
 export const agentChat = async (
     message: string,
     history: AgentMessage[] = [],
-    stream = false,
     signal?: AbortSignal,
 ): Promise<string> => {
-    if (stream) {
-        const response = await fetch(`${API_BASE_URL}/api/agent/chat`, {
-            method: 'POST',
-            headers: getApiHeaders(),
-            body: JSON.stringify({ message, history, stream: true }),
-            signal,
-        });
-        return response.text();
-    }
     const response = await api.post<{ response: string }>('/api/agent/chat', {
         message, history, stream: false,
     }, { signal });
