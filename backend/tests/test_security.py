@@ -42,12 +42,21 @@ class TestRateLimiting:
 class TestApiKeyAuthentication:
     """Test API key authentication on the search endpoint."""
 
-    def test_search_without_key_when_disabled(self, client):
-        """When API_KEY is empty, search should work without a key (auth disabled)."""
-        # We just test the validation — the endpoint will fail because
-        # we haven't mocked all services, but it shouldn't be 401
-        response = client.post("/api/search/", json={"query": "test"})
-        assert response.status_code != 401  # Not unauthorized
+    # Both tests below post an empty body deliberately. Auth runs ahead of
+    # request validation, so an authenticated call stops at 422 — enough to
+    # prove the key was accepted, without running the real search pipeline
+    # (a valid body sends it to the live network and takes over two minutes).
+
+    def test_search_with_key_passes_auth(self, client):
+        """A request carrying the configured key gets past auth to validation."""
+        response = client.post("/api/search/", json={})
+        assert response.status_code == 422
+
+    def test_search_without_key_is_rejected(self, unauthenticated_client):
+        """Auth is never disabled: main.py auto-generates a key when none is
+        configured, so a request with no key must be rejected."""
+        response = unauthenticated_client.post("/api/search/", json={})
+        assert response.status_code == 401
 
     @patch("app.middleware.security.settings")
     def test_search_rejected_without_key(self, mock_settings):
