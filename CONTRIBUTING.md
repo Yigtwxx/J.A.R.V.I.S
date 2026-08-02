@@ -49,7 +49,7 @@ git checkout -b fix/yahoo-regex-bypass
 Ensure you have the full stack running to test your changes. 
 *   **Backend:** Python 3.11+, PostgreSQL 16+, FastAPI.
 *   **Frontend:** Node.js 18+, Next.js 15.
-*   **AI:** Local Ollama instance (default: `llama3`).
+*   **AI:** Local Ollama instance (default: `qwen3.5:9b`, plus `llama3.2-vision` for image analysis).
 
 If you are modifying scraping logic (`backend/app/services/scraper_service.py`), please ensure you test your regex against multiple target profile structures as social media layouts change frequently.
 
