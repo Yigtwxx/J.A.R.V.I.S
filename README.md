@@ -45,7 +45,7 @@ Beyond search, J.A.R.V.I.S functions as an intelligent assistant:
 - **Health Tracking** — Wellness telemetry with AI-powered suggestions and pattern detection.
 - **Export System** — Generate classified-style PDF dossiers, structured JSON, or Maltego/i2-compatible CSV from any search result or saved profile.
 
-The core philosophy of J.A.R.V.I.S centers on **data privacy and local execution**. All AI analysis runs entirely on your local machine using **Ollama** with dual models: `qwen3:8b` for text intelligence and `llama3.2-vision` for multimodal analysis. Queries, scraped contents, and results never leave your local network — data is persisted into a private SQLite database (or optionally PostgreSQL) under your full control.
+The core philosophy of J.A.R.V.I.S centers on **data privacy and local execution**. All AI analysis runs entirely on your local machine using **Ollama** with dual models: `qwen3.5:9b` for text intelligence and `llama3.2-vision` for multimodal analysis. Queries, scraped contents, and results never leave your local network — data is persisted into a private SQLite database (or optionally PostgreSQL) under your full control.
 
 ---
 
@@ -76,7 +76,7 @@ graph TD;
         ORCH --> CO[Company Records]
         ORCH --> GEO[GeoInt Service]
         ORCH --> FM[Face Matching]
-        SS & SC & GH & BR -->|Context| AI["Ollama AI (qwen3:8b)"]
+        SS & SC & GH & BR -->|Context| AI["Ollama AI (qwen3.5:9b)"]
         AI -->|Structured JSON| ORCH
         ROUTES --> VIS["Vision Service (llama3.2-vision)"]
         ROUTES --> MEM[Memory Service]
@@ -197,7 +197,7 @@ This service extracts the biographical text required to generate a dossier.
 
 ### Stage 4: Local AI Synthesis (`ai_service.py`)
 
-All formatted data from Stages 1–3 is compacted into a single prompt and sent to the local Ollama instance (`qwen3:8b`).
+All formatted data from Stages 1–3 is compacted into a single prompt and sent to the local Ollama instance (`qwen3.5:9b`).
 
 1. **System Prompt:** The AI is given a restrictive identity, commanded to produce structured analysis covering: biographical summary, professional trajectory, psychological profile, controversy assessment, influence network mapping, social engineering vectors, and future trajectory predictions.
 2. **Hallucination Prevention:** The prompt explicitly instructs: *"You MUST ONLY write about the exact requested person. If the search context is about a CLEARLY DIFFERENT person, you MUST IGNORE that context entirely."*
@@ -528,7 +528,7 @@ docker-compose up -d
 
 After containers are up, pull the required AI models:
 ```bash
-docker exec -it <ollama-container-name> ollama pull qwen3:8b
+docker exec -it <ollama-container-name> ollama pull qwen3.5:9b
 docker exec -it <ollama-container-name> ollama pull llama3.2-vision
 ```
 
@@ -539,7 +539,7 @@ Data persists via Docker volumes: `backend/data` for SQLite and `ollama_data` fo
 #### Step 1: Install and Start Ollama
 Download from [ollama.ai](https://ollama.ai) and pull the required models:
 ```bash
-ollama pull qwen3:8b
+ollama pull qwen3.5:9b
 ollama pull llama3.2-vision
 ```
 
@@ -574,7 +574,7 @@ Open `http://localhost:3000` in your browser.
 |----------|---------|-------------|
 | `DATABASE_URL` | `sqlite:///./data/jarvis.db` | Database connection string. Use `postgresql://user:pass@host:5432/jarvis` for PostgreSQL |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama daemon address |
-| `OLLAMA_MODEL` | `qwen3:8b` | Primary text model for intelligence synthesis |
+| `OLLAMA_MODEL` | `qwen3.5:9b` | Primary text model for intelligence synthesis |
 | `VISION_MODEL` | `llama3.2-vision` | Multimodal vision model |
 | `GITHUB_TOKEN` | *(empty)* | Optional GitHub Personal Access Token for increased API rate limits |
 | `HOST` | `0.0.0.0` | Server bind address |
