@@ -10,10 +10,11 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite:///./data/jarvis.db"
 
-    # Ollama (default aligned with backend/.env OLLAMA_MODEL; tool-calling is
-    # supported by qwen2.5 and qwen3 alike)
+    # Ollama (default aligned with backend/.env OLLAMA_MODEL). qwen3.5 supports
+    # tool-calling, which the agent loop depends on. It is a hybrid reasoning
+    # model, so it emits <think> blocks — AIService strips those from the stream.
     ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen3:8b"
+    ollama_model: str = "qwen3.5:9b"
 
     # Vision (multimodal)
     vision_model: str = "llama3.2-vision"
@@ -46,10 +47,12 @@ class Settings(BaseSettings):
     api_key: str = ""
 
     # Rate Limiting (sliding window per IP)
-    rate_limit_requests: int = 30      # max requests per window
+    rate_limit_requests: int = 30  # max requests per window
     rate_limit_window_seconds: int = 60  # window size in seconds
     rate_limit_persistent: bool = False  # True = SQLite-backed (survives restarts)
-    rate_limit_backend: str = "sqlite"  # "memory" | "sqlite" | "redis" — sqlite survives restarts; use redis for multi-instance
+    rate_limit_backend: str = (
+        "sqlite"  # "memory" | "sqlite" | "redis" — sqlite survives restarts; use redis for multi-instance
+    )
     redis_url: str = ""  # e.g. redis://localhost:6379 — required when rate_limit_backend=redis
     rate_limit_cleanup_interval: int = 300  # seconds between cleanup runs
 
@@ -71,8 +74,8 @@ class Settings(BaseSettings):
     enable_predictive_analysis: bool = True
 
     # Cache (in-memory TTL cache for search results)
-    search_cache_ttl_seconds: int = 300   # 5 minutes
-    search_cache_max_size: int = 50       # max cached queries
+    search_cache_ttl_seconds: int = 300  # 5 minutes
+    search_cache_max_size: int = 50  # max cached queries
 
     # Debug mode (enables test/debug endpoints)
     debug: bool = False
