@@ -13,6 +13,10 @@ ignore = ["E501", "B008"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
+# conftest.py has to extend sys.path and set the test environment variables
+# before importing app.main, which caches Settings on import — so its imports
+# cannot sit at the top of the file.
+"tests/conftest.py" = ["E402"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
