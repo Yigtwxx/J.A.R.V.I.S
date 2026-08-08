@@ -7,28 +7,36 @@ services:
       - ./backend/data:/app/data
     env_file: ./backend/.env
     environment:
-      - OLLAMA_URL=http://ollama:11434
-    depends_on:
-      - ollama
+      # Ollama runs on the host (already serving qwen3.5:9b), not as a container.
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - HOST=0.0.0.0
+      - PORT=8000
+    extra_hosts:
+      # Required on Linux; harmless on Docker Desktop where it already resolves.
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # The browser runs on the host, so it must reach the backend through
+        # the published port — "http://backend:8000" is unreachable from there.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_API_KEY: ${NEXT_PUBLIC_API_KEY:?Set NEXT_PUBLIC_API_KEY in the root .env file (copy .env.example)}
     ports:
       - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
-
-  ollama:
-    image: ollama/ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: unless-stopped
-
-volumes:
-  ollama_data:
