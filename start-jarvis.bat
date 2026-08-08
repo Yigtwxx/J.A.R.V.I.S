@@ -93,10 +93,13 @@ if %errorlevel% neq 0 (
 echo [OK] Frontend dependencies installed
 echo.
 
-REM Clean cache
-if exist ".next" (
-    echo [FRONTEND] Cleaning cache...
-    rd /s /q ".next" >nul 2>&1
+REM Clean cache only when explicitly requested: start-jarvis.bat --clean
+REM Keeping .next between runs avoids a full ~40s recompile on every start.
+if /i "%~1"=="--clean" (
+    if exist ".next" (
+        echo [FRONTEND] Cleaning cache...
+        rd /s /q ".next" >nul 2>&1
+    )
 )
 
 cd ..
@@ -127,23 +130,32 @@ cd ..
 echo [OK] Backend started in background
 echo.
 
-REM Wait for backend
-echo [INFO] Waiting for backend to initialize (8 seconds)...
-timeout /t 8 /nobreak >nul
+REM Wait for backend — poll /health instead of a fixed sleep (max 60s)
+echo [INFO] Waiting for backend to become ready...
+set /a BACKEND_TRIES=0
 
-REM Check backend
-curl -s http://localhost:8000/health >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] Backend is running at http://localhost:8000
-) else (
-    echo [WARNING] Backend not responding
-    echo [INFO] Checking logs\backend.log...
-    echo.
-    echo ======== BACKEND LOG (Last 10 lines) ========
-    powershell -Command "Get-Content logs\backend.log -Tail 10"
-    echo =============================================
-    echo.
-)
+:wait_backend
+curl -s --max-time 5 http://localhost:8000/health >nul 2>&1
+if %errorlevel% equ 0 goto backend_ready
+set /a BACKEND_TRIES+=1
+if %BACKEND_TRIES% geq 60 goto backend_timeout
+timeout /t 1 /nobreak >nul
+goto wait_backend
+
+:backend_ready
+echo [OK] Backend is running at http://localhost:8000
+goto backend_done
+
+:backend_timeout
+echo [WARNING] Backend did not respond within 60 seconds
+echo [INFO] Checking logs\backend.log...
+echo.
+echo ======== BACKEND LOG (Last 20 lines) ========
+powershell -NoProfile -Command "Get-Content logs\backend.log -Tail 20"
+echo =============================================
+echo.
+
+:backend_done
 
 REM Start Frontend in background (no window)
 echo [FRONTEND] Starting Next.js development server...
@@ -153,28 +165,37 @@ cd ..
 echo [OK] Frontend started in background
 echo.
 
-REM Wait for frontend
-echo [INFO] Waiting for frontend to initialize (12 seconds)...
-timeout /t 12 /nobreak >nul
+REM Wait for frontend — poll until the page actually serves (max 180s).
+REM Next.js dev needs ~20s to listen plus ~40s to compile the first page,
+REM so a fixed 12s wait opened the browser on a dead port (ERR_CONNECTION_REFUSED).
+echo [INFO] Waiting for frontend to become ready (first compile can take ~60s)...
+set /a FRONTEND_TRIES=0
 
-REM Check frontend
-curl -s http://localhost:3000 >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] Frontend is running at http://localhost:3000
-) else (
-    echo [WARNING] Frontend not responding
-    echo [INFO] Checking logs\frontend.log...
-    echo.
-    echo ======== FRONTEND LOG (Last 10 lines) ========
-    powershell -Command "Get-Content logs\frontend.log -Tail 10"
-    echo =============================================
-    echo.
-)
+:wait_frontend
+curl -s --max-time 120 http://localhost:3000 >nul 2>&1
+if %errorlevel% equ 0 goto frontend_ready
+set /a FRONTEND_TRIES+=1
+if %FRONTEND_TRIES% geq 180 goto frontend_timeout
+timeout /t 1 /nobreak >nul
+goto wait_frontend
 
-echo.
-echo [INFO] Opening browser in 3 seconds...
-timeout /t 3 /nobreak >nul
+:frontend_ready
+echo [OK] Frontend is running at http://localhost:3000
+echo [INFO] Opening browser...
 start http://localhost:3000
+goto frontend_done
+
+:frontend_timeout
+echo [WARNING] Frontend did not respond within 180 seconds
+echo [INFO] Checking logs\frontend.log...
+echo.
+echo ======== FRONTEND LOG (Last 20 lines) ========
+powershell -NoProfile -Command "Get-Content logs\frontend.log -Tail 20"
+echo =============================================
+echo.
+echo [INFO] Not opening the browser — frontend is not serving yet.
+
+:frontend_done
 
 echo.
 echo [INFO] J.A.R.V.I.S is now online.
