@@ -1,0 +1,25 @@
+# Host dependencies and build output — must never leak into the image.
+# Windows-built node_modules binaries break on node:20-alpine.
+node_modules/
+.next/
+out/
+build/
+
+# Test and coverage artifacts
+coverage/
+__tests__/__snapshots__/
+
+# Secrets — NEXT_PUBLIC_* values are passed as build args instead
+.env
+.env.*
+!.env.example
+
+# VCS and editor noise
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
