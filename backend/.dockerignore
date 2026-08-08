@@ -1,0 +1,32 @@
+# Python environments and caches
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local database and runtime data (mounted as a volume at runtime)
+data/
+*.db
+*.sqlite3
+
+# Secrets — injected at runtime via env_file, never baked into the image
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# VCS and editor noise
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Logs and docs
+logs/
+*.log
+README.md
