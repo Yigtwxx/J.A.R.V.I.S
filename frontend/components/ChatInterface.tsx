@@ -25,7 +25,6 @@ import ChatInputBar from '@/components/chat/ChatInputBar';
 import LoadingIndicator from '@/components/chat/LoadingIndicator';
 import OnboardingHints from '@/components/ui/OnboardingHints';
 
-
 // Pure utility function — moved to module level
 const getHash = (str: string) => {
     let hash = 0;
@@ -34,15 +33,15 @@ const getHash = (str: string) => {
 };
 
 export default function ChatInterface() {
-    const messages = useChatStore(state => state.messages);
-    const setMessages = useChatStore(state => state.setMessages);
-    const setInput = useChatStore(state => state.setInput);
-    const isLoading = useChatStore(state => state.isLoading);
+    const messages = useChatStore((state) => state.messages);
+    const setMessages = useChatStore((state) => state.setMessages);
+    const setInput = useChatStore((state) => state.setInput);
+    const isLoading = useChatStore((state) => state.isLoading);
 
-    const addLiveStatus = useChatStore(state => state.addLiveStatus);
-    const setStreamingContent = useChatStore(state => state.setStreamingContent);
-    const addStreamingToken = useChatStore(state => state.addStreamingToken);
-    const resetSearchState = useChatStore(state => state.resetSearchState);
+    const addLiveStatus = useChatStore((state) => state.addLiveStatus);
+    const setStreamingContent = useChatStore((state) => state.setStreamingContent);
+    const addStreamingToken = useChatStore((state) => state.addStreamingToken);
+    const resetSearchState = useChatStore((state) => state.resetSearchState);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -131,24 +130,23 @@ export default function ChatInterface() {
                 data_breaches: profileToSave.data_breaches,
             });
 
-            setMessages(prev => {
+            setMessages((prev) => {
                 const newMessages = [...prev];
                 if (newMessages[messageIndex]) {
                     newMessages[messageIndex] = {
                         ...newMessages[messageIndex],
-                        isSaved: true
+                        isSaved: true,
                     };
                 }
                 return newMessages;
             });
-
         } catch (error: any) {
             const errorMessage: Message = {
                 id: crypto.randomUUID(),
                 role: 'assistant',
-                content: `[ERROR] Archive failure: ${error.response?.data?.detail || error.message}`
+                content: `[ERROR] Archive failure: ${error.response?.data?.detail || error.message}`,
             };
-            setMessages(prev => [...prev, errorMessage]);
+            setMessages((prev) => [...prev, errorMessage]);
         }
     };
 
@@ -169,7 +167,9 @@ export default function ChatInterface() {
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500 shadow-[0_0_8px_rgba(0,255,255,0.8)]"></span>
                         </span>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.35em] text-cyan-300/80 font-mono glow-cyan">System Online</span>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.35em] text-cyan-300/80 font-mono glow-cyan">
+                            System Online
+                        </span>
                     </div>
                     <span className="hidden md:inline text-[9px] font-mono tracking-[0.3em] text-cyan-500/40 uppercase">
                         Just A Rather Very Intelligent System
@@ -188,11 +188,11 @@ export default function ChatInterface() {
                                         key={message.id}
                                         initial={{ opacity: 0, y: 20, scale: 0.98 }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        transition={{ duration: 0.4, ease: "easeOut" }}
+                                        transition={{ duration: 0.4, ease: 'easeOut' }}
                                         className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                     >
                                         {message.role === 'user' ? (
-                                            <div className="message-bubble message-user max-w-xl text-white font-medium shadow-[0_4px_15px_rgba(0,0,0,0.5)] border-white/20">
+                                            <div className="message-bubble message-user max-w-xl text-white font-medium">
                                                 {message.content}
                                             </div>
                                         ) : message.content.startsWith('[ERROR]') ? (
@@ -200,17 +200,26 @@ export default function ChatInterface() {
                                                 <div className="message-bubble bg-red-950/30 border border-red-500/20 rounded-2xl p-5 text-red-200 font-mono text-sm shadow-lg border-l-4 border-l-red-500/60">
                                                     <div className="flex items-center gap-2 mb-3 text-red-400 font-bold pb-2 border-b border-red-500/20">
                                                         <AlertTriangle className="w-5 h-5 text-red-400" />
-                                                        <span className="text-xs uppercase tracking-[0.2em]">Analysis Error</span>
+                                                        <span className="text-xs uppercase tracking-[0.2em]">
+                                                            Analysis Error
+                                                        </span>
                                                     </div>
-                                                    <p className="text-red-200/80 leading-relaxed text-[13px]">{message.content.replace('[ERROR] ', '')}</p>
+                                                    <p className="text-red-200/80 leading-relaxed text-[13px]">
+                                                        {message.content.replace('[ERROR] ', '')}
+                                                    </p>
                                                     {(() => {
-                                                        const prevUserMsg = messages.slice(0, index).reverse().find(m => m.role === 'user');
+                                                        const prevUserMsg = messages
+                                                            .slice(0, index)
+                                                            .reverse()
+                                                            .find((m) => m.role === 'user');
                                                         if (!prevUserMsg || isLoading) return null;
                                                         return (
                                                             <button
                                                                 onClick={() => {
                                                                     setInput(prevUserMsg.content);
-                                                                    setMessages(prev => prev.filter(m => m.id !== message.id));
+                                                                    setMessages((prev) =>
+                                                                        prev.filter((m) => m.id !== message.id)
+                                                                    );
                                                                 }}
                                                                 className="mt-3 flex items-center gap-2 px-4 py-2 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 hover:bg-red-900/40 hover:border-red-400 hover:text-red-200 transition-all text-xs font-bold tracking-wider uppercase"
                                                             >
@@ -226,46 +235,76 @@ export default function ChatInterface() {
                                                 <div className="message-bubble message-ai text-white font-mono text-[15px] leading-normal tracking-wide shadow-lg border-l-4 border-cyan-400">
                                                     <div className="flex items-center gap-2 mb-3 text-cyan-400 font-bold pb-2 border-b border-cyan-500/30">
                                                         <TerminalSquare className="w-5 h-5 glow-cyan" />
-                                                        <span className="text-sm uppercase tracking-[0.2em] glow-cyan">System Response</span>
+                                                        <span className="text-sm uppercase tracking-[0.2em] glow-cyan">
+                                                            System Response
+                                                        </span>
                                                     </div>
                                                     <ReactMarkdown
                                                         components={{
                                                             strong: ({ children, ...props }) => {
-                                                                const textContent = Array.isArray(children) ? children.join('') : String(children);
+                                                                const textContent = Array.isArray(children)
+                                                                    ? children.join('')
+                                                                    : String(children);
                                                                 const colors = [
                                                                     'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.8)]',
                                                                     'text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.8)]',
                                                                     'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]',
                                                                     'text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]',
-                                                                    'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]'
+                                                                    'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]',
                                                                 ];
-                                                                const colorClass = colors[getHash(textContent) % colors.length];
+                                                                const colorClass =
+                                                                    colors[getHash(textContent) % colors.length];
 
                                                                 return (
-                                                                    <strong className={`${colorClass} font-black tracking-wider uppercase`} {...props}>
+                                                                    <strong
+                                                                        className={`${colorClass} font-black tracking-wider uppercase`}
+                                                                        {...props}
+                                                                    >
                                                                         {children}
                                                                     </strong>
                                                                 );
                                                             },
                                                             p: ({ children, ...props }) => {
-                                                                const isImageContainer = React.Children.toArray(children).some(
-                                                                    (child) => React.isValidElement(child) && (child as React.ReactElement<any>).props.node?.tagName === 'img'
+                                                                const isImageContainer = React.Children.toArray(
+                                                                    children
+                                                                ).some(
+                                                                    (child) =>
+                                                                        React.isValidElement(child) &&
+                                                                        (child as React.ReactElement<any>).props.node
+                                                                            ?.tagName === 'img'
                                                                 );
                                                                 if (isImageContainer) {
-                                                                    return <div className="flex flex-wrap gap-4 mb-5 items-center justify-start">{children}</div>;
+                                                                    return (
+                                                                        <div className="flex flex-wrap gap-4 mb-5 items-center justify-start">
+                                                                            {children}
+                                                                        </div>
+                                                                    );
                                                                 }
-                                                                return <p className="leading-normal text-gray-200 mb-2 last:mb-0" {...props}>{children}</p>;
+                                                                return (
+                                                                    <p
+                                                                        className="leading-normal text-gray-200 mb-2 last:mb-0"
+                                                                        {...props}
+                                                                    >
+                                                                        {children}
+                                                                    </p>
+                                                                );
                                                             },
-                                                            ul: ({ ...props }) => <ul className="list-none space-y-1 mb-2" {...props} />,
+                                                            ul: ({ ...props }) => (
+                                                                <ul className="list-none space-y-1 mb-2" {...props} />
+                                                            ),
                                                             li: ({ ...props }) => (
                                                                 <li className="flex gap-2">
-                                                                    <span className="text-cyan-500 mt-0.5">&#9657;</span>
+                                                                    <span className="text-cyan-500 mt-0.5">
+                                                                        &#9657;
+                                                                    </span>
                                                                     <span className="text-gray-300" {...props} />
                                                                 </li>
                                                             ),
                                                             img: ({ ...props }) => {
-                                                                const src = typeof props.src === 'string' ? props.src : '';
-                                                                const isWikiLogo = src.includes('wikipedia') && src.endsWith('.png');
+                                                                const src =
+                                                                    typeof props.src === 'string' ? props.src : '';
+                                                                const isWikiLogo =
+                                                                    src.includes('wikipedia') && src.endsWith('.png');
                                                                 if (isWikiLogo) return null; // Filter out rogue wikipedia textual logos
                                                                 return (
                                                                     <span className="inline-block shrink-0 rounded-2xl overflow-hidden border-2 border-cyan-500/50 w-32 h-32 sm:w-40 sm:h-40 shadow-[0_0_20px_rgba(0,255,255,0.25)] ring-1 ring-cyan-300/20 transition-transform hover:scale-105">
@@ -273,19 +312,31 @@ export default function ChatInterface() {
                                                                         <img
                                                                             className="w-full h-full object-cover object-top"
                                                                             {...props}
-                                                                            alt={props.alt || "Profile Image"}
+                                                                            alt={props.alt || 'Profile Image'}
                                                                             onLoad={(e) => {
-                                                                                const target = e.target as HTMLImageElement;
+                                                                                const target =
+                                                                                    e.target as HTMLImageElement;
                                                                                 // unavatar.io default generic fallback images usually render at 400x400 dimension exactly
-                                                                                if (target.src.includes('unavatar.io') && target.naturalWidth === 400 && target.naturalHeight === 400) {
-                                                                                    const spanWrapper = target.parentElement;
-                                                                                    if (spanWrapper) spanWrapper.style.display = 'none';
+                                                                                if (
+                                                                                    target.src.includes(
+                                                                                        'unavatar.io'
+                                                                                    ) &&
+                                                                                    target.naturalWidth === 400 &&
+                                                                                    target.naturalHeight === 400
+                                                                                ) {
+                                                                                    const spanWrapper =
+                                                                                        target.parentElement;
+                                                                                    if (spanWrapper)
+                                                                                        spanWrapper.style.display =
+                                                                                            'none';
                                                                                     target.style.display = 'none';
                                                                                 }
                                                                             }}
                                                                             onError={(e) => {
-                                                                                const target = e.target as HTMLImageElement;
-                                                                                const spanWrapper = target.parentElement;
+                                                                                const target =
+                                                                                    e.target as HTMLImageElement;
+                                                                                const spanWrapper =
+                                                                                    target.parentElement;
                                                                                 if (spanWrapper) {
                                                                                     spanWrapper.style.display = 'none';
                                                                                 }
@@ -295,7 +346,14 @@ export default function ChatInterface() {
                                                                     </span>
                                                                 );
                                                             },
-                                                            a: ({ ...props }) => <a className="text-blue-400 hover:text-cyan-300 underline underline-offset-4 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />
+                                                            a: ({ ...props }) => (
+                                                                <a
+                                                                    className="text-blue-400 hover:text-cyan-300 underline underline-offset-4 transition-colors"
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    {...props}
+                                                                />
+                                                            ),
                                                         }}
                                                     >
                                                         {message.content}
@@ -304,15 +362,23 @@ export default function ChatInterface() {
                                                 {message.profileData && (
                                                     <div className="mt-4">
                                                         <ProfileCard profile={message.profileData} />
-                                                        {message.profileData.version_history && message.profileData.version_history.snapshot_count >= 2 && (
-                                                            <VersionHistory report={message.profileData.version_history} />
-                                                        )}
-                                                        {message.profileData.face_match_results && message.profileData.face_match_results.total_comparisons > 0 && (
-                                                            <FaceMatch report={message.profileData.face_match_results} />
-                                                        )}
+                                                        {message.profileData.version_history &&
+                                                            message.profileData.version_history.snapshot_count >= 2 && (
+                                                                <VersionHistory
+                                                                    report={message.profileData.version_history}
+                                                                />
+                                                            )}
+                                                        {message.profileData.face_match_results &&
+                                                            message.profileData.face_match_results.total_comparisons >
+                                                                0 && (
+                                                                <FaceMatch
+                                                                    report={message.profileData.face_match_results}
+                                                                />
+                                                            )}
                                                         <div className="mt-3 flex flex-col md:flex-row items-end justify-between gap-3 text-right">
                                                             <span className="text-gray-400 italic text-xs max-w-sm">
-                                                                If this profile looks correct, save it to the database for quick access later.
+                                                                If this profile looks correct, save it to the database
+                                                                for quick access later.
                                                             </span>
                                                             <div className="flex items-center gap-2 shrink-0">
                                                                 <button
@@ -326,15 +392,21 @@ export default function ChatInterface() {
                                                                     title="Copy shareable link"
                                                                 >
                                                                     <Link2 className="w-4 h-4" />
-                                                                    <span className="text-sm font-semibold tracking-wide">Copy Link</span>
+                                                                    <span className="text-sm font-semibold tracking-wide">
+                                                                        Copy Link
+                                                                    </span>
                                                                 </button>
                                                                 {!message.isSaved ? (
                                                                     <button
-                                                                        onClick={() => handleApprove(index, message.profileData!)}
+                                                                        onClick={() =>
+                                                                            handleApprove(index, message.profileData!)
+                                                                        }
                                                                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-900/40 hover:border-cyan-400 transition-colors shadow-[0_0_10px_rgba(0,255,255,0.1)] shrink-0"
                                                                     >
                                                                         <Save className="w-4 h-4" />
-                                                                        <span className="text-sm font-semibold tracking-wide">Save</span>
+                                                                        <span className="text-sm font-semibold tracking-wide">
+                                                                            Save
+                                                                        </span>
                                                                     </button>
                                                                 ) : (
                                                                     <div className="flex items-center gap-1.5 px-3 py-1.5 text-green-400 font-medium shrink-0">
@@ -347,7 +419,9 @@ export default function ChatInterface() {
 
                                                         {/* RAG Interactive Chat Mode (Only for the latest profile) */}
                                                         {index === messages.length - 1 && (
-                                                            <RagInteractionPanel profileName={message.profileData.name} />
+                                                            <RagInteractionPanel
+                                                                profileName={message.profileData.name}
+                                                            />
                                                         )}
                                                     </div>
                                                 )}
