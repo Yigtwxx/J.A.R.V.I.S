@@ -1,14 +1,30 @@
 import axios from 'axios';
 import {
-    SearchResponse, ProfileData, SearchHistoryItem, ChangeReport,
-    AgentToolInfo, AgentMessage, VisionAnalysisResponse, VisionScreenshotResponse,
-    UserMemory, WatchTarget, PluginInfo, SystemAction,
+    SearchResponse,
+    ProfileData,
+    SearchHistoryItem,
+    ChangeReport,
+    AgentToolInfo,
+    AgentMessage,
+    VisionAnalysisResponse,
+    VisionScreenshotResponse,
+    UserMemory,
+    WatchTarget,
+    PluginInfo,
+    SystemAction,
 } from '@/types/profile';
 import {
-    SearchResponseSchema, ProfileDataSchema, SearchHistoryItemSchema, ChangeReportSchema,
-    VisionAnalysisResponseSchema, VisionScreenshotResponseSchema,
-    MemoryListResponseSchema, WatchListResponseSchema, PluginListResponseSchema,
-    ServiceStatusResponseSchema, HealthLogListResponseSchema,
+    SearchResponseSchema,
+    ProfileDataSchema,
+    SearchHistoryItemSchema,
+    ChangeReportSchema,
+    VisionAnalysisResponseSchema,
+    VisionScreenshotResponseSchema,
+    MemoryListResponseSchema,
+    WatchListResponseSchema,
+    PluginListResponseSchema,
+    ServiceStatusResponseSchema,
+    HealthLogListResponseSchema,
 } from '@/lib/schemas';
 import { validateResponse } from '@/lib/validateApi';
 
@@ -30,10 +46,7 @@ export const getApiHeaders = (): Record<string, string> => ({
  * payload, mirroring ``EventSource.onmessage``. Resolves when the stream ends;
  * abort via ``signal`` to close it.
  */
-export const streamStatus = async (
-    onMessage: (data: string) => void,
-    signal?: AbortSignal,
-): Promise<void> => {
+export const streamStatus = async (onMessage: (data: string) => void, signal?: AbortSignal): Promise<void> => {
     const response = await fetch(`${API_BASE_URL}/api/status/stream`, {
         method: 'GET',
         headers: getApiHeaders(),
@@ -59,8 +72,8 @@ export const streamStatus = async (
             buffer = buffer.slice(sep + 2);
             const data = rawEvent
                 .split('\n')
-                .filter(line => line.startsWith('data:'))
-                .map(line => line.replace(/^data: ?/, ''))
+                .filter((line) => line.startsWith('data:'))
+                .map((line) => line.replace(/^data: ?/, ''))
                 .join('\n');
             if (data) onMessage(data);
         }
@@ -69,7 +82,10 @@ export const streamStatus = async (
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 120_000,
+    // 0 disables the client-side timeout: deep OSINT sweeps and local LLM
+    // streams can run far longer than any fixed budget. Callers pass an
+    // AbortSignal when the user needs to cancel.
+    timeout: 0,
     headers: {
         'Content-Type': 'application/json',
         ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
@@ -77,10 +93,7 @@ const api = axios.create({
 });
 
 export const searchPerson = async (query: string, depth: number = 5, signal?: AbortSignal): Promise<SearchResponse> => {
-    const response = await api.post<SearchResponse>('/api/search/', { query, depth }, {
-        timeout: 300_000, // 5 minutes — search pipeline has multiple sequential AI steps
-        signal,
-    });
+    const response = await api.post<SearchResponse>('/api/search/', { query, depth }, { signal });
     return validateResponse(SearchResponseSchema, response.data, 'searchPerson');
 };
 
@@ -92,7 +105,7 @@ export const saveProfile = async (profileData: ProfileData): Promise<ProfileData
 export const getAllProfiles = async (): Promise<ProfileData[]> => {
     const response = await api.get<ProfileData[]>('/api/profiles/');
     return (response.data as unknown[]).map((item, i) =>
-        validateResponse(ProfileDataSchema, item, `getAllProfiles[${i}]`),
+        validateResponse(ProfileDataSchema, item, `getAllProfiles[${i}]`)
     );
 };
 
@@ -108,14 +121,14 @@ export const deleteProfile = async (id: number): Promise<void> => {
 export const searchProfiles = async (name: string): Promise<ProfileData[]> => {
     const response = await api.get<ProfileData[]>(`/api/profiles/search/${name}`);
     return (response.data as unknown[]).map((item, i) =>
-        validateResponse(ProfileDataSchema, item, `searchProfiles[${i}]`),
+        validateResponse(ProfileDataSchema, item, `searchProfiles[${i}]`)
     );
 };
 
 export const getSearchHistory = async (): Promise<SearchHistoryItem[]> => {
     const response = await api.get<SearchHistoryItem[]>('/api/history/');
     return (response.data as unknown[]).map((item, i) =>
-        validateResponse(SearchHistoryItemSchema, item, `getSearchHistory[${i}]`),
+        validateResponse(SearchHistoryItemSchema, item, `getSearchHistory[${i}]`)
     );
 };
 
@@ -165,18 +178,24 @@ export const exportCsv = async (profileId: number): Promise<Blob> => {
 export const agentChat = async (
     message: string,
     history: AgentMessage[] = [],
-    signal?: AbortSignal,
+    signal?: AbortSignal
 ): Promise<string> => {
-    const response = await api.post<{ response: string }>('/api/agent/chat', {
-        message, history, stream: false,
-    }, { signal });
+    const response = await api.post<{ response: string }>(
+        '/api/agent/chat',
+        {
+            message,
+            history,
+            stream: false,
+        },
+        { signal }
+    );
     return response.data.response;
 };
 
 export const agentChatStream = async (
     message: string,
     history: AgentMessage[] = [],
-    signal?: AbortSignal,
+    signal?: AbortSignal
 ): Promise<Response> => {
     return fetch(`${API_BASE_URL}/api/agent/chat`, {
         method: 'POST',
@@ -193,23 +212,43 @@ export const getAgentTools = async (): Promise<AgentToolInfo[]> => {
 
 // ─── Vision API ────��────────────────────────────────────────
 
-export const analyzeImage = async (imageUrl: string, prompt?: string, signal?: AbortSignal): Promise<VisionAnalysisResponse> => {
-    const response = await api.post<VisionAnalysisResponse>('/api/vision/analyze', { image_url: imageUrl, prompt }, { signal });
+export const analyzeImage = async (
+    imageUrl: string,
+    prompt?: string,
+    signal?: AbortSignal
+): Promise<VisionAnalysisResponse> => {
+    const response = await api.post<VisionAnalysisResponse>(
+        '/api/vision/analyze',
+        { image_url: imageUrl, prompt },
+        { signal }
+    );
     return validateResponse(VisionAnalysisResponseSchema, response.data, 'analyzeImage');
 };
 
 export const analyzeSocialPhoto = async (imageUrl: string, signal?: AbortSignal): Promise<VisionAnalysisResponse> => {
-    const response = await api.post<VisionAnalysisResponse>('/api/vision/social-photo', { image_url: imageUrl }, { signal });
+    const response = await api.post<VisionAnalysisResponse>(
+        '/api/vision/social-photo',
+        { image_url: imageUrl },
+        { signal }
+    );
     return validateResponse(VisionAnalysisResponseSchema, response.data, 'analyzeSocialPhoto');
 };
 
 export const readScreenshot = async (imageUrl: string, signal?: AbortSignal): Promise<VisionScreenshotResponse> => {
-    const response = await api.post<VisionScreenshotResponse>('/api/vision/screenshot', { image_url: imageUrl }, { signal });
+    const response = await api.post<VisionScreenshotResponse>(
+        '/api/vision/screenshot',
+        { image_url: imageUrl },
+        { signal }
+    );
     return validateResponse(VisionScreenshotResponseSchema, response.data, 'readScreenshot');
 };
 
 export const compareFacesVisual = async (imageUrlA: string, imageUrlB: string, signal?: AbortSignal) => {
-    const response = await api.post('/api/vision/compare-faces', { image_url_a: imageUrlA, image_url_b: imageUrlB }, { signal });
+    const response = await api.post(
+        '/api/vision/compare-faces',
+        { image_url_a: imageUrlA, image_url_b: imageUrlB },
+        { signal }
+    );
     return response.data;
 };
 
@@ -257,7 +296,11 @@ export const getLatestImages = async (query: string, signal?: AbortSignal): Prom
 // ─── Memory API ─────────────────────────────────────────────
 
 export const createMemory = async (
-    category: string, key: string, value: string, context?: string, importance = 5,
+    category: string,
+    key: string,
+    value: string,
+    context?: string,
+    importance = 5
 ): Promise<{ status: string; id: number; key: string }> => {
     const response = await api.post('/api/memory/', { category, key, value, context, importance });
     return response.data;
@@ -437,7 +480,10 @@ export const getHealthCategories = async (): Promise<HealthCategory[]> => {
 };
 
 export const recordHealthData = async (
-    category: string, key: string, value: string, context?: string,
+    category: string,
+    key: string,
+    value: string,
+    context?: string
 ): Promise<HealthRecord> => {
     const response = await api.post('/api/health/record', { category, key, value, context });
     return response.data;
