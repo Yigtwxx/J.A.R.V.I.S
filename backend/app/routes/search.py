@@ -60,13 +60,13 @@ async def search_person(
         # 1. Parse query
         real_name, username = orchestration.parse_query(raw_query)
 
-        # 2. Parallel data fetching (120s timeout)
+        # 2. Parallel data fetching (no orchestration timeout — deep scans sweep
+        # many sources; per-source HTTP timeouts still bound each request)
         current_step = "data_fetch"
-        orch_result, github_data, search_results = await asyncio.wait_for(
-            orchestration.fetch_parallel_data(
-                real_name, username, depth_config=depth_config,
-            ),
-            timeout=120,
+        orch_result, github_data, search_results = await orchestration.fetch_parallel_data(
+            real_name,
+            username,
+            depth_config=depth_config,
         )
         social_profiles = orch_result.social_profiles
         wiki_image = search_results[0]
@@ -83,31 +83,43 @@ async def search_person(
         images = orchestration.collect_images(social_profiles, github_data, wiki_image, real_name)
         face_images = orchestration.collect_face_images(social_profiles, github_data, wiki_image)
 
-        # 6. AI analysis + face match + sentiment (180s timeout — inner AI stream can take up to 120s)
+        # 6. AI analysis + face match + sentiment (no timeout — local LLM streams
+        # can run long on deep contexts)
         current_step = "ai_analysis"
-        ai_response, face_match_report, sentiment_report = await asyncio.wait_for(
-            orchestration.run_analysis(
-                raw_query, context, deep_context, face_images
-            ),
-            timeout=180,
+        ai_response, face_match_report, sentiment_report = await orchestration.run_analysis(
+            raw_query, context, deep_context, face_images
         )
 
-        # 7. Post-analysis (structured data, breach, cross-validation, score, psych, prediction) (120s timeout)
+        # 7. Post-analysis (structured data, breach, cross-validation, score, psych, prediction)
         current_step = "post_analysis"
-        post = await asyncio.wait_for(
-            orchestration.run_post_analysis(
-                ai_response, real_name, username, github_data,
-                social_profiles, search_results[1], raw_sources, orch_result,
-                context=context, deep_context=deep_context, sentiment_report=sentiment_report,
-            ),
-            timeout=120,
+        post = await orchestration.run_post_analysis(
+            ai_response,
+            real_name,
+            username,
+            github_data,
+            social_profiles,
+            search_results[1],
+            raw_sources,
+            orch_result,
+            context=context,
+            deep_context=deep_context,
+            sentiment_report=sentiment_report,
         )
 
         # 8. Build response
         response = orchestration.build_response(
-            ai_response, real_name, github_url, social_profiles,
-            images, post, raw_sources, github_data, orch_result,
-            face_match_report, sentiment_report, depth_config=depth_config,
+            ai_response,
+            real_name,
+            github_url,
+            social_profiles,
+            images,
+            post,
+            raw_sources,
+            github_data,
+            orch_result,
+            face_match_report,
+            sentiment_report,
+            depth_config=depth_config,
         )
 
         # 9. Save history
@@ -148,12 +160,7 @@ async def test_search(_api_key: str = Depends(verify_api_key)):
     return {
         "status": "ok",
         "message": "JARVIS search API is operational",
-        "services": {
-            "ai": "Ollama",
-            "search": "Google Scraping",
-            "github": "GitHub API",
-            "social": "Web Scraping"
-        }
+        "services": {"ai": "Ollama", "search": "Google Scraping", "github": "GitHub API", "social": "Web Scraping"},
     }
 
 
