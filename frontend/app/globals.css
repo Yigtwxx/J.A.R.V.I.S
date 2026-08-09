@@ -321,10 +321,10 @@ h6,
 }
 
 .message-user {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 16px 16px 0 16px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* ── 3D Effects ─────────────────────────────────────────────────────────── */
