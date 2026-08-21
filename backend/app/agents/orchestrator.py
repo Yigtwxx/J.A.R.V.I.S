@@ -14,15 +14,15 @@ from .social_media_agent import SocialMediaAgent
 
 @dataclass
 class OrchestratorResult:
-    social_profiles:   dict[str, list]       = field(default_factory=dict)
-    phone_numbers:     list[str]             = field(default_factory=list)
-    platform_activity: dict[str, int]        = field(default_factory=dict)
-    company_records:   list[dict[str, Any]]  = field(default_factory=list)
-    academic_context:  str                   = ""
-    patent_context:    str                   = ""
-    registry_context:  str                   = ""
-    data_breaches:     list[dict[str, Any]]  = field(default_factory=list)
-    agent_results:     list[AgentResult]     = field(default_factory=list)
+    social_profiles: dict[str, list] = field(default_factory=dict)
+    phone_numbers: list[str] = field(default_factory=list)
+    platform_activity: dict[str, int] = field(default_factory=dict)
+    company_records: list[dict[str, Any]] = field(default_factory=list)
+    academic_context: str = ""
+    patent_context: str = ""
+    registry_context: str = ""
+    data_breaches: list[dict[str, Any]] = field(default_factory=list)
+    agent_results: list[AgentResult] = field(default_factory=list)
 
 
 class SearchOrchestrator:
@@ -34,11 +34,11 @@ class SearchOrchestrator:
         breach_service: Any,
         status_callback: Callable[[str], None],
     ) -> None:
-        self._scraper  = scraper_service
-        self._company  = company_service
-        self._search   = search_service
-        self._breach   = breach_service
-        self._status   = status_callback
+        self._scraper = scraper_service
+        self._company = company_service
+        self._search = search_service
+        self._breach = breach_service
+        self._status = status_callback
 
     async def run_parallel(
         self,
@@ -66,13 +66,20 @@ class SearchOrchestrator:
             loop=loop,
             depth_config=depth_config,
         )
-        legal_agent = LegalRecordsAgent(
-            company_service=self._company,
-            search_service=self._search,
-            name=real_name,
-            status_callback=self._status,
-            loop=loop,
-        )
+        # Institutional lookups (company registry, academic, patent, registry) are
+        # the slowest part of this phase and are worth little on a shallow scan,
+        # so `DepthConfig.include_institutional` decides whether they run at all.
+        if depth_config is None or depth_config.include_institutional:
+            legal_task = LegalRecordsAgent(
+                company_service=self._company,
+                search_service=self._search,
+                name=real_name,
+                status_callback=self._status,
+                loop=loop,
+            ).run()
+        else:
+            self._status("[SYS] LegalRecordsAgent: skipped — institutional lookups start at depth 4")
+            legal_task = self._empty_result("LegalRecordsAgent")
 
         # Optionally spawn DeepSearchAgent for depth >= 7
         use_deep = depth_config and depth_config.multi_agent
@@ -86,7 +93,7 @@ class SearchOrchestrator:
             )
             results = await asyncio.gather(
                 social_agent.run(),
-                legal_agent.run(),
+                legal_task,
                 deep_agent.run(),
                 github_future,
                 search_future,
@@ -97,7 +104,7 @@ class SearchOrchestrator:
             deep_result = None
             results = await asyncio.gather(
                 social_agent.run(),
-                legal_agent.run(),
+                legal_task,
                 github_future,
                 search_future,
                 return_exceptions=True,
@@ -123,23 +130,19 @@ class SearchOrchestrator:
 
         social_profiles = social_result.social_profiles
 
-        # GitHub correlation: apply after we have github_data
-        if github_data and github_data.get('username'):
-            gh_username = github_data['username']
-
-            # 1. GitHub API gives Twitter handle — inject directly
-            if github_data.get('twitter') and not social_profiles.get('twitter'):
-                tw_url = f"https://x.com/{github_data['twitter']}"
-                social_profiles['twitter'] = [{"url": tw_url, "bio": ""}]
-                self._status(f"[OK] Twitter correlated via GitHub API: {tw_url}")
-
-            # 2. Try same username on other platforms
-            username_hits = await loop.run_in_executor(
-                None, self._scraper.find_profiles_by_username, gh_username
-            )
-            for platform, items in username_hits.items():
-                if items and not social_profiles.get(platform):
-                    social_profiles[platform] = items
+        # GitHub correlation: the GitHub API states the account's Twitter handle
+        # outright, so this is a declared fact rather than a guess.
+        #
+        # The second half of this block — probing the GitHub username on every
+        # other platform via `ScraperService.find_profiles_by_username` — is gone
+        # with that method. It scored HTTP 403/429 as "the profile exists", so it
+        # asserted accounts on precisely the platforms that block bots. Handle
+        # permutation and existence checking are now done properly in
+        # `app/discovery/` (identity/usernames.py + platforms/existence.py).
+        if github_data and github_data.get("twitter") and not social_profiles.get("twitter"):
+            tw_url = f"https://x.com/{github_data['twitter']}"
+            social_profiles["twitter"] = [{"url": tw_url, "bio": ""}]
+            self._status(f"[OK] Twitter correlated via GitHub API: {tw_url}")
 
         # Phone extraction (needs deep_context from search_results)
         wiki_image, web_results, deep_context, raw_sources = search_results
@@ -176,6 +179,12 @@ class SearchOrchestrator:
         )
 
         return orch_result, github_data, search_results
+
+    @staticmethod
+    async def _empty_result(agent_name: str) -> AgentResult:
+        """A stand-in for an agent that depth turned off. Awaitable, so it slots
+        straight into the `asyncio.gather` below without changing its arity."""
+        return AgentResult(agent_name=agent_name)
 
     async def run_breach_check(self, emails: list[str]) -> list[dict]:
         """
