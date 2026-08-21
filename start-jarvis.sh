@@ -68,6 +68,18 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 echo -e "${GREEN}[OK]${NC} Backend dependencies installed"
+
+# Scrapling's stealth browser (Camoufox). Needed for Instagram, TikTok, Threads
+# and LinkedIn, which serve a wall to plain HTTP clients. The command is
+# idempotent and returns in under a second once installed. If it fails, discovery
+# still runs on the HTTP tier and reports those platforms as "blocked" rather
+# than pretending nothing exists there.
+echo -e "${CYAN}[BACKEND]${NC} Checking stealth browser..."
+if scrapling install; then
+    echo -e "${GREEN}[OK]${NC} Stealth browser ready"
+else
+    echo -e "${YELLOW}[WARN]${NC} Stealth browser unavailable - Instagram/TikTok/LinkedIn will report as blocked"
+fi
 echo ""
 
 # Check .env file
