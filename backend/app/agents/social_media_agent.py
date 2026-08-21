@@ -19,8 +19,8 @@ class SocialMediaAgent(BaseAgent):
         depth_config: Any = None,
     ) -> None:
         super().__init__(status_callback, loop)
-        self._scraper   = scraper_service
-        self._username  = username
+        self._scraper = scraper_service
+        self._username = username
         self._real_name = real_name
         self._depth_config = depth_config
 
@@ -29,30 +29,21 @@ class SocialMediaAgent(BaseAgent):
         return "SocialMediaAgent"
 
     async def run_async(self) -> AgentResult:
-        self._broadcast(f"[SYS] SocialMediaAgent: scanning profiles for {self._username}")
+        """Contribute no profiles — social discovery lives in `app/discovery/`.
 
-        # 1. find_all_profiles(username)
-        social_profiles = await self._run_sync(self._scraper.find_all_profiles, self._username, self._depth_config)
+        This agent drove `ScraperService.find_all_profiles`, which was deleted:
+        it read HTTP 403/429 as "the profile exists" and injected a `[SEARCH]`
+        placeholder for every platform that returned nothing, so it could not
+        report an empty result even when there was one. Returning nothing is the
+        honest outcome; the discovery pipeline supplies the real accounts.
 
-        found_platforms = [k for k, v in social_profiles.items() if v]
-        self._broadcast(f"[DIAG] SocialMediaAgent: {len(found_platforms)} platform(s): {found_platforms[:5]}")
-
-        # 2. Merge by real_name if different from username
-        if self._real_name.lower() != self._username.lower():
-            social_by_name = await self._run_sync(self._scraper.find_all_profiles, self._real_name, self._depth_config)
-            for platform, items in social_by_name.items():
-                existing_urls = {p['url'] for p in social_profiles.get(platform, [])}
-                for item in items:
-                    if item['url'] not in existing_urls:
-                        social_profiles.setdefault(platform, []).append(item)
-
-        found_count = sum(1 for v in social_profiles.values() if v)
-        self._broadcast(f"[OK] SocialMediaAgent: {found_count} platform(s) found")
-
-        return AgentResult(
-            agent_name=self.agent_name,
-            social_profiles=social_profiles,
+        `_compute_platform_activity` below is still used by the orchestrator and
+        is unaffected — it reads whatever profiles it is handed.
+        """
+        self._broadcast(
+            f"[SYS] SocialMediaAgent: social discovery for {self._username} is handled by the discovery pipeline"
         )
+        return AgentResult(agent_name=self.agent_name, social_profiles={})
 
     @staticmethod
     def _compute_platform_activity(github_data: dict | None, social_profiles: dict) -> dict:
@@ -65,17 +56,17 @@ class SocialMediaAgent(BaseAgent):
         # --- GitHub (richest data) ---
         if github_data:
             score = 30  # Base: profile exists
-            followers = github_data.get('followers', 0) or 0
+            followers = github_data.get("followers", 0) or 0
             if followers > 0:
                 score += min(20, int(math.log10(followers + 1) * 7))
-            repos = github_data.get('public_repos', 0) or 0
+            repos = github_data.get("public_repos", 0) or 0
             if repos > 0:
                 score += min(20, int(math.log10(repos + 1) * 12))
-            last_active = github_data.get('last_active')
+            last_active = github_data.get("last_active")
             if last_active:
                 try:
                     if isinstance(last_active, str):
-                        last_dt = datetime.fromisoformat(last_active.replace('Z', '+00:00'))
+                        last_dt = datetime.fromisoformat(last_active.replace("Z", "+00:00"))
                     else:
                         last_dt = last_active
                     days = (datetime.now(UTC) - last_dt).days
@@ -91,26 +82,40 @@ class SocialMediaAgent(BaseAgent):
                         score += 2
                 except (ValueError, TypeError):
                     pass
-            activity['github'] = min(100, score)
+            activity["github"] = min(100, score)
 
         # --- Standard social platforms ---
-        standard_platforms = ['instagram', 'twitter', 'linkedin', 'tiktok', 'snapchat', 'tumblr', 'youtube', 'reddit', 'facebook', 'pinterest', 'medium', 'threads', 'steam']
+        standard_platforms = [
+            "instagram",
+            "twitter",
+            "linkedin",
+            "tiktok",
+            "snapchat",
+            "tumblr",
+            "youtube",
+            "reddit",
+            "facebook",
+            "pinterest",
+            "medium",
+            "threads",
+            "steam",
+        ]
         for platform in standard_platforms:
             items = social_profiles.get(platform, [])
             if items:
                 score = 60  # Profile found = solid base
                 for item in items:
-                    if item.get('bio') and len(item['bio'].strip()) > 10:
+                    if item.get("bio") and len(item["bio"].strip()) > 10:
                         score += 40
                         break
                 activity[platform] = min(100, score)
 
         # --- Passive platforms (Spotify) ---
-        if social_profiles.get('spotify'):
-            activity['spotify'] = 60
+        if social_profiles.get("spotify"):
+            activity["spotify"] = 60
 
         # --- Mention-only platforms (Tinder, Bumble) ---
-        for platform in ['tinder', 'bumble']:
+        for platform in ["tinder", "bumble"]:
             if social_profiles.get(platform):
                 activity[platform] = 40
 
