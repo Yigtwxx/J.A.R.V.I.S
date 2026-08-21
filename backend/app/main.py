@@ -23,6 +23,8 @@ from app.routes import (
     agent_router,
     audit_router,
     chat_router,
+    discovery_media_router,
+    discovery_router,
     export_router,
     face_match_router,
     health_router,
@@ -48,13 +50,17 @@ async def lifespan(app: FastAPI):
     # --- Startup ---
     logger.print_header()
     logger.log_action("Initializing J.A.R.V.I.S core systems...")
-    logger.log_action("Database Source", target=settings.database_url.split('@')[-1] if '@' in settings.database_url else 'Not configured')
+    logger.log_action(
+        "Database Source",
+        target=settings.database_url.split("@")[-1] if "@" in settings.database_url else "Not configured",
+    )
     logger.log_action("AI Neural Net", target=f"{settings.ollama_model} (Ollama)")
     logger.log_action("Server Address", target=f"http://{settings.host}:{settings.port}")
 
     # Security: auto-generate CSRF secret if enabled but not configured
     if settings.csrf_enabled and not settings.csrf_secret:
         import secrets as _secrets
+
         csrf_secret = _secrets.token_hex(32)
         object.__setattr__(settings, "csrf_secret", csrf_secret)
         logger.log_warning("CSRF enabled but CSRF_SECRET not set — auto-generated for this session.")
@@ -76,6 +82,7 @@ async def lifespan(app: FastAPI):
     # Ollama connectivity pre-check
     try:
         import httpx
+
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{settings.ollama_url}/api/tags", timeout=5.0)
             models = [m["name"] for m in resp.json().get("models", [])]
@@ -108,6 +115,7 @@ async def lifespan(app: FastAPI):
     # Start persistent rate-limit cleanup task (if persistent mode is on)
     rl_cleanup_task = None
     if settings.rate_limit_persistent:
+
         async def _rate_limit_cleanup():
             while True:
                 await asyncio.sleep(settings.rate_limit_cleanup_interval)
@@ -115,6 +123,7 @@ async def lifespan(app: FastAPI):
                     import time as _time
                     from app.database.connection import SessionLocal
                     from app.models.rate_limit import RateLimit
+
                     cutoff = _time.time() - settings.rate_limit_window_seconds
                     db = SessionLocal()
                     try:
@@ -126,11 +135,13 @@ async def lifespan(app: FastAPI):
                         db.close()
                 except Exception as e:
                     logger.log_warning(f"Rate limit cleanup error: {e}")
+
         rl_cleanup_task = asyncio.create_task(_rate_limit_cleanup())
 
     # Start daily audit log cleanup task
     audit_cleanup_task = None
     if settings.audit_log_enabled:
+
         async def _audit_cleanup():
             while True:
                 await asyncio.sleep(86400)  # daily
@@ -138,16 +149,20 @@ async def lifespan(app: FastAPI):
                     from datetime import datetime, timedelta
                     from app.database.connection import SessionLocal
                     from app.models.audit_log import AuditLog
+
                     cutoff = datetime.utcnow() - timedelta(days=settings.audit_log_retention_days)
                     db = SessionLocal()
                     try:
                         deleted = db.query(AuditLog).filter(AuditLog.timestamp < cutoff).delete()
                         db.commit()
-                        logger.log_action(f"Audit cleanup: removed {deleted} entries older than {settings.audit_log_retention_days}d")
+                        logger.log_action(
+                            f"Audit cleanup: removed {deleted} entries older than {settings.audit_log_retention_days}d"
+                        )
                     finally:
                         db.close()
                 except Exception as e:
                     logger.log_warning(f"Audit cleanup error: {e}")
+
         audit_cleanup_task = asyncio.create_task(_audit_cleanup())
 
     logger.log_success("All systems online. Awaiting coordinates.")
@@ -173,6 +188,7 @@ app = FastAPI(
 # Global exception handlers — consistent error response format
 # ---------------------------------------------------------------------------
 
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Return a consistent error format for validation failures."""
@@ -193,7 +209,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     """Catch-all for unhandled exceptions — log and return a generic error."""
-    logger.log_error(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
+    logger.log_exception(f"Unhandled exception on {request.method} {request.url.path}: {type(exc).__name__}: {exc}")
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error", "type": "server_error"},
@@ -239,6 +255,7 @@ else:
         window_seconds=settings.rate_limit_window_seconds,
     )
 
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """Log incoming requests as JARVIS network traffic"""
@@ -250,11 +267,7 @@ async def log_requests(request: Request, call_next):
     client_ip = request.client.host if request.client else "Unknown"
 
     # Log incoming request
-    logger.log_network_traffic(
-        method=request.method,
-        path=request.url.path,
-        client_ip=client_ip
-    )
+    logger.log_network_traffic(method=request.method, path=request.url.path, client_ip=client_ip)
 
     response = await call_next(request)
 
@@ -266,13 +279,18 @@ async def log_requests(request: Request, call_next):
         path=request.url.path,
         client_ip=client_ip,
         status_code=response.status_code,
-        process_time=process_time
+        process_time=process_time,
     )
 
     return response
 
+
 # Include routers
 app.include_router(search_router)
+# Interactive, session-scoped discovery: its own SSE stream per search, unlike the
+# global log tap at /api/status/stream which interleaves every concurrent search.
+app.include_router(discovery_router)
+app.include_router(discovery_media_router)
 app.include_router(profiles_router)
 app.include_router(history_router)
 app.include_router(version_history_router)
@@ -297,17 +315,14 @@ async def root():
         "message": "Welcome to J.A.R.V.I.S API",
         "version": "1.0.0",
         "status": "operational",
-        "endpoints": {
-            "search": "/api/search",
-            "profiles": "/api/profiles",
-            "docs": "/docs"
-        }
+        "endpoints": {"search": "/api/search", "profiles": "/api/profiles", "docs": "/docs"},
     }
 
 
 @app.get("/api/status/stream")
 async def stream_status(_api_key: str = Depends(verify_api_key)):
     """Stream live JARVIS activity logs via SSE"""
+
     async def event_generator():
         queue = asyncio.Queue()
         logger.subscribers.add(queue)
@@ -332,7 +347,7 @@ async def stream_status(_api_key: str = Depends(verify_api_key)):
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # Prevents Nginx buffering
-        }
+        },
     )
 
 
@@ -352,10 +367,5 @@ if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
     uvicorn.run(
-        "app.main:app",
-        host=settings.host,
-        port=settings.port,
-        reload=True,
-        log_level="info"
+        "app.main:app", host=settings.host, port=settings.port, reload=settings.uvicorn_reload, log_level="info"
     )
-
