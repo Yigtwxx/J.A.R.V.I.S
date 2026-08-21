@@ -60,6 +60,20 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 echo [OK] Backend dependencies installed
+
+REM Scrapling's stealth browser (Camoufox). Needed for Instagram, TikTok, Threads
+REM and LinkedIn, which serve a wall to plain HTTP clients. The command is
+REM idempotent and returns in under a second once installed, so it runs every
+REM time rather than guessing at a marker file. If it fails, discovery still runs
+REM on the HTTP tier and reports those platforms as "blocked" rather than
+REM pretending nothing exists there.
+echo [BACKEND] Checking stealth browser...
+scrapling install
+if %errorlevel% neq 0 (
+    echo [WARN] Stealth browser unavailable - Instagram/TikTok/LinkedIn will report as blocked
+) else (
+    echo [OK] Stealth browser ready
+)
 echo.
 
 REM Check .env file
