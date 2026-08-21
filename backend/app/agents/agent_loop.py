@@ -7,10 +7,9 @@ import json
 import re
 from typing import Any
 
-import ollama
-
 from app.agents.tool_registry import ToolRegistry
 from app.config import get_settings
+from app.services.ollama_client import build_ollama_client
 from app.utils.logger import logger
 
 settings = get_settings()
@@ -27,7 +26,7 @@ class AgentLoop:
     ) -> None:
         self.registry = registry
         self.model = model or settings.ollama_model
-        self.client = ollama.AsyncClient()
+        self.client = build_ollama_client()
         self.max_iterations = max_iterations
 
     @staticmethod
@@ -92,18 +91,22 @@ class AgentLoop:
                 func = call.get("function", {})
                 tool_name = func.get("name", "")
                 arguments = func.get("arguments", {})
-                logger.log_action(f"Agent calling tool: {tool_name}", target=json.dumps(arguments, ensure_ascii=False)[:100])
+                logger.log_action(
+                    f"Agent calling tool: {tool_name}", target=json.dumps(arguments, ensure_ascii=False)[:100]
+                )
                 tasks.append(self._execute_tool(tool_name, arguments))
 
             results = await asyncio.gather(*tasks)
 
             for call, result in zip(tool_calls, results):
                 func = call.get("function", {})
-                tool_calls_log.append({
-                    "tool": func.get("name", ""),
-                    "args": func.get("arguments", {}),
-                    "result_preview": result[:200],
-                })
+                tool_calls_log.append(
+                    {
+                        "tool": func.get("name", ""),
+                        "args": func.get("arguments", {}),
+                        "result_preview": result[:200],
+                    }
+                )
                 messages.append({"role": "tool", "content": result})
 
         # Max iterations reached
@@ -159,7 +162,9 @@ class AgentLoop:
                     )
 
                 # Re-run as streaming for the final answer
-                messages.append({"role": "user", "content": f"Now provide your final comprehensive response.{reflection_prompt}"})
+                messages.append(
+                    {"role": "user", "content": f"Now provide your final comprehensive response.{reflection_prompt}"}
+                )
 
                 in_thinking = False
                 stream = await self.client.chat(
