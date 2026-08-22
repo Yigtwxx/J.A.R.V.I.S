@@ -1,6 +1,12 @@
 services:
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      # Build the stage that ships a browser. Without it the discovery pipeline's
+      # stealth tier cannot start in the container and every platform that needs
+      # a browser reports `blocked` — silently, which is how it went unnoticed.
+      # Switch to `runtime` for a much smaller image if the HTTP tier is enough.
+      target: runtime-stealth
     ports:
       - "8000:8000"
     volumes:
