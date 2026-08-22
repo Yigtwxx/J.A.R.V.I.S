@@ -96,7 +96,6 @@ class SocialMediaAgent(BaseAgent):
             "reddit",
             "facebook",
             "pinterest",
-            "medium",
             "threads",
             "steam",
         ]
