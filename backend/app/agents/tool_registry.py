@@ -34,14 +34,16 @@ class ToolRegistry:
         """Return all tools as Ollama-compatible function schemas."""
         schemas = []
         for tool in self._tools.values():
-            schemas.append({
-                "type": "function",
-                "function": {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": tool.parameters,
-                },
-            })
+            schemas.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.parameters,
+                    },
+                }
+            )
         return schemas
 
     async def execute(self, name: str, arguments: dict[str, Any]) -> str:
