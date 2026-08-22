@@ -17,8 +17,8 @@ class LegalRecordsAgent(BaseAgent):
     ) -> None:
         super().__init__(status_callback, loop)
         self._company = company_service
-        self._search  = search_service
-        self._name    = name
+        self._search = search_service
+        self._name = name
 
     @property
     def agent_name(self) -> str:
@@ -34,9 +34,7 @@ class LegalRecordsAgent(BaseAgent):
             self._run_sync(self._search.search_official_registries, self._name),
         )
 
-        self._broadcast(
-            f"[OK] LegalRecordsAgent: {len(company_records or [])} company record(s) found"
-        )
+        self._broadcast(f"[OK] LegalRecordsAgent: {len(company_records or [])} company record(s) found")
 
         return AgentResult(
             agent_name=self.agent_name,
