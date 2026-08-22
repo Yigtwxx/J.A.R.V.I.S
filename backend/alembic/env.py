@@ -17,6 +17,12 @@ from app.models.snapshot import ProfileSnapshot  # noqa: F401
 from app.models.history import SearchHistory  # noqa: F401
 from app.models.rate_limit import RateLimit  # noqa: F401
 from app.models.audit_log import AuditLog  # noqa: F401
+from app.models.discovery import (  # noqa: F401
+    EvidenceRecord,
+    PlatformOutcome,
+    SearchSession,
+    UserAnswer,
+)
 
 config = context.config
 
