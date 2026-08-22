@@ -13,34 +13,37 @@ if settings.database_url.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 
 # Create database engine
-engine = create_engine(
-    settings.database_url,
-    connect_args=connect_args,
-    pool_pre_ping=True,
-    echo=False
-)
+engine = create_engine(settings.database_url, connect_args=connect_args, pool_pre_ping=True, echo=False)
+
 
 @event.listens_for(engine, "before_cursor_execute")
 def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
     stmt_str = str(statement)
-    clean_stmt = stmt_str.replace('\n', ' ').strip()
+    clean_stmt = stmt_str.replace("\n", " ").strip()
     upper_stmt = clean_stmt.upper().strip()
 
     # Skip health-check pings and SQLite internal queries to avoid log spam
     if upper_stmt in ("SELECT 1", "SELECT 1;") or upper_stmt.startswith("PRAGMA"):
         return
 
-    action = "READ" if "SELECT" in upper_stmt[:10] else "WRITE" if any(x in upper_stmt[:10] for x in ["INSERT", "UPDATE", "DELETE"]) else "AFFECT"
+    action = (
+        "READ"
+        if "SELECT" in upper_stmt[:10]
+        else "WRITE"
+        if any(x in upper_stmt[:10] for x in ["INSERT", "UPDATE", "DELETE"])
+        else "AFFECT"
+    )
 
     # Try to extract table name for a cooler log
     table = "UNKNOWN_NODE"
     words = clean_stmt.split()
     for i, word in enumerate(words):
         if word.upper() in ["FROM", "INTO", "UPDATE"] and i + 1 < len(words):
-            table = words[i+1].strip('"\'`[]')
+            table = words[i + 1].strip("\"'`[]")
             break
 
     logger.log_db_query(f"{action}_MATRIX", table, clean_stmt[:60] + "..." if len(clean_stmt) > 60 else clean_stmt)
+
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
