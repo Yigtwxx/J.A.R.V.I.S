@@ -94,7 +94,21 @@
     "switchToSearch": "Arama Moduna Geç",
     "switchToAgent": "Ajan Moduna Geç",
     "placeholderAgent": "Ajana bir şey sor...",
-    "placeholderSearch": "İsim veya kullanıcı adı girin ('/' ile ayırın)..."
+    "placeholderSearch": "İsim veya kullanıcı adı girin ('/' ile ayırın)...",
+    "errorTimeout": "Arama tamamlanamayacak kadar uzun sürdü. Arama derinliğini düşürmeyi veya daha az yaygın bir isim aramayı deneyin.",
+    "errorNetwork": "Analiz sunucusuna ulaşılamıyor. Backend ve Ollama'nın çalıştığını doğrulayın.",
+    "errorServer": "Analiz sunucusu raporu oluştururken hata verdi.",
+    "errorUnknown": "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.",
+    "errorDetailPrefix": "Sunucu yanıtı:",
+    "errorWithCode": "{message} (HTTP {status})",
+    "placeholderAwaitingAnswer": "Aramanın devam etmesi için yukarıdaki soruyu yanıtlayın…",
+    "awaitingAnswer": "Duraklatıldı — sizi bekliyor",
+    "modeInteractive": "Etkileşimli arama",
+    "modeClassic": "Klasik arama",
+    "stopSearch": "Aramayı durdur",
+    "fallbackNotice": "Bu backend üzerinde etkileşimli keşif kapalı (HTTP 503), bu yüzden klasik tek seferlik arama çalıştı. Bu yol size soru soramaz — soruları almak için sunucuda DISCOVERY_ENABLED=true yapın.",
+    "sessionDone": "Etkileşimli arama tamamlandı: {rounds} tur, {evidence} kanıt, {profiles} profil. Ayrıntılı döküm yukarıdaki canlı panelde.",
+    "sessionCancelled": "Arama iptal edildi. Durdurmadan önce bulunanlar yukarıda duruyor."
   },
   "psychAnalysis": {
     "title": "Psikolojik Harp Analizi",
@@ -140,6 +154,140 @@
       "nav": { "title": "Navigasyon Rayı", "body": "Logs, Memory, Watch, Plugins, System ve Health'i soldaki raydan açın." },
       "search": { "title": "Komut Girişi", "body": "Aramak için isim yazın; Ajan modunu açın, derinlik ayarlayın veya görsel yükleyin." },
       "dock": { "title": "Intel Dock", "body": "Canlı durum, sosyal düğümler, hava durumu ve analiz göstergeleri sağda belirir." }
+    }
+  },
+  "monitor": {
+    "title": "Canlı arama"
+  },
+  "discovery": {
+    "heading": "Canlı keşif",
+    "progress": {
+      "heading": "Keşif sürüyor",
+      "idle": "İlk tur bekleniyor…",
+      "phase": "Aşama",
+      "round": "{round}. tur",
+      "step": "{completed} / {total}",
+      "cancel": "Aramayı iptal et",
+      "dryRounds": "Sonuçsuz tur: {count}",
+      "phases": {
+        "seed": "Tohumlama",
+        "expand": "Genişletme",
+        "verify": "Doğrulama",
+        "enrich": "Zenginleştirme",
+        "score": "Puanlama",
+        "reflect": "Değerlendirme",
+        "finalize": "Sonlandırma"
+      },
+      "counters": {
+        "evidence": "Kanıt",
+        "candidates": "Aday",
+        "blocked": "Engellendi",
+        "platforms": "Platform"
+      },
+      "pausedHeading": "Keşif duraklatıldı",
+      "waitingForYou": "Durduruldu — arama yukarıdaki sorunun yanıtını bekliyor. Siz yanıtlayana veya süre dolana kadar hiçbir şey ilerlemez."
+    },
+    "platforms": {
+      "heading": "Platform kapsamı",
+      "empty": "Henüz hiçbir platform kontrol edilmedi.",
+      "detailLabel": "Gerekçe",
+      "noDetail": "Ek ayrıntı verilmedi.",
+      "legendTitle": "“Engellendi” ile “bulunamadı” aynı şey değildir",
+      "legendBody": "“Engellendi”, platformun bizi geri çevirdiği anlamına gelir; hesabın olup olmadığını hâlâ bilmiyoruz. “Bulunamadı” ise baktık ve böyle bir hesap yok demektir.",
+      "status": {
+        "found": "Bulundu",
+        "not_found": "Bulunamadı",
+        "blocked": "Engellendi",
+        "error": "Hata",
+        "unsupported": "Desteklenmiyor"
+      },
+      "meaning": {
+        "found": "{platform} üzerinde bir hesap bulundu.",
+        "not_found": "{platform} kontrol edildi, böyle bir hesap yok.",
+        "blocked": "{platform} kontrolü engelledi. Hesabın olup olmadığı hâlâ bilinmiyor.",
+        "error": "{platform} kontrolü sonuca ulaşamadan başarısız oldu.",
+        "unsupported": "{platform} kontrol edilemiyor."
+      }
+    },
+    "profile": {
+      "heading": "Hesaplar",
+      "foundCount": "{count} bulundu",
+      "summary": {
+        "accounts": "Hesaplar",
+        "platforms": "Platform",
+        "confirmed": "Doğrulandı",
+        "alternates": "Adaşlar"
+      },
+      "confidence": "Güven",
+      "checkedAt": "Kontrol",
+      "followers": "Takipçi",
+      "following": "Takip edilen",
+      "posts": "Gönderi",
+      "verified": "Doğrulanmış",
+      "lastActivity": "Son etkinlik",
+      "openProfile": "Profili aç",
+      "noLink": "Açılacak bir adres yok",
+      "outboundLinks": "Bu profildeki bağlantılar",
+      "reasonsShow": "Bu puan neden ({count})",
+      "reasonsHide": "Gerekçeyi gizle",
+      "noReasons": "Gerekçe kaydedilmemiş.",
+      "band": {
+        "confirmed": "Doğrulandı",
+        "likely": "Muhtemel eşleşme",
+        "possible": "Olası eşleşme",
+        "weak": "Zayıf eşleşme",
+        "rejected": "Reddedildi"
+      }
+    },
+    "pictures": {
+      "heading": "Profil fotoğrafları",
+      "empty": "Hiç fotoğraf alınamadı.",
+      "primary": "Birincil",
+      "alt": "{platform} profil fotoğrafı",
+      "loadFailed": "Fotoğrafa ulaşılamadı",
+      "source": "Kaynak"
+    },
+    "question": {
+      "heading": "Arama durdu ve yanıtını bekliyor",
+      "subheading": "Sen yanıtlayana ya da süre dolana kadar hiçbir şey ilerlemiyor.",
+      "timeLeft": "{seconds} sn kaldı",
+      "expired": "Süre doldu — arama yanıt almadan devam etti.",
+      "dontKnow": "Bilmiyorum",
+      "skip": "Atla",
+      "submit": "Yanıtı gönder",
+      "sending": "Gönderiliyor…",
+      "freeTextLabel": "Ya da kendin yaz",
+      "freeTextPlaceholder": "Yanıtını yaz…",
+      "closed": "Bu soru çoktan kapandı — arama yoluna devam etti.",
+      "noPenalty": "“Bilmiyorum” hiçbir şeye mal olmaz: ne kanıt ekler ne de var olanı götürür."
+    },
+    "alternates": {
+      "heading": "Aynı adı taşıyan farklı kişiler",
+      "body": "Bunlar yukarıdaki profile DAHİL DEĞİL. Bulduğumuz adaşlar ve bilerek ayrı tutuldular.",
+      "accounts": "{count} hesap",
+      "platforms": "Platformlar",
+      "samples": "Örnekler"
+    },
+    "claims": {
+      "heading": "Biyografi",
+      "empty": "Hiçbir ifade kanıtla desteklenemedi.",
+      "sourceBadge": "{count} kaynak",
+      "noSources": "Kaynak yok",
+      "confidence": "Güven"
+    },
+    "notices": {
+      "heading": "Uyarılar",
+      "body": "Bu aramayı sınırlayan etkenler.",
+      "dismiss": "Kapat",
+      "reconnect": "Bağlantı koptu; {attempt}. yeniden bağlanma denemesi.",
+      "questionTimeout": "Bir sorunun süresi doldu ve “bilmiyorum” sayıldı.",
+      "kind": {
+        "anchor_changed": "Özne değişti",
+        "result_invalidated": "Bulgular iptal edildi",
+        "error": "Hata",
+        "question_timeout": "Soru zaman aşımına uğradı",
+        "reconnect": "Akış yeniden bağlandı"
+      }
     }
   }
 }
