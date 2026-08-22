@@ -94,7 +94,21 @@
     "switchToSearch": "Switch to Search Mode",
     "switchToAgent": "Switch to Agent Mode",
     "placeholderAgent": "Ask the agent anything...",
-    "placeholderSearch": "Enter name or username (use '/' to separate)..."
+    "placeholderSearch": "Enter name or username (use '/' to separate)...",
+    "errorTimeout": "The search took too long to complete. Try reducing the search depth or searching a less common name.",
+    "errorNetwork": "Cannot reach the analysis server. Please verify that the backend and Ollama are running.",
+    "errorServer": "The analysis server failed while building the report.",
+    "errorUnknown": "An unexpected error occurred. Please try again.",
+    "errorDetailPrefix": "Server said:",
+    "errorWithCode": "{message} (HTTP {status})",
+    "placeholderAwaitingAnswer": "Answer the question above to continue the search…",
+    "awaitingAnswer": "Paused — waiting for you",
+    "modeInteractive": "Interactive search",
+    "modeClassic": "Classic search",
+    "stopSearch": "Stop search",
+    "fallbackNotice": "Interactive discovery is disabled on this backend (HTTP 503), so the classic one-shot search ran instead. It cannot pause to ask you clarifying questions — set DISCOVERY_ENABLED=true on the server to get them.",
+    "sessionDone": "Interactive search finished: {rounds} round(s), {evidence} evidence item(s), {profiles} profile(s). The live panel above holds the full breakdown.",
+    "sessionCancelled": "Search cancelled. Whatever was found before the stop is still shown above."
   },
   "psychAnalysis": {
     "title": "Psychological Warfare Analysis",
@@ -140,6 +154,140 @@
       "nav": { "title": "Navigation Rail", "body": "Open Logs, Memory, Watch, Plugins, System and Health from the left rail." },
       "search": { "title": "Command Input", "body": "Type a name to search, toggle Agent mode, set depth, or upload an image." },
       "dock": { "title": "Intel Dock", "body": "Live status, social nodes, weather and analysis gauges appear on the right." }
+    }
+  },
+  "monitor": {
+    "title": "Live search"
+  },
+  "discovery": {
+    "heading": "Live discovery",
+    "progress": {
+      "heading": "Discovery in progress",
+      "idle": "Waiting for the first round…",
+      "phase": "Phase",
+      "round": "Round {round}",
+      "step": "{completed} / {total}",
+      "cancel": "Cancel search",
+      "dryRounds": "Quiet rounds: {count}",
+      "phases": {
+        "seed": "Seeding",
+        "expand": "Expanding",
+        "verify": "Verifying",
+        "enrich": "Enriching",
+        "score": "Scoring",
+        "reflect": "Reflecting",
+        "finalize": "Finalising"
+      },
+      "counters": {
+        "evidence": "Evidence",
+        "candidates": "Candidates",
+        "blocked": "Blocked",
+        "platforms": "Platforms"
+      },
+      "pausedHeading": "Discovery paused",
+      "waitingForYou": "Stopped — the search is waiting for your answer above. Nothing advances until you reply or the timer runs out."
+    },
+    "platforms": {
+      "heading": "Platform coverage",
+      "empty": "No platforms checked yet.",
+      "detailLabel": "Reason",
+      "noDetail": "No further detail given.",
+      "legendTitle": "Blocked is not the same as not found",
+      "legendBody": "“Blocked” means the platform refused us, so we still do not know. “Not found” means we looked and there is no such account.",
+      "status": {
+        "found": "Found",
+        "not_found": "Not found",
+        "blocked": "Blocked",
+        "error": "Error",
+        "unsupported": "Unsupported"
+      },
+      "meaning": {
+        "found": "We found an account on {platform}.",
+        "not_found": "We checked {platform} and there is no such account.",
+        "blocked": "{platform} refused the check. Whether an account exists is still unknown.",
+        "error": "The check on {platform} failed before reaching a verdict.",
+        "unsupported": "{platform} cannot be checked."
+      }
+    },
+    "profile": {
+      "heading": "Accounts",
+      "foundCount": "{count} found",
+      "summary": {
+        "accounts": "Accounts",
+        "platforms": "Platforms",
+        "confirmed": "Confirmed",
+        "alternates": "Namesakes"
+      },
+      "confidence": "Confidence",
+      "checkedAt": "Checked",
+      "followers": "Followers",
+      "following": "Following",
+      "posts": "Posts",
+      "verified": "Verified",
+      "lastActivity": "Last activity",
+      "openProfile": "Open profile",
+      "noLink": "No address to open",
+      "outboundLinks": "Links from this profile",
+      "reasonsShow": "Why this score ({count})",
+      "reasonsHide": "Hide reasoning",
+      "noReasons": "No reasoning recorded.",
+      "band": {
+        "confirmed": "Confirmed",
+        "likely": "Likely match",
+        "possible": "Possible match",
+        "weak": "Weak match",
+        "rejected": "Rejected"
+      }
+    },
+    "pictures": {
+      "heading": "Profile pictures",
+      "empty": "No pictures were retrieved.",
+      "primary": "Primary",
+      "alt": "{platform} profile picture",
+      "loadFailed": "Picture unavailable",
+      "source": "Source"
+    },
+    "question": {
+      "heading": "The search is paused and needs your answer",
+      "subheading": "Nothing continues until you reply or the timer runs out.",
+      "timeLeft": "{seconds}s left",
+      "expired": "Time is up — the search continued without an answer.",
+      "dontKnow": "I don’t know",
+      "skip": "Skip",
+      "submit": "Send answer",
+      "sending": "Sending…",
+      "freeTextLabel": "Or type an answer",
+      "freeTextPlaceholder": "Type your answer…",
+      "closed": "That question already closed — the search has moved on.",
+      "noPenalty": "“I don’t know” costs nothing: it adds no evidence and takes none away."
+    },
+    "alternates": {
+      "heading": "Different people who share this name",
+      "body": "These are NOT part of the profile above. They are namesakes we found and deliberately kept separate.",
+      "accounts": "{count} account(s)",
+      "platforms": "Platforms",
+      "samples": "Examples"
+    },
+    "claims": {
+      "heading": "Biography",
+      "empty": "No statement could be backed by evidence.",
+      "sourceBadge": "{count} source(s)",
+      "noSources": "No source",
+      "confidence": "Confidence"
+    },
+    "notices": {
+      "heading": "Caveats",
+      "body": "What limited this search.",
+      "dismiss": "Dismiss",
+      "reconnect": "The connection dropped; reconnect attempt {attempt}.",
+      "questionTimeout": "A question timed out and was treated as “I don’t know”.",
+      "kind": {
+        "anchor_changed": "Subject changed",
+        "result_invalidated": "Findings discarded",
+        "error": "Error",
+        "question_timeout": "Question timed out",
+        "reconnect": "Stream reconnected"
+      }
     }
   }
 }
