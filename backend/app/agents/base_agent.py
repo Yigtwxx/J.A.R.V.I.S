@@ -13,27 +13,27 @@ StatusCallback = Callable[[str], None]
 @dataclass
 class AgentResult:
     # SocialMediaAgent
-    social_profiles:    dict[str, list]       = field(default_factory=dict)
-    phone_numbers:      list[str]             = field(default_factory=list)
-    platform_activity:  dict[str, int]        = field(default_factory=dict)
+    social_profiles: dict[str, list] = field(default_factory=dict)
+    phone_numbers: list[str] = field(default_factory=list)
+    platform_activity: dict[str, int] = field(default_factory=dict)
     # LegalRecordsAgent
-    company_records:    list[dict[str, Any]]  = field(default_factory=list)
-    academic_context:   str                   = ""
-    patent_context:     str                   = ""
-    registry_context:   str                   = ""
+    company_records: list[dict[str, Any]] = field(default_factory=list)
+    academic_context: str = ""
+    patent_context: str = ""
+    registry_context: str = ""
     # SecurityAgent
-    data_breaches:           list[dict[str, Any]] = field(default_factory=list)
-    cross_validation_issues: list[str]            = field(default_factory=list)
+    data_breaches: list[dict[str, Any]] = field(default_factory=list)
+    cross_validation_issues: list[str] = field(default_factory=list)
     # Metadata
-    agent_name: str           = ""
-    success:    bool          = True
-    error:      str | None = None
+    agent_name: str = ""
+    success: bool = True
+    error: str | None = None
 
 
 class BaseAgent(ABC):
     def __init__(self, status_callback: StatusCallback, loop: asyncio.AbstractEventLoop) -> None:
         self._status = status_callback
-        self._loop   = loop
+        self._loop = loop
 
     async def run(self) -> AgentResult:
         try:
