@@ -9,8 +9,8 @@ from .base_agent import AgentResult, BaseAgent, StatusCallback
 
 def _normalize_text(text: str) -> str:
     """Normalize Unicode text: remove diacritics for fuzzy comparison."""
-    nfkd = unicodedata.normalize('NFKD', text.lower())
-    return ''.join(c for c in nfkd if not unicodedata.combining(c))
+    nfkd = unicodedata.normalize("NFKD", text.lower())
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 class SecurityAgent(BaseAgent):
@@ -57,16 +57,22 @@ class SecurityAgent(BaseAgent):
 
         # --- 1. GitHub username vs searched username ---
         if github_data and username:
-            gh_login = (github_data.get('login') or '').strip().lower()
+            gh_login = (github_data.get("login") or "").strip().lower()
             searched_username = username.strip().lower()
-            if gh_login and searched_username and gh_login != searched_username and searched_username not in gh_login and gh_login not in searched_username:
-                    issues.append(
-                        f"GitHub login '@{github_data.get('login')}' doesn't match searched username '{username}'. Verify this is the correct account."
-                    )
+            if (
+                gh_login
+                and searched_username
+                and gh_login != searched_username
+                and searched_username not in gh_login
+                and gh_login not in searched_username
+            ):
+                issues.append(
+                    f"GitHub login '@{github_data.get('login')}' doesn't match searched username '{username}'. Verify this is the correct account."
+                )
 
         # --- 2. GitHub location vs web results (word-level matching) ---
         if github_data:
-            gh_location = (github_data.get('location') or '').strip()
+            gh_location = (github_data.get("location") or "").strip()
             if gh_location and web_results and len(gh_location) > 2:
                 location_words = set(_normalize_text(gh_location).split())
                 web_normalized = _normalize_text(web_results)
@@ -78,7 +84,7 @@ class SecurityAgent(BaseAgent):
 
         # --- 3. GitHub display name vs searched name (with Unicode normalization) ---
         if github_data:
-            gh_name = (github_data.get('name') or '').strip()
+            gh_name = (github_data.get("name") or "").strip()
             if gh_name and real_name:
                 gh_words = set(_normalize_text(gh_name).split())
                 search_words = set(_normalize_text(real_name).split())
@@ -98,16 +104,22 @@ class SecurityAgent(BaseAgent):
 
         # --- 5. GitHub bio profession vs web results profession ---
         if github_data:
-            gh_bio = (github_data.get('bio') or '').strip().lower()
+            gh_bio = (github_data.get("bio") or "").strip().lower()
             if gh_bio and len(gh_bio) > 10 and web_results:
                 web_lower = web_results.lower()
                 profession_clusters = [
-                    (('developer', 'programmer', 'engineer', 'software', 'coding', 'github'),
-                     ('doctor', 'physician', 'medical', 'hospital', 'clinical', 'surgeon')),
-                    (('developer', 'programmer', 'engineer', 'software'),
-                     ('lawyer', 'attorney', 'legal', 'law firm', 'court')),
-                    (('student', 'öğrenci', 'university', 'üniversite', 'college'),
-                     ('ceo', 'founder', 'director', 'chairman', 'president', 'managing')),
+                    (
+                        ("developer", "programmer", "engineer", "software", "coding", "github"),
+                        ("doctor", "physician", "medical", "hospital", "clinical", "surgeon"),
+                    ),
+                    (
+                        ("developer", "programmer", "engineer", "software"),
+                        ("lawyer", "attorney", "legal", "law firm", "court"),
+                    ),
+                    (
+                        ("student", "öğrenci", "university", "üniversite", "college"),
+                        ("ceo", "founder", "director", "chairman", "president", "managing"),
+                    ),
                 ]
                 for cluster_a, cluster_b in profession_clusters:
                     bio_has_a = any(kw in gh_bio for kw in cluster_a)
