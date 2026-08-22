@@ -52,7 +52,6 @@ next-env.d.ts
 .claude/
 
 # Claude project rules (local only, not pushed)
-/CLAUDE.md
 CLAUDE.local.md
 *.swp
 *.swo
