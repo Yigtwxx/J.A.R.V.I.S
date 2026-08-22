@@ -11,60 +11,70 @@ Usage in route files:
 Each provider uses @lru_cache(maxsize=1) to ensure singleton behavior —
 the service is created once on first request, not at import time.
 """
+
 from functools import lru_cache
 
 
 @lru_cache(maxsize=1)
 def get_ai_service():
     from app.services.ai_service import AIService
+
     return AIService()
 
 
 @lru_cache(maxsize=1)
 def get_memory_service():
     from app.services.user_memory_service import UserMemoryService
+
     return UserMemoryService()
 
 
 @lru_cache(maxsize=1)
 def get_search_service():
     from app.services.search_service import SearchService
+
     return SearchService()
 
 
 @lru_cache(maxsize=1)
 def get_github_service():
     from app.services.github_service import GitHubService
+
     return GitHubService()
 
 
 @lru_cache(maxsize=1)
 def get_scraper_service():
     from app.services.scraper_service import ScraperService
+
     return ScraperService()
 
 
 @lru_cache(maxsize=1)
 def get_weather_service():
     from app.services.weather_service import WeatherService
+
     return WeatherService()
 
 
 @lru_cache(maxsize=1)
 def get_social_score_service():
     from app.services.social_score_service import SocialScoreService
+
     return SocialScoreService()
 
 
 @lru_cache(maxsize=1)
 def get_face_matching_service():
     from app.services.face_matching_service import FaceMatchingService
+
     return FaceMatchingService()
 
 
 @lru_cache(maxsize=1)
 def get_health_service():
     from app.services.health_service import HealthService
+
     return HealthService(memory_service=get_memory_service())
 
 
@@ -72,6 +82,7 @@ def get_health_service():
 def get_agent_loop():
     from app.agents.agent_loop import AgentLoop
     from app.agents.tools.osint_tools import build_osint_registry
+
     registry = build_osint_registry()
     return AgentLoop(registry=registry)
 
