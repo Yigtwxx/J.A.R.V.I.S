@@ -13,7 +13,7 @@ class DiscoveryError(Exception):
 
 
 class FetchLayerUnavailable(DiscoveryError):
-    """A transport tier cannot be used at all (e.g. Camoufox is not installed).
+    """A transport tier cannot be used at all (e.g. no browser is installed).
 
     Callers degrade to a lower tier and report ``blocked`` — they must not crash.
     """
