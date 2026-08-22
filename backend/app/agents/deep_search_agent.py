@@ -5,6 +5,7 @@ Spawns parallel sub-searches with different query strategies (career,
 academic, news, social, controversy) and cross-references results to
 discard entries that don't actually belong to the target person.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,10 +20,7 @@ from .base_agent import AgentResult, BaseAgent, StatusCallback
 
 def _normalize(text: str) -> str:
     """Strip diacritics and lower-case for fuzzy matching."""
-    return "".join(
-        c for c in unicodedata.normalize("NFD", text.lower())
-        if unicodedata.category(c) != "Mn"
-    )
+    return "".join(c for c in unicodedata.normalize("NFD", text.lower()) if unicodedata.category(c) != "Mn")
 
 
 class DeepSearchAgent(BaseAgent):
@@ -53,36 +51,58 @@ class DeepSearchAgent(BaseAgent):
         """Return (strategy_label, query_list) pairs based on depth."""
         name = self._name
         strategies: list[tuple[str, list[str]]] = [
-            ("career", [
-                f'"{name}" career OR profession OR company',
-                f'"{name}" CEO OR founder OR director OR manager',
-                f'"{name}" work experience OR employment',
-            ]),
-            ("academic", [
-                f'"{name}" university OR education OR degree',
-                f'"{name}" research OR publication OR thesis',
-                f'"{name}" PhD OR professor OR academic',
-            ]),
-            ("news", [
-                f'"{name}" interview OR news OR article',
-                f'"{name}" award OR achievement OR recognition',
-                f'"{name}" event OR conference OR speaker',
-            ]),
-            ("social", [
-                f'"{name}" profile OR about OR bio',
-                f'"{name}" blog OR personal site OR portfolio',
-            ]),
+            (
+                "career",
+                [
+                    f'"{name}" career OR profession OR company',
+                    f'"{name}" CEO OR founder OR director OR manager',
+                    f'"{name}" work experience OR employment',
+                ],
+            ),
+            (
+                "academic",
+                [
+                    f'"{name}" university OR education OR degree',
+                    f'"{name}" research OR publication OR thesis',
+                    f'"{name}" PhD OR professor OR academic',
+                ],
+            ),
+            (
+                "news",
+                [
+                    f'"{name}" interview OR news OR article',
+                    f'"{name}" award OR achievement OR recognition',
+                    f'"{name}" event OR conference OR speaker',
+                ],
+            ),
+            (
+                "social",
+                [
+                    f'"{name}" profile OR about OR bio',
+                    f'"{name}" blog OR personal site OR portfolio',
+                ],
+            ),
         ]
 
         if self._depth >= 9:
-            strategies.append(("controversy", [
-                f'"{name}" controversy OR scandal OR criticism',
-                f'"{name}" lawsuit OR court OR legal',
-            ]))
-            strategies.append(("deep_web", [
-                f'"{name}" forum OR community OR discussion',
-                f'"{name}" review OR feedback OR testimonial',
-            ]))
+            strategies.append(
+                (
+                    "controversy",
+                    [
+                        f'"{name}" controversy OR scandal OR criticism',
+                        f'"{name}" lawsuit OR court OR legal',
+                    ],
+                )
+            )
+            strategies.append(
+                (
+                    "deep_web",
+                    [
+                        f'"{name}" forum OR community OR discussion',
+                        f'"{name}" review OR feedback OR testimonial',
+                    ],
+                )
+            )
 
         return strategies
 
@@ -115,9 +135,7 @@ class DeepSearchAgent(BaseAgent):
     # Cross-reference validation
     # ------------------------------------------------------------------
 
-    def _cross_validate(
-        self, strategy_results: dict[str, list[dict[str, str]]]
-    ) -> list[dict[str, str]]:
+    def _cross_validate(self, strategy_results: dict[str, list[dict[str, str]]]) -> list[dict[str, str]]:
         """Keep only results whose text is corroborated by ≥ 2 strategies."""
         name_norm = _normalize(self._name)
         name_parts = [p for p in name_norm.split() if len(p) > 2]
@@ -147,11 +165,9 @@ class DeepSearchAgent(BaseAgent):
                 # Fuzzy fallback
                 text_words = text.split()
                 fuzzy_found = sum(
-                    1 for p in name_parts
-                    if p in text or (
-                        len(p) >= 4
-                        and difflib.get_close_matches(p, text_words, n=1, cutoff=0.85)
-                    )
+                    1
+                    for p in name_parts
+                    if p in text or (len(p) >= 4 and difflib.get_close_matches(p, text_words, n=1, cutoff=0.85))
                 )
                 if fuzzy_found < len(name_parts):
                     continue  # Not about our person
@@ -190,8 +206,13 @@ class DeepSearchAgent(BaseAgent):
     def _deep_scrape(self, results: list[dict[str, str]], max_scrapes: int) -> str:
         """Fetch full page content from top validated results."""
         skip_domains = {
-            "instagram.com", "twitter.com", "x.com", "linkedin.com",
-            "facebook.com", "youtube.com", "tiktok.com",
+            "instagram.com",
+            "twitter.com",
+            "x.com",
+            "linkedin.com",
+            "facebook.com",
+            "youtube.com",
+            "tiktok.com",
         }
         deep_context = ""
         scraped = 0
@@ -241,24 +262,17 @@ class DeepSearchAgent(BaseAgent):
                 strategy_results[label] = []
             else:
                 strategy_results[label] = output
-                self._broadcast(
-                    f"[OK] DeepSearchAgent: strategy '{label}' returned {len(output)} result(s)"
-                )
+                self._broadcast(f"[OK] DeepSearchAgent: strategy '{label}' returned {len(output)} result(s)")
 
         # Cross-reference validation
         validated = self._cross_validate(strategy_results)
-        self._broadcast(
-            f"[OK] DeepSearchAgent: {len(validated)} result(s) passed cross-validation"
-        )
+        self._broadcast(f"[OK] DeepSearchAgent: {len(validated)} result(s) passed cross-validation")
 
         # Deep scrape validated results
         max_scrapes = min(self._depth, 12)
         deep_context = await self._run_sync(self._deep_scrape, validated, max_scrapes)
 
-        self._broadcast(
-            f"[OK] DeepSearchAgent: deep content extraction complete "
-            f"({len(deep_context)} chars)"
-        )
+        self._broadcast(f"[OK] DeepSearchAgent: deep content extraction complete ({len(deep_context)} chars)")
 
         # Store extra deep context and validated web results in the agent result
         # These will be merged into the main pipeline by the orchestrator
