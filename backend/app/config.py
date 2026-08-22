@@ -60,7 +60,10 @@ class Settings(BaseSettings):
     api_key: str = ""
 
     # Rate Limiting (sliding window per IP)
-    rate_limit_requests: int = 30  # max requests per window
+    # One rendered result page legitimately issues dozens of authenticated
+    # requests (session start, stream, history, one per avatar), so a budget
+    # tuned for a public API rate-limits this UI against itself.
+    rate_limit_requests: int = 120  # max requests per window
     rate_limit_window_seconds: int = 60  # window size in seconds
     rate_limit_persistent: bool = False  # True = SQLite-backed (survives restarts)
     rate_limit_backend: str = (
@@ -110,9 +113,9 @@ class Settings(BaseSettings):
     # false only to isolate a discovery problem.
     discovery_enabled: bool = True
 
-    # Stealth tier (Scrapling + Camoufox). Turning this off degrades discovery to
-    # the plain HTTP tier instead of failing: Instagram/TikTok/LinkedIn simply
-    # report `blocked` rather than crashing the search.
+    # Stealth tier (Scrapling + patchright-driven Chromium). Turning this off
+    # degrades discovery to the plain HTTP tier instead of failing:
+    # Instagram/TikTok/LinkedIn simply report `blocked` rather than crashing.
     discovery_stealth_enabled: bool = True
     discovery_max_stealth_pages: int = 3
     discovery_max_concurrent_stealth_sessions: int = 2
@@ -146,6 +149,35 @@ class Settings(BaseSettings):
     discovery_proxy_url: str = ""
     discovery_proxy_pool: list[str] = []
     discovery_proxy_platforms: list[str] = []
+
+    # ------------------------------------------------------------------
+    # Anti-blocking. With no proxy pool the only levers left are looking like a
+    # consistent browser and pacing like a human, so these default to on.
+    # ------------------------------------------------------------------
+    # Exactly periodic requests are a bot signal in themselves; spread each wait
+    # by +/- this fraction. 0 restores the old machine-perfect cadence.
+    discovery_rate_jitter: float = 0.3
+
+    # On a refusal that carries no Retry-After, widen that domain's interval for
+    # the rest of the process instead of knocking at the same rejected cadence.
+    discovery_adaptive_backoff: bool = True
+
+    # Carry cookies across requests, and hand the cookies the browser earned
+    # (Cloudflare clearance, consent) down to the cheap HTTP tier.
+    discovery_cookie_persistence: bool = True
+
+    # Reuse a browser profile directory between searches so Cloudflare clearance
+    # and consent cookies survive. Relative paths resolve against backend/.
+    discovery_browser_profile_persist: bool = True
+    discovery_browser_profile_dir: str = "data/browser_profiles"
+
+    # Launch the real installed Chrome rather than the bundled Chromium when one
+    # is present. Silently ignored where no Chrome exists (e.g. the Docker image).
+    discovery_real_chrome: bool = True
+
+    # Canvas noise is randomised per request, which contradicts a persistent
+    # profile's otherwise stable fingerprint. Off by default; flip it to compare.
+    discovery_hide_canvas: bool = False
 
     class Config:
         env_file = ".env"
