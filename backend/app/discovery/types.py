@@ -40,7 +40,7 @@ class FetchTier(StrEnum):
     """AsyncFetcher — curl_cffi with browser TLS impersonation. Fast, cheap."""
 
     STEALTH = "stealth"
-    """AsyncStealthySession — Camoufox. Slow, memory-hungry, solves Cloudflare."""
+    """AsyncStealthySession — patchright Chromium. Slow, memory-hungry, solves Cloudflare."""
 
 
 class PlatformStatus(StrEnum):
