@@ -81,9 +81,14 @@ def get_health_service():
 @lru_cache(maxsize=1)
 def get_agent_loop():
     from app.agents.agent_loop import AgentLoop
+    from app.agents.tools.console_tools import register_console_tools
     from app.agents.tools.osint_tools import build_osint_registry
 
-    registry = build_osint_registry()
+    # One registry: the agent picks between gathering intelligence and operating
+    # the console in the same decision, so the two sets have to be visible to it
+    # at once. Registration happens here rather than inside the OSINT builder so
+    # neither tool module has to import the other.
+    registry = register_console_tools(build_osint_registry())
     return AgentLoop(registry=registry)
 
 
