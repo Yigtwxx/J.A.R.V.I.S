@@ -17,6 +17,35 @@ class EntityType(StrEnum):
     PLACE = "place"
 
 
+class Gender(StrEnum):
+    """A gender the **user stated** as a search constraint, never one we inferred.
+
+    It lives here rather than in ``brief/`` so the scorer and the clusterer can
+    read it without importing the brief package, which imports them back.
+
+    ``UNKNOWN`` is the default and the only honest value for "not stated". It is
+    never derived from a given name: Turkish carries a long list of unisex ones
+    (Deniz, Evren, Yağmur, Özgür, Umut, Şevval), and guessing would manufacture a
+    contradiction against the very person being searched for.
+    """
+
+    MALE = "male"
+    FEMALE = "female"
+    UNKNOWN = "unknown"
+
+    @property
+    def is_stated(self) -> bool:
+        return self is not Gender.UNKNOWN
+
+    def contradicts(self, other: Gender) -> bool:
+        """True only when both sides are stated and they disagree.
+
+        Silence is never disagreement — most profiles say nothing about gender,
+        and reading that as a conflict would reject almost everyone.
+        """
+        return self.is_stated and other.is_stated and self is not other
+
+
 class FetchStatus(StrEnum):
     """Outcome of a single HTTP/browser fetch.
 
@@ -41,6 +70,12 @@ class FetchTier(StrEnum):
 
     STEALTH = "stealth"
     """AsyncStealthySession — patchright Chromium. Slow, memory-hungry, solves Cloudflare."""
+
+    BROWSE = "browse"
+    """The interactive tier: a driven page that scrolled, dismissed and clicked
+    before the HTML was taken. Named separately from STEALTH because it is not
+    the same claim — the same URL reached by a different route, after actions
+    that a plain GET never performed."""
 
 
 class PlatformStatus(StrEnum):
@@ -79,6 +114,12 @@ class SourceKind(StrEnum):
     USER_ANSWER = "user_answer"
     DERIVED = "derived"
 
+    BROWSE = "browse"
+    """Read from a page a driven browser manoeuvred to. The *parse* is the same
+    deterministic one PROFILE_PAGE uses — it is literally the same extractor —
+    but the navigation is one step less certain, so the label has to survive
+    into the journal for anything downstream to weigh it honestly."""
+
 
 class EvidenceKind(StrEnum):
     """What an evidence item asserts."""
@@ -93,6 +134,9 @@ class EvidenceKind(StrEnum):
     EMPLOYER = "employer"
     ROLE = "role"
     SCHOOL = "school"
+    GENDER = "gender"
+    """Read off a bio marker or estimated from an avatar. Always says which."""
+
     DOMAIN = "domain"
     BIO = "bio"
     LINK = "link"
