@@ -216,15 +216,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Configure CORS (tightened header/method lists)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-API-Key", "X-CSRF-Token", "Authorization"],
-)
-
 # CSRF protection (opt-in via csrf_enabled=True)
 app.add_middleware(CSRFMiddleware, secret=settings.csrf_secret)
 
@@ -269,7 +260,19 @@ async def log_requests(request: Request, call_next):
     # Log incoming request
     logger.log_network_traffic(method=request.method, path=request.url.path, client_ip=client_ip)
 
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        # Convert the failure here instead of letting it reach Starlette's
+        # ServerErrorMiddleware. That one wraps every user middleware including
+        # CORS, so its 500 leaves without an Access-Control-Allow-Origin header
+        # and the browser reports a network error — hiding the status, and the
+        # backend's own explanation, from the user.
+        logger.log_exception(f"Unhandled exception on {request.method} {request.url.path}: {type(exc).__name__}: {exc}")
+        response = JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error", "type": "server_error"},
+        )
 
     process_time = (time.time() - start_time) * 1000  # ms
 
@@ -283,6 +286,20 @@ async def log_requests(request: Request, call_next):
     )
 
     return response
+
+
+# CORS is registered LAST on purpose. ``add_middleware`` inserts at the front of
+# the list and Starlette then wraps in reverse, so the last registration ends up
+# OUTERMOST. Registered first (as it was) CORS sat innermost, and a 429 from the
+# rate limiter or a 403 from CSRF reached the browser with no CORS headers at
+# all — which Chrome reports as a network error rather than the real status.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-API-Key", "X-CSRF-Token", "Authorization"],
+)
 
 
 # Include routers
