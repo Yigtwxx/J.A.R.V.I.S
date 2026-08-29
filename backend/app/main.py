@@ -3,8 +3,8 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.config import generate_api_key, get_settings
@@ -18,7 +18,6 @@ from app.middleware.security import (
     verify_api_key,
 )
 from app.plugins import plugin_manager
-from app.services.self_healing_service import self_healing_service
 from app.routes import (
     agent_router,
     audit_router,
@@ -33,13 +32,15 @@ from app.routes import (
     plugins_router,
     profiles_router,
     search_router,
-    version_history_router,
     system_router,
+    version_history_router,
     vision_router,
     visual_intel_router,
     watch_router,
 )
+from app.services.self_healing_service import self_healing_service
 from app.utils.logger import logger
+from app.utils.sse import with_heartbeat
 
 settings = get_settings()
 
@@ -121,6 +122,7 @@ async def lifespan(app: FastAPI):
                 await asyncio.sleep(settings.rate_limit_cleanup_interval)
                 try:
                     import time as _time
+
                     from app.database.connection import SessionLocal
                     from app.models.rate_limit import RateLimit
 
@@ -147,6 +149,7 @@ async def lifespan(app: FastAPI):
                 await asyncio.sleep(86400)  # daily
                 try:
                     from datetime import datetime, timedelta
+
                     from app.database.connection import SessionLocal
                     from app.models.audit_log import AuditLog
 
@@ -358,7 +361,10 @@ async def stream_status(_api_key: str = Depends(verify_api_key)):
             logger.subscribers.discard(queue)
 
     return StreamingResponse(
-        event_generator(),
+        # The log tap is idle whenever nothing is searching, which is most of the
+        # time; without a keep-alive the relay in front of it eventually decides
+        # the stream is dead and cuts it.
+        with_heartbeat(event_generator()),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache, no-store, must-revalidate",
