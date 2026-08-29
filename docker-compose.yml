@@ -35,13 +35,14 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        # The browser runs on the host, so it must reach the backend through
-        # the published port — "http://backend:8000" is unreachable from there.
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-        NEXT_PUBLIC_API_KEY: ${NEXT_PUBLIC_API_KEY:?Set NEXT_PUBLIC_API_KEY in the root .env file (copy .env.example)}
     ports:
       - "3000:3000"
+    environment:
+      # The relay runs inside this container, not in the browser, so the backend
+      # is reached over the compose network — the published port is no longer on
+      # the path. The key stays here and never reaches a client bundle.
+      - BACKEND_URL=http://backend:8000
+      - API_KEY=${API_KEY:?Set API_KEY in the root .env file (copy .env.example) and match backend/.env}
     depends_on:
       backend:
         condition: service_healthy
