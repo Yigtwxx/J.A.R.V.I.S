@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -13,6 +13,27 @@ class Tool:
     description: str
     parameters: dict  # JSON Schema for the function parameters
     handler: Callable[..., Awaitable[str]]  # async function that returns a string result
+
+    # A tool that changes the user's console state must not run on the model's
+    # say-so alone. `True` gates every call; a predicate gates only some of them,
+    # which is what the grouped console tools need — `watch_control(action="list")`
+    # is a read and `action="stop"` is not.
+    requires_confirmation: bool | Callable[[dict[str, Any]], bool] = False
+    # Renders the sentence the approval card shows. Without one the card would
+    # have to describe the call in raw JSON, which is not a question a person can
+    # answer.
+    confirm_summary: Callable[[dict[str, Any]], str] | None = None
+
+    def needs_confirmation(self, arguments: dict[str, Any]) -> bool:
+        if callable(self.requires_confirmation):
+            return bool(self.requires_confirmation(arguments))
+        return bool(self.requires_confirmation)
+
+    def summarize(self, arguments: dict[str, Any]) -> str:
+        if self.confirm_summary is not None:
+            return self.confirm_summary(arguments)
+        rendered = ", ".join(f"{key}={value!r}" for key, value in arguments.items())
+        return f"{self.name}({rendered})"
 
 
 class ToolRegistry:
@@ -45,6 +66,22 @@ class ToolRegistry:
                 }
             )
         return schemas
+
+    def needs_confirmation(self, name: str, arguments: dict[str, Any]) -> bool:
+        """Whether this exact call must be approved before it runs.
+
+        An unknown tool never needs approval: it cannot do anything, and
+        ``execute`` already answers it with the list of tools that exist.
+        """
+        tool = self._tools.get(name)
+        return bool(tool and tool.needs_confirmation(arguments))
+
+    def summarize(self, name: str, arguments: dict[str, Any]) -> str:
+        """One sentence describing what the call would do, for the approval card."""
+        tool = self._tools.get(name)
+        if not tool:
+            return f"Unknown tool '{name}'"
+        return tool.summarize(arguments)
 
     async def execute(self, name: str, arguments: dict[str, Any]) -> str:
         """Execute a tool by name with the given arguments."""
