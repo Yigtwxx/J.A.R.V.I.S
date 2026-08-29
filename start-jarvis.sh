@@ -23,6 +23,23 @@ echo ""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# File logging is opt-in: ./start-jarvis.sh --logs
+# Off by default because logs/ regenerated itself after every clean-up.
+JARVIS_LOGS=0
+for arg in "$@"; do
+    [ "$arg" = "--logs" ] && JARVIS_LOGS=1
+done
+if [ "$JARVIS_LOGS" = "1" ]; then
+    mkdir -p logs
+    BACKEND_OUT="../logs/backend.log"
+    FRONTEND_OUT="../logs/frontend.log"
+    # Same switch drives the backend's own rotating file handler.
+    export JARVIS_FILE_LOGGING=1
+else
+    BACKEND_OUT="/dev/null"
+    FRONTEND_OUT="/dev/null"
+fi
+
 # Check if Ollama is running
 echo -e "${CYAN}[SYSTEM CHECK]${NC} Checking Ollama service..."
 if ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
@@ -147,7 +164,7 @@ echo -e "${CYAN}[BACKEND]${NC} Starting FastAPI server..."
 cd backend
 source venv/bin/activate
 export PYTHONPATH="$PWD"
-python -m app.main > ../logs/backend.log 2>&1 &
+python -m app.main > "$BACKEND_OUT" 2>&1 &
 BACKEND_PID=$!
 cd ..
 echo -e "${GREEN}[OK]${NC} Backend started in background (PID: $BACKEND_PID)"
@@ -162,18 +179,23 @@ if curl -s http://localhost:8000/health > /dev/null 2>&1; then
     echo -e "${GREEN}[OK]${NC} Backend is running at http://localhost:8000"
 else
     echo -e "${YELLOW}[WARNING]${NC} Backend not responding"
-    echo -e "${YELLOW}[INFO]${NC} Checking backend.log..."
-    echo ""
-    echo "======== BACKEND LOG (Last 10 lines) ========"
-    tail -10 logs/backend.log
-    echo "============================================="
-    echo ""
+    if [ "$JARVIS_LOGS" = "1" ]; then
+        echo -e "${YELLOW}[INFO]${NC} Checking backend.log..."
+        echo ""
+        echo "======== BACKEND LOG (Last 10 lines) ========"
+        tail -10 logs/backend.log
+        echo "============================================="
+        echo ""
+    else
+        echo -e "${YELLOW}[INFO]${NC} No output was captured. Re-run with: ./start-jarvis.sh --logs"
+        echo ""
+    fi
 fi
 
 # Start Frontend in background
 echo -e "${CYAN}[FRONTEND]${NC} Starting Next.js development server..."
 cd frontend
-npm run dev > ../logs/frontend.log 2>&1 &
+npm run dev > "$FRONTEND_OUT" 2>&1 &
 FRONTEND_PID=$!
 cd ..
 echo -e "${GREEN}[OK]${NC} Frontend started in background (PID: $FRONTEND_PID)"
@@ -188,12 +210,17 @@ if curl -s http://localhost:3000 > /dev/null 2>&1; then
     echo -e "${GREEN}[OK]${NC} Frontend is running at http://localhost:3000"
 else
     echo -e "${YELLOW}[WARNING]${NC} Frontend not responding"
-    echo -e "${YELLOW}[INFO]${NC} Checking frontend.log..."
-    echo ""
-    echo "======== FRONTEND LOG (Last 10 lines) ========"
-    tail -10 logs/frontend.log
-    echo "============================================="
-    echo ""
+    if [ "$JARVIS_LOGS" = "1" ]; then
+        echo -e "${YELLOW}[INFO]${NC} Checking frontend.log..."
+        echo ""
+        echo "======== FRONTEND LOG (Last 10 lines) ========"
+        tail -10 logs/frontend.log
+        echo "============================================="
+        echo ""
+    else
+        echo -e "${YELLOW}[INFO]${NC} No output was captured. Re-run with: ./start-jarvis.sh --logs"
+        echo ""
+    fi
 fi
 
 echo ""
@@ -215,9 +242,13 @@ echo "  Backend:  http://localhost:8000"
 echo "  Frontend: http://localhost:3000"
 echo "  API Docs: http://localhost:8000/docs"
 echo ""
-echo "  View real-time logs:"
-echo "  - tail -f logs/backend.log"
-echo "  - tail -f logs/frontend.log"
+if [ "$JARVIS_LOGS" = "1" ]; then
+    echo "  View real-time logs:"
+    echo "  - tail -f logs/backend.log"
+    echo "  - tail -f logs/frontend.log"
+else
+    echo "  Log files are off. Re-run with --logs to capture them."
+fi
 echo ""
 echo "  Press Ctrl+C to stop all services and exit"
 echo "========================================================================"
@@ -236,9 +267,10 @@ cleanup() {
 # Trap Ctrl+C
 trap cleanup SIGINT SIGTERM
 
-# Keep running and watch logs
+# Keep running; tail the logs only when there are logs to tail
 while true; do
     sleep 5
+    [ "$JARVIS_LOGS" = "1" ] || continue
     echo "[$(date +%H:%M:%S)] Latest logs..."
     echo -e "${CYAN}[BACKEND]${NC}"
     tail -3 logs/backend.log 2>/dev/null
