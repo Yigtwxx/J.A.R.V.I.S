@@ -8,6 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 from app.agents.tool_registry import Tool, ToolRegistry
+from app.agents.tools import truncate_result as _truncate
 from app.discovery.dependencies import get_discovery_runner
 from app.plugins import plugin_manager
 from app.services.archive_service import archive_service
@@ -25,12 +26,6 @@ _github = GitHubService()
 _search = SearchService()
 _breach = BreachService()
 _darkweb = DarkWebService()
-
-
-def _truncate(text: str, limit: int = 4000) -> str:
-    if len(text) > limit:
-        return text[:limit] + "\n... [TRUNCATED]"
-    return text
 
 
 # ------------------------------------------------------------------
