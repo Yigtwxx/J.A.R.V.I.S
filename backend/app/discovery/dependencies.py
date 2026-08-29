@@ -7,6 +7,9 @@ Which objects may be cached is a correctness question, not a style one:
   queue behind the same bucket or the limit means nothing.
 * ``QuestionBroker`` and ``SessionManager`` must be singletons because the answer
   endpoint and the discovery task have to find the same pending future.
+* ``EngineHealthStore`` is a singleton for the same reason: a search engine's
+  refusal belongs to that engine. Per run, its cooldowns were discarded at the
+  end of every search, so they protected nothing.
 * ``CookieVault`` and ``BrowserProfilePool`` are singletons for the same reason as
   the rate limiter: what they hold describes the *remote* host, not our session.
   Both deliberately store data only — cookie values and directory paths — never a
@@ -22,12 +25,15 @@ from __future__ import annotations
 from functools import lru_cache
 
 from app.config import get_settings
+from app.discovery.browse.control import BrowseControl
+from app.discovery.engines.registry import EngineHealthStore
 from app.discovery.evidence.store import EvidenceStore
 from app.discovery.fetch.cookies import CookieVault
 from app.discovery.fetch.profiles import BrowserProfilePool
 from app.discovery.fetch.ratelimit import DomainRateLimiter
 from app.discovery.hitl.broker import QuestionBroker
 from app.discovery.loop.runner import DiscoveryRunner
+from app.discovery.media.shots import FrameStore
 from app.discovery.media.store import AvatarStore
 from app.discovery.session.manager import SessionManager
 
@@ -39,6 +45,19 @@ def get_domain_rate_limiter() -> DomainRateLimiter:
         jitter=settings.discovery_rate_jitter,
         adaptive=settings.discovery_adaptive_backoff,
     )
+
+
+@lru_cache(maxsize=1)
+def get_engine_health() -> EngineHealthStore:
+    """Process-wide, for the same reason as the rate limiter.
+
+    A search engine's refusal describes that engine, not the search that ran into
+    it. Held per run — which is what happened while this lived on
+    ``EngineRegistry`` — a 600 s cooldown was thrown away the moment the run
+    ended, so every new search re-probed Brave and Mojeek, waited out the same
+    refusal and wrote the same warning into the live feed.
+    """
+    return EngineHealthStore()
 
 
 @lru_cache(maxsize=1)
@@ -88,6 +107,30 @@ def get_avatar_store() -> AvatarStore:
 
 
 @lru_cache(maxsize=1)
+def get_frame_store() -> FrameStore:
+    """Browse screenshots. Cached because it holds only a path and its limits.
+
+    Unlike ``AvatarStore`` this one sweeps: an avatar is a finding worth keeping,
+    a frame is telemetry produced a dozen at a time per task.
+    """
+    settings = get_settings()
+    return FrameStore(
+        settings.discovery_browse_frame_dir,
+        max_edge=settings.discovery_browse_frame_max_edge,
+        quality=settings.discovery_browse_frame_quality,
+        ttl_seconds=settings.discovery_browse_frame_ttl_seconds,
+        max_files=settings.discovery_browse_frame_max_files,
+    )
+
+
+@lru_cache(maxsize=1)
+def get_browse_control() -> BrowseControl:
+    """Must be a singleton for the same reason ``QuestionBroker`` is: the stop
+    endpoint and the running search have to share one object."""
+    return BrowseControl()
+
+
+@lru_cache(maxsize=1)
 def get_discovery_runner() -> DiscoveryRunner:
     """The runner is stateless per call; all mutable state lives in DiscoveryState."""
     return DiscoveryRunner(
@@ -97,4 +140,7 @@ def get_discovery_runner() -> DiscoveryRunner:
         rate_limiter=get_domain_rate_limiter(),
         cookies=get_cookie_vault(),
         profiles=get_browser_profile_pool(),
+        frames=get_frame_store(),
+        browse_control=get_browse_control(),
+        engine_health=get_engine_health(),
     )
