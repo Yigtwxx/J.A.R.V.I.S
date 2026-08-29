@@ -30,7 +30,13 @@ class Settings(BaseSettings):
     llm_side_analysis_timeout_seconds: float = 300.0
 
     # Vision (multimodal)
-    vision_model: str = "llama3.2-vision"
+    vision_model: str = "qwen2.5vl:7b"
+    """Multimodal model for image and screen reading.
+
+    Was ``llama3.2-vision`` until 2026-08-29. Ollama 0.32.13 dropped the
+    ``mllama`` architecture, so that model still appears in ``ollama list`` and
+    fails to load on every call. Qwen2.5-VL also grounds far better, which is
+    what the browse tier's pixel-coordinate fallback depends on."""
 
     # GitHub
     github_token: str = ""
@@ -128,8 +134,8 @@ class Settings(BaseSettings):
     # disallow actually blocks the fetch.
     discovery_respect_robots: bool = False
 
-    # Human-in-the-loop. A timeout means "unknown", never "no".
-    discovery_question_timeout_seconds: int = 120
+    # Human-in-the-loop. A question has no deadline — only this cap on how many
+    # times one run is allowed to interrupt the user.
     discovery_max_questions: int = 6
     discovery_llm_question_phrasing: bool = False
 
@@ -178,6 +184,67 @@ class Settings(BaseSettings):
     # Canvas noise is randomised per request, which contradicts a persistent
     # profile's otherwise stable fingerprint. Off by default; flip it to compare.
     discovery_hide_canvas: bool = False
+
+    # ------------------------------------------------------------------
+    # Interactive browse tier — HTTP -> stealth -> browse, in that order.
+    #
+    # Every step costs one local vision inference, so each limit here is a
+    # ceiling the phase must not be able to talk its way past. The phase runs at
+    # most once per search: on an 8 GB card the vision model and the narrative
+    # model cannot both be resident, so a per-round browse would make ollama
+    # evict and reload one of them every round.
+    # ------------------------------------------------------------------
+    discovery_browse_enabled: bool = True
+    discovery_browse_max_tasks_per_search: int = 2
+    discovery_browse_max_steps: int = 12
+    discovery_browse_max_seconds: float = 180.0
+    discovery_browse_step_timeout_seconds: float = 45.0
+
+    # The phase only starts with this much wall clock still unspent. It must
+    # never be what starves the biography at the end of a search.
+    discovery_browse_min_time_left_seconds: float = 300.0
+
+    discovery_browse_viewport_width: int = 1280
+    discovery_browse_viewport_height: int = 800
+    discovery_browse_allow_pixel_clicks: bool = True
+
+    # Empty means `vision_model`. Separate so the agent can be pointed at a
+    # stronger VLM without disturbing avatar and photo analysis.
+    discovery_browse_model: str = ""
+
+    # Short, so ollama releases the vision model's ~6 GB before the narrative
+    # model needs its own.
+    discovery_browse_keep_alive: str = "30s"
+
+    # --- Search brief -------------------------------------------------------
+    # Structured constraints the user supplies with the query: a stated gender,
+    # accounts they already know, a reference photo.
+    discovery_brief_max_known_profiles: int = 10
+    """How many known accounts one brief may pin. Each one costs a fetch."""
+
+    discovery_brief_llm_parse_enabled: bool = True
+    """Kill switch for the opt-in LLM pass over the text the parser could not
+    place. The per-request flag still decides whether it runs at all."""
+
+    # --- Avatar gender screen -----------------------------------------------
+    # Only ever runs when the user stated a gender. It can remove a candidate, so
+    # the budget is tight and the confidence floor is high: a wrong exclusion is
+    # far more expensive than a missed one.
+    discovery_avatar_gender_enabled: bool = True
+    discovery_avatar_gender_max_checks: int = 12
+    """Vision calls per search. Each is 4-8 s and evicts the narrative model on
+    an 8 GB card, so this is a wall-clock decision, not a quality one."""
+
+    discovery_avatar_gender_min_confidence: float = 0.75
+    discovery_avatar_gender_model: str = ""
+    """Empty falls back to `discovery_browse_model`, then `vision_model`."""
+
+    # Frames are telemetry, not findings: unlike avatars they are swept.
+    discovery_browse_frame_dir: str = "data/browse_frames"
+    discovery_browse_frame_max_edge: int = 1024
+    discovery_browse_frame_quality: int = 60
+    discovery_browse_frame_ttl_seconds: int = 3600
+    discovery_browse_frame_max_files: int = 500
 
     class Config:
         env_file = ".env"
