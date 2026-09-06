@@ -95,14 +95,14 @@ def get_agent_loop():
 @lru_cache(maxsize=1)
 def get_search_orchestration():
     from app.agents.orchestrator import SearchOrchestrator
-    from app.services.search_orchestration_service import SearchOrchestrationService
+    from app.services import version_history_service
     from app.services.breach_service import breach_service
     from app.services.company_service import company_service
     from app.services.darkweb_service import darkweb_service
     from app.services.geoint_service import geoint_service
-    from app.services.psychological_analysis_service import psychological_analysis_service
     from app.services.predictive_analysis_service import predictive_analysis_service
-    from app.services import version_history_service
+    from app.services.psychological_analysis_service import psychological_analysis_service
+    from app.services.search_orchestration_service import SearchOrchestrationService
     from app.utils.logger import logger
 
     ai = get_ai_service()
