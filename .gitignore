@@ -83,3 +83,9 @@ ehthumbs.db
 
 # Logs
 logs/
+
+# Spatial console assets — 42 MB of MediaPipe WASM and .task models.
+# Restored by `npm run spatial:assets` in frontend/; the console reports them
+# as missing rather than starting without them.
+frontend/public/mediapipe/
+frontend/public/models/
