@@ -37,6 +37,11 @@ class Gender(StrEnum):
     def is_stated(self) -> bool:
         return self is not Gender.UNKNOWN
 
+    @property
+    def description(self) -> str:
+        """The phrase a score reason uses for this gender."""
+        return {Gender.MALE: "a man", Gender.FEMALE: "a woman"}.get(self, "someone")
+
     def contradicts(self, other: Gender) -> bool:
         """True only when both sides are stated and they disagree.
 
