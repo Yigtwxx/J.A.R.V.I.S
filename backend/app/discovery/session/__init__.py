@@ -1,0 +1,50 @@
+"""Session plumbing: the event protocol, the fan-out bus, and the live registry."""
+
+from app.discovery.session.bus import SessionEventBus
+from app.discovery.session.events import (
+    PHASES,
+    EventType,
+    SearchEvent,
+    anchor_changed_payload,
+    browse_finished_payload,
+    browse_started_payload,
+    browse_step_payload,
+    candidate_payload,
+    done_payload,
+    error_payload,
+    evidence_payload,
+    hello_payload,
+    platform_status_payload,
+    progress_payload,
+    question_payload,
+    result_invalidated_payload,
+    round_finished_payload,
+    round_started_payload,
+    utc_now_iso,
+)
+from app.discovery.session.manager import LiveSession, SessionManager
+
+__all__ = [
+    "PHASES",
+    "EventType",
+    "LiveSession",
+    "SearchEvent",
+    "SessionEventBus",
+    "SessionManager",
+    "anchor_changed_payload",
+    "browse_finished_payload",
+    "browse_started_payload",
+    "browse_step_payload",
+    "candidate_payload",
+    "done_payload",
+    "error_payload",
+    "evidence_payload",
+    "hello_payload",
+    "platform_status_payload",
+    "progress_payload",
+    "question_payload",
+    "result_invalidated_payload",
+    "round_finished_payload",
+    "round_started_payload",
+    "utc_now_iso",
+]
