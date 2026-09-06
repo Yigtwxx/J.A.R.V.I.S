@@ -62,7 +62,7 @@ def get_db() -> Generator[Session, None, None]:
     try:
         yield db
         db.commit()
-    except Exception as e:
+    except Exception:
         db.rollback()
         raise
     finally:
@@ -72,7 +72,9 @@ def get_db() -> Generator[Session, None, None]:
 def init_db():
     """Initialize database — run Alembic migrations, fallback to create_all for fresh installs."""
     from pathlib import Path
+
     from alembic.config import Config
+
     from alembic import command
 
     alembic_ini = Path(__file__).resolve().parents[1] / "alembic.ini"
