@@ -26,3 +26,11 @@ cachetools~=5.3.0
 pytest~=8.0.0
 pytest-asyncio~=0.23.0
 redis~=5.0
+
+# macOS only: the spatial console moves real windows through Quartz (to list
+# them) and the Accessibility API (to place them). Windows needs nothing extra —
+# it goes through ctypes — and neither does Linux, where window control reports
+# itself unsupported rather than pretending to work.
+pyobjc-framework-Quartz~=10.3; sys_platform == "darwin"
+pyobjc-framework-ApplicationServices~=10.3; sys_platform == "darwin"
+pyobjc-framework-Cocoa~=10.3; sys_platform == "darwin"
