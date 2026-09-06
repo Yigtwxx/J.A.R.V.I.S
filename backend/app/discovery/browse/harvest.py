@@ -170,7 +170,12 @@ def ground(evidence: Sequence[Evidence], html: str) -> tuple[list[Evidence], int
         if item.kind not in _GROUNDED_KINDS:
             kept.append(item)
             continue
-        value = fold_ascii(item.value or "").casefold().strip()
+        # `raw["display"]` is the value as the page wrote it, which is the only
+        # form a substring test can find once the value has been normalised.
+        # Without it a phone stored as E.164 could never be grounded against the
+        # page that published it in national form.
+        written = str((item.raw or {}).get("display") or "") or item.value
+        value = fold_ascii(written or "").casefold().strip()
         if value and value in folded:
             kept.append(item)
         else:
