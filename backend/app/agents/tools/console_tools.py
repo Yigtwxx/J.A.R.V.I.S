@@ -28,9 +28,9 @@ from sqlalchemy.orm import Session
 from app.agents.tool_registry import Tool, ToolRegistry
 from app.agents.tools import as_json, truncate_result
 from app.database.connection import SessionLocal
-from app.models.history import SearchHistory
 from app.models.profile import Profile
 from app.plugins import plugin_manager
+from app.services.history_service import clear_conversations, delete_conversation, list_conversations
 from app.services.self_healing_service import self_healing_service
 from app.services.system_service import system_service
 from app.services.user_memory_service import UserMemoryService
@@ -338,13 +338,18 @@ async def profile_control(
 # ------------------------------------------------------------------
 
 
-async def history_control(action: str, history_id: int | None = None) -> str:
-    """Read and prune the search history the Logs panel lists."""
+async def history_control(action: str, session_id: str | None = None) -> str:
+    """Read and prune the conversations the Logs panel lists."""
     if action == "list":
         records = await _db(
             lambda db: [
-                {"id": r.id, "query_name": r.query_name, "searched_at": r.searched_at}
-                for r in db.query(SearchHistory).order_by(SearchHistory.searched_at.desc()).limit(50).all()
+                {
+                    "session_id": row.id,
+                    "raw_query": row.raw_query,
+                    "started_at": row.started_at,
+                    "status": row.status,
+                }
+                for row in list_conversations(db, limit=50)
             ]
         )
         if not records:
@@ -352,25 +357,18 @@ async def history_control(action: str, history_id: int | None = None) -> str:
         return as_json({"count": len(records), "history": records})
 
     if action == "delete":
-        if history_id is None:
-            return _missing(action, "history_id")
-
-        def drop(db: Session) -> bool:
-            record = db.query(SearchHistory).filter(SearchHistory.id == history_id).first()
-            if not record:
-                return False
-            db.delete(record)
-            return True
+        if session_id is None:
+            return _missing(action, "session_id")
 
         return (
-            f"Deleted history record #{history_id}."
-            if await _db(drop)
-            else f"No history record with id {history_id}; nothing was deleted."
+            f"Deleted conversation {session_id}."
+            if await _db(lambda db: delete_conversation(db, session_id))
+            else f"No conversation with id {session_id}; nothing was deleted."
         )
 
     if action == "clear":
-        count = await _db(lambda db: db.query(SearchHistory).delete())
-        return f"Cleared {count} history record(s)."
+        count = await _db(clear_conversations)
+        return f"Cleared {count} conversation(s)."
 
     return _unknown_action(action, HISTORY_ACTIONS)
 
@@ -479,7 +477,7 @@ def _memory_summary(args: dict[str, Any]) -> str:
 def _history_summary(args: dict[str, Any]) -> str:
     if args.get("action") == "clear":
         return "Clear the entire search history"
-    return f"Delete history record #{args.get('history_id')}"
+    return f"Delete conversation {args.get('session_id')}"
 
 
 def _system_summary(args: dict[str, Any]) -> str:
@@ -611,7 +609,7 @@ def register_console_tools(registry: ToolRegistry) -> ToolRegistry:
                 "type": "object",
                 "properties": {
                     "action": {"type": "string", "enum": list(HISTORY_ACTIONS)},
-                    "history_id": {"type": "integer", "description": "History record id, for 'delete'"},
+                    "session_id": {"type": "string", "description": "Conversation id, for 'delete'"},
                 },
                 "required": ["action"],
             },
