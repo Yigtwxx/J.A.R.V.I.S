@@ -38,6 +38,36 @@ class Settings(BaseSettings):
     fails to load on every call. Qwen2.5-VL also grounds far better, which is
     what the browse tier's pixel-coordinate fallback depends on."""
 
+    # Spatial console. The browser half — camera, gestures, the room — is
+    # entirely client-side; this flag gates the one backend call it makes, which
+    # is the scene description. Turning it off costs the narration and nothing
+    # else: the tab, the hands and the room all keep working.
+    spatial_enabled: bool = True
+
+    spatial_scene_model: str = ""
+    # How long Ollama keeps the scene model resident once it has answered.
+    # "0" unloads it immediately, which is what an 8 GB card needs: the model is
+    # 6.2 GB and the console is holding a camera and two GPU networks of its own,
+    # so five more minutes of it squatting on the card stalls the whole desktop.
+    spatial_scene_keep_alive: str = "0"
+    """Empty falls back to ``vision_model``.
+
+    Worth setting only to try a different describer without disturbing the model
+    the discovery pipeline reads avatars with."""
+
+    spatial_window_control: bool = False
+    """Whether the console may move real operating-system windows.
+
+    Off by default, and a separate switch from ``enable_computer_control``: that
+    one gates running commands and launching applications, which is a different
+    risk from rearranging what is already on screen. Turning this on lets hand
+    gestures move, resize and focus every window the user has open — including
+    parking one off the side of the desktop, which looks exactly like losing it
+    until you sweep the room back to it.
+
+    Only Windows and macOS have an adapter. Everywhere else the endpoints answer
+    with a reason rather than an empty list."""
+
     # GitHub
     github_token: str = ""
 
@@ -163,6 +193,12 @@ class Settings(BaseSettings):
     # Exactly periodic requests are a bot signal in themselves; spread each wait
     # by +/- this fraction. 0 restores the old machine-perfect cadence.
     discovery_rate_jitter: float = 0.3
+
+    # Minimum spacing between two outbound search-engine requests, whatever the
+    # host. The per-domain limiter answers "how often may we hit duckduckgo";
+    # this answers "how fast are we hitting the web", which is the question the
+    # engines were actually charging us for. 0 restores the old parallel burst.
+    discovery_engine_request_gap_seconds: float = 1.5
 
     # On a refusal that carries no Retry-After, widen that domain's interval for
     # the rest of the process instead of knocking at the same rejected cadence.
