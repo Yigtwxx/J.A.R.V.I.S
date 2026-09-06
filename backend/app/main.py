@@ -32,6 +32,7 @@ from app.routes import (
     plugins_router,
     profiles_router,
     search_router,
+    spatial_router,
     system_router,
     version_history_router,
     vision_router,
@@ -322,6 +323,7 @@ app.include_router(watch_router)
 app.include_router(plugins_router)
 app.include_router(agent_router)
 app.include_router(vision_router)
+app.include_router(spatial_router)
 app.include_router(visual_intel_router)
 app.include_router(system_router)
 app.include_router(health_router)
