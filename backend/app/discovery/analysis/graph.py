@@ -30,6 +30,7 @@ SUBJECT_ID = "subject"
 # is noise on a graph whose whole value is that every mark means something.
 _KIND_NODES: dict[EvidenceKind, tuple[str, str]] = {
     EvidenceKind.EMAIL: ("email", "owns_domain"),
+    EvidenceKind.PHONE: ("phone", "reachable_at"),
     EvidenceKind.DOMAIN: ("domain", "owns_domain"),
     EvidenceKind.EMPLOYER: ("organization", "works_at"),
     EvidenceKind.SCHOOL: ("school", "studied_at"),
