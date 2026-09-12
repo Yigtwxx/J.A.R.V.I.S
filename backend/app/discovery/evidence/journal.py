@@ -24,7 +24,10 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 _T = TypeVar("_T")
 
-# These states hold in-memory state (question futures) that dies with the process.
+# States whose in-memory half (the pending-question futures) dies with the process,
+# so a row still carrying one after a restart is a zombie. Deliberately a superset:
+# the pipeline only ever writes "running", but `search_sessions` outlives any single
+# deploy and older builds recorded "awaiting_answer", which must still be swept.
 _LIVE_STATUSES = ("running", "awaiting_answer")
 
 
