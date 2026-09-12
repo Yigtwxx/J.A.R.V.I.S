@@ -14,8 +14,9 @@ from __future__ import annotations
 
 import base64
 import binascii
+import re
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
@@ -23,6 +24,7 @@ from urllib.parse import unquote, urljoin, urlsplit, urlunsplit
 
 from app.discovery.fetch.result import FetchResult
 from app.discovery.fetch.selectors import css_first
+from app.discovery.identity.normalize import fold_ascii
 from app.discovery.platforms.urlmatch import registrable_host
 from app.discovery.types import FetchStatus, FetchTier
 
@@ -116,6 +118,42 @@ def build_engine_result(
         detail=detail,
         elapsed_ms=elapsed_ms,
     )
+
+
+_MIN_TERM_LENGTH = 3
+"""Shorter tokens ("the", "in", a middle initial) match everything and prove nothing."""
+
+_POISON_MIN_HITS = 5
+"""Below a full page of results the check is not applied at all.
+
+Substring matching is a poor test of relevance, and this pipeline is built to
+find exactly the result it would misjudge: searching "Yigit Erdogan" and landing
+on ``github.com/Yigtwxx`` is a *success*, and that handle shares no substring
+with the name. On one or two hits that ambiguity dominates, so the check stays
+out of the way. It only speaks up when a whole page came back and not one row on
+it has anything to do with the question — which is not a hard search, it is a
+different search.
+"""
+
+
+def answers_the_query(hits: Sequence[SearchHit], query: str) -> bool:
+    """Does *any* hit on a full page of results relate to what was asked?
+
+    The weakest test that still catches a poisoned response: one query term in
+    one hit's title, snippet or URL is enough to pass. True whenever the check
+    does not apply — too few hits, or no usable query terms — because refusing
+    results on a guess is worse than the noise it would remove.
+    """
+    if len(hits) < _POISON_MIN_HITS:
+        return True
+    terms = [t for t in re.split(r"[^\w]+", fold_ascii(query).lower()) if len(t) >= _MIN_TERM_LENGTH]
+    if not terms:
+        return True
+    for hit in hits:
+        haystack = fold_ascii(f"{hit.title} {hit.snippet} {hit.url}").lower()
+        if any(term in haystack for term in terms):
+            return True
+    return False
 
 
 def health_for_fetch(result: FetchResult) -> tuple[EngineHealth, str]:
@@ -351,12 +389,54 @@ class HtmlSearchEngine:
     start_tier: FetchTier = FetchTier.HTTP
     escalate: bool = True
 
+    stealth_wait_selector: str | None = None
+    """Browser tier only: return as soon as this appears, instead of waiting for
+    network idle. A SERP that never stops polling in the background otherwise
+    costs the full stealth timeout for a page that finished rendering in seconds."""
+
+    stealth_timeout_s: float | None = None
+    """Ceiling for a browser fetch, when the default is too generous.
+
+    A `stealth_wait_selector` cuts the good case short but makes the bad case
+    worse: if the page is a consent wall rather than a SERP the selector never
+    arrives and the wait runs to the ceiling. Measured 2026-08-29, a rate-limited
+    Google: 93.6 s for a page that was never going to have results in it. An
+    engine that knows its own page renders in seconds should say so."""
+
     def build_url(self, query: str) -> str:
         raise NotImplementedError
 
     def extract(self, page: Any, base: str) -> list[tuple[str, str, str]]:
         """Return ``(url, title, snippet)`` rows in the engine's own order."""
         raise NotImplementedError
+
+    async def resolve_rows(self, fetch: FetchSession, rows: list[tuple[str, str, str]]) -> list[tuple[str, str, str]]:
+        """Turn extracted rows into rows whose URL is the real destination.
+
+        A hook, because one engine needs it: Google hides every result behind an
+        opaque redirect, so its rows leave `extract` pointing at google.com and
+        have to be resolved before anything downstream can match a host. The
+        default is the identity — an engine whose SERP contains real URLs pays
+        nothing for this.
+        """
+        return rows
+
+    def referer_for(self, url: str) -> str:
+        """The page a human would have arrived from: the engine's own front door.
+
+        Scrapling stamps ``Referer: https://www.google.com/`` on every request it
+        is not given one (``scrapling/engines/static.py:178``). On an ordinary
+        page that is a plausible arrival and often helps. On a *rival's* search
+        results it is a tell — nobody reaches html.duckduckgo.com from google.com
+        — and DuckDuckGo answers it with an interstitial.
+
+        Measured live 2026-08-29, same session, same TLS, 6 s apart, only this
+        header varied: Google referer returned HTTP 202 and ``anomaly-modal``;
+        the engine's own origin returned HTTP 200 and results. The whole pool was
+        retiring itself inside 75 seconds because of this one header.
+        """
+        parts = urlsplit(url)
+        return f"{parts.scheme}://{parts.netloc}/"
 
     async def search(self, fetch: FetchSession, query: str, *, limit: int = 20) -> EngineResult:
         started = time.monotonic()
@@ -374,8 +454,11 @@ class HtmlSearchEngine:
                 url,
                 tier=self.start_tier,
                 escalate=self.escalate,
+                timeout_s=self.stealth_timeout_s if self.start_tier is FetchTier.STEALTH else None,
                 expect_selector=self.expect_selector,
+                wait_selector=self.stealth_wait_selector,
                 min_html_bytes=self.min_html_bytes,
+                headers={"Referer": self.referer_for(url)},
             )
         except Exception as exc:
             return outcome(EngineHealth.ERROR, f"fetch raised {type(exc).__name__}: {exc}"[:200])
@@ -391,9 +474,26 @@ class HtmlSearchEngine:
         except Exception as exc:
             return outcome(EngineHealth.ERROR, f"parser raised {type(exc).__name__}: {exc}"[:200])
 
+        try:
+            rows = await self.resolve_rows(fetch, rows)
+        except Exception as exc:
+            return outcome(EngineHealth.ERROR, f"redirect resolution raised {type(exc).__name__}: {exc}"[:200])
+
         hits = self._rank(rows, cleaned, limit)
         if not hits:
             return outcome(EngineHealth.EMPTY, f"no results parsed ({result.describe()}, {result.html_len} bytes)")
+        if not answers_the_query(hits, cleaned):
+            # Worse than a refusal, because it looks like success. Measured
+            # 2026-08-29: Bing answered "Yagmur Ozgan instagram" with HTTP 200,
+            # the query echoed in its own <title>, ten well-formed `li.b_algo`
+            # rows — and YouTube help pages and Zhihu threads inside them, a
+            # different unrelated set on each run. Reporting that as OK feeds
+            # invented sources into a pipeline whose whole promise is that every
+            # claim traces to evidence.
+            return outcome(
+                EngineHealth.EMPTY,
+                f"results unrelated to the query ({len(hits)} rows, {result.describe()})",
+            )
         return outcome(EngineHealth.OK, f"{len(hits)} hits — {result.describe()}", hits)
 
     def _rank(self, rows: Iterable[tuple[str, str, str]], query: str, limit: int) -> list[SearchHit]:
