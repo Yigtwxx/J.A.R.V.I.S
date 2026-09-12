@@ -81,10 +81,7 @@ class PluginManager:
     # Public API
     # ------------------------------------------------------------------
     def list_plugins(self) -> list[dict[str, Any]]:
-        return [
-            {**plugin.info(), "enabled": self._enabled.get(plugin.name, True)}
-            for plugin in self._plugins.values()
-        ]
+        return [{**plugin.info(), "enabled": self._enabled.get(plugin.name, True)} for plugin in self._plugins.values()]
 
     def get_plugin(self, name: str) -> BasePlugin | None:
         return self._plugins.get(name)
@@ -137,11 +134,7 @@ class PluginManager:
 
     def get_tool_schemas(self) -> list[dict]:
         """Return Ollama-compatible tool schemas for all enabled plugins."""
-        return [
-            plugin.tool_schema
-            for name, plugin in self._plugins.items()
-            if self._enabled.get(name, False)
-        ]
+        return [plugin.tool_schema for name, plugin in self._plugins.items() if self._enabled.get(name, False)]
 
 
 # Module-level singleton
