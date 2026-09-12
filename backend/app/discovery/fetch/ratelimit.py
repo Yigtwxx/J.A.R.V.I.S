@@ -108,7 +108,16 @@ DEFAULT_OVERRIDES: dict[str, RateRule] = {
     "startpage.com": RateRule(6.0),
     "duckduckgo.com": RateRule(4.0),
     "bing.com": RateRule(3.0),
-    "brave.com": RateRule(3.0),
+    # Measured 2026-08-29: at a 3 s cadence Brave answered HTTP 429 to every
+    # request for the best part of an hour, and answered normally once, after a
+    # long gap. It is the strictest limiter in this pool by a wide margin, so
+    # it gets the widest spacing — a slow Brave is worth more than a refused one.
+    #
+    # 16 s rather than 15: these values are thresholds, and pacing *at* a
+    # threshold leaves nothing for clock skew or for the host's own idea of when
+    # the window started. The extra second costs a round ~110 s at depth 7 and is
+    # the difference between "slow" and "refused for the next 1800 s".
+    "brave.com": RateRule(16.0),
     "mojeek.com": RateRule(3.0),
     "yandex.com": RateRule(8.0),
     "tineye.com": RateRule(6.0),
@@ -178,15 +187,23 @@ class DomainRateLimiter:
         return lock
 
     def _jittered(self, delay: float) -> float:
-        """Spread a delay so our cadence is not machine-perfect.
+        """Spread a delay upward so our cadence is not machine-perfect.
 
         Exactly periodic requests are themselves a bot signal: no human-driven
-        client hits a host every 6.000 s. Never returns a shorter-than-configured
-        wait on average, and never a negative one.
+        client hits a host every 6.000 s. So the wait is spread — but only
+        *upward*, never below the configured interval.
+
+        The distinction is not cosmetic. Every value in ``DEFAULT_OVERRIDES`` is a
+        measured refusal threshold, not a preference: ``brave.com`` is 15 s
+        because Brave answered 429 to everything at a 3 s cadence for the best
+        part of an hour. Symmetric jitter — ``uniform(0.7, 1.3)`` at the default
+        0.3 — turned that into anything from 10.5 s, i.e. under the threshold on
+        roughly half of all requests. Averaging out to the right cadence is no
+        defence when the host judges each request as it arrives.
         """
         if delay <= 0 or self._jitter <= 0:
             return max(0.0, delay)
-        return max(0.0, delay * random.uniform(1.0 - self._jitter, 1.0 + self._jitter))
+        return max(0.0, delay * random.uniform(1.0, 1.0 + self._jitter))
 
     def _interval_for(self, domain: str, rule: RateRule) -> float:
         """The configured interval scaled by whatever this host has taught us."""
