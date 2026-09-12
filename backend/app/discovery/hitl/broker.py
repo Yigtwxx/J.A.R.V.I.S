@@ -8,6 +8,12 @@ nothing spins, no thread is held, and no timer is polled. FastAPI keeps serving
 every other request in the meantime, including the very endpoint that will
 deliver the answer, which is what makes the whole design work: the request that
 resumes the search is served by the same loop the search is parked on.
+
+The wait is unbounded. Only two things end it: an answer, or
+:meth:`cancel_session` tearing the search down. There used to be a third, a
+120 s deadline that resolved the question as "I don't know" on the user's
+behalf — cheap for us and expensive for them, since reading the question took
+longer than that and the answer was the point of asking.
 """
 
 from __future__ import annotations
@@ -17,7 +23,6 @@ from typing import Any
 
 from app.discovery.hitl.questions import Answer, Question
 from app.discovery.session.events import EventType, question_payload
-from app.utils.logger import logger
 
 
 class QuestionBroker:
@@ -56,35 +61,23 @@ class QuestionBroker:
             )
             await bus.publish(EventType.question, question_payload(q))
 
-            try:
-                answer = await asyncio.wait_for(future, timeout=q.timeout_seconds)
-            except TimeoutError:
-                # A timeout is "we still don't know", never a "no". All three
-                # silence flags are set so every downstream reader sees the same
-                # thing, and apply_answer() will produce no effects at all.
-                answer = Answer(question_id=q.id, skipped=True, timed_out=True, unknown=True)
-                logger.log_warning(
-                    f"Question '{q.id}' timed out after {q.timeout_seconds}s — treated as 'I don't know'"
-                )
-                await bus.publish(
-                    EventType.question_timeout,
-                    {"question_id": q.id, "kind": str(q.kind), "timeout_seconds": q.timeout_seconds},
-                )
-            else:
-                await bus.publish(
-                    EventType.answer_received,
-                    {
-                        "question_id": q.id,
-                        "kind": str(q.kind),
-                        "option_ids": list(answer.option_ids),
-                        "text": answer.text,
-                        "unknown": answer.unknown,
-                        "skipped": answer.skipped,
-                    },
-                )
+            # No deadline: the card stays on screen and this round stays parked
+            # until a human decides. See the module docstring.
+            answer = await future
+            await bus.publish(
+                EventType.answer_received,
+                {
+                    "question_id": q.id,
+                    "kind": str(q.kind),
+                    "option_ids": list(answer.option_ids),
+                    "text": answer.text,
+                    "unknown": answer.unknown,
+                    "skipped": answer.skipped,
+                },
+            )
 
-            # Recorded on every path, timeout included: the persisted history is
-            # only useful if it shows the questions nobody answered too.
+            # Recorded on every path, "I don't know" included: the persisted
+            # history is only useful if it shows the questions nobody resolved.
             await store.record_answer(
                 session_id,
                 q.id,
