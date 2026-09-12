@@ -57,7 +57,30 @@ _ROLE_HINTS: frozenset[str] = _words(
 )
 
 # Claim words that are capitalised but assert nothing about identity.
-_GROUNDING_STOPWORDS: frozenset[str] = frozenset({"the", "a", "an", "i", "he", "she", "they", "it", "at", "in", "of"})
+#
+# `is_grounded` reads every capitalised word as an entity the cited evidence must
+# contain. English capitalises the first word of a sentence regardless of what it
+# is, so "His employer is Getir." used to be rejected as a fabrication because the
+# evidence — quite reasonably — never says "his". A model writing ordinary prose
+# lost most of its sentences that way and the biography fell back to the template
+# on nearly every run.
+#
+# Only closed-class words belong here: pronouns, determiners, conjunctions,
+# prepositions, auxiliaries and the handful of fixed adverbial openers. None of
+# them can name a person, an organisation or a place, so exempting them costs the
+# hallucination gate nothing. Open-class words stay markers — an invented employer
+# is still caught wherever it appears.
+_GROUNDING_STOPWORDS: frozenset[str] = _words(
+    "the a an this that these those there here"
+    " i me my we us our you your he him his she her hers it its they them their theirs"
+    " and or but nor so yet as at by in of on to with from into over under after before during through"
+    " for per via about across against among around between within without"
+    " is are was were be been being has have had do does did"
+    " can could may might must shall should will would"
+    " not no none only also both each either neither all any some other another such same"
+    " however moreover furthermore additionally therefore thus meanwhile subsequently overall"
+    " according based"
+)
 
 
 @dataclass(frozen=True, slots=True)
