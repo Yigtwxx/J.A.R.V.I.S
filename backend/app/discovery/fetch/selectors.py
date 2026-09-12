@@ -56,10 +56,31 @@ def css_attr(page: Any, selector: str, attribute: str) -> str | None:
     return text or None
 
 
+_ATTR_PSEUDO = re.compile(r"::attr\(\s*([^)]+?)\s*\)\s*$")
+"""Trailing ``::attr(name)`` pseudo-element, which selects a value, not a node."""
+
+
 def css_all_attr(page: Any, selector: str, attribute: str) -> list[str]:
-    """Every value of ``attribute`` across all matches, de-duplicated, order preserved."""
+    """Every value of ``attribute`` across all matches, de-duplicated, order preserved.
+
+    A trailing ``::attr(name)`` is stripped before matching. Scrapling answers that
+    pseudo-element with text-like results that carry no ``.attrib``, so the loop
+    below skipped every one of them in its per-element ``except`` and returned an
+    empty list — no error, no warning, nothing to notice.
+
+    That is not hypothetical: the extractor's only anchor scan was written as
+    ``a::attr(href)``, so it never collected a single outbound link from an HTML
+    profile page. Across two full live searches on 2026-08-29 — 40+ candidates,
+    1389 evidence items — `outbound_link_match` (+22) and `reciprocal_link` (+30)
+    fired zero times. Handling the form here rather than only at the call site
+    keeps the next caller out of the same trap.
+    """
     if page is None:
         return []
+    pseudo = _ATTR_PSEUDO.search(selector or "")
+    if pseudo:
+        attribute = pseudo.group(1).strip("\"'") or attribute
+        selector = selector[: pseudo.start()]
     try:
         elements = page.css(selector)
     except Exception:
