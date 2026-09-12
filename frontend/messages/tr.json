@@ -9,12 +9,6 @@
     "dns": "DNS",
     "publicNote": "Halka açık RDAP / DNS / CT kaynağı"
   },
-  "provenance": {
-    "title": "Kaynaklar / Köken",
-    "source": "Kaynak",
-    "retrievedAt": "Alındı",
-    "confidence": "Güven"
-  },
   "sanctions": {
     "title": "Yaptırım / İzleme Listesi Taraması",
     "matchScore": "Eşleşme",
@@ -108,7 +102,8 @@
     "stopSearch": "Aramayı durdur",
     "fallbackNotice": "Bu backend üzerinde etkileşimli keşif kapalı (HTTP 503), bu yüzden klasik tek seferlik arama çalıştı. Bu yol size soru soramaz — soruları almak için sunucuda DISCOVERY_ENABLED=true yapın.",
     "sessionDone": "Etkileşimli arama tamamlandı: {rounds} tur, {evidence} kanıt, {profiles} profil. Ayrıntılı döküm yukarıdaki canlı panelde.",
-    "sessionCancelled": "Arama iptal edildi. Durdurmadan önce bulunanlar yukarıda duruyor."
+    "sessionCancelled": "Arama iptal edildi. Durdurmadan önce bulunanlar yukarıda duruyor.",
+    "sessionDisconnected": "Canlı akış koptu, ama arama sunucuda çalışmaya devam etti. Nasıl bittiğini görmek için Kayıtlar'dan aç."
   },
   "psychAnalysis": {
     "title": "Psikolojik Harp Analizi",
@@ -151,13 +146,36 @@
     "done": "Anladım",
     "skip": "Atla",
     "steps": {
-      "nav": { "title": "Navigasyon Rayı", "body": "Logs, Memory, Watch, Plugins, System ve Health'i soldaki raydan açın." },
-      "search": { "title": "Komut Girişi", "body": "Aramak için isim yazın; Ajan modunu açın, derinlik ayarlayın veya görsel yükleyin." },
-      "dock": { "title": "Intel Dock", "body": "Canlı durum, sosyal düğümler, hava durumu ve analiz göstergeleri sağda belirir." }
+      "nav": {
+        "title": "Navigasyon Rayı",
+        "body": "Logs, Memory, Watch, Plugins, System ve Health'i soldaki raydan açın."
+      },
+      "search": {
+        "title": "Komut Girişi",
+        "body": "Aramak için isim yazın; Ajan modunu açın, derinlik ayarlayın veya görsel yükleyin."
+      },
+      "dock": {
+        "title": "Intel Dock",
+        "body": "Canlı durum, sosyal düğümler, hava durumu ve analiz göstergeleri sağda belirir."
+      }
     }
   },
   "monitor": {
-    "title": "Canlı arama"
+    "title": "Canlı arama",
+    "lines": {
+      "repeats": "×{count}",
+      "thinking": "Düşünülüyor…",
+      "engine": "{engine} üzerinde aranıyor",
+      "enginePaused": "{engine} cevap vermiyor — {seconds}sn duraklatıldı",
+      "enginePausedRateLimited": "{engine} bizi hız sınırına takıyor — {seconds}sn duraklatıldı",
+      "enginePausedChallenge": "{engine} doğrulama istedi — {seconds}sn duraklatıldı",
+      "enginePausedRefused": "{engine} bizi reddetti — {seconds}sn duraklatıldı",
+      "platformPinned": "{platform}:{username} senden geldi — yeniden aranmıyor",
+      "sessionStarted": "{target} aranıyor",
+      "modelReady": "Yerel model {model} hazır",
+      "archiveUnreadable": "Bir arşiv anlık görüntüsü okunamadı",
+      "actionPending": "Bir işlem onay bekliyor"
+    }
   },
   "discovery": {
     "heading": "Canlı keşif",
@@ -176,7 +194,10 @@
         "enrich": "Zenginleştirme",
         "score": "Puanlama",
         "reflect": "Değerlendirme",
-        "finalize": "Sonlandırma"
+        "finalize": "Sonlandırma",
+        "brief": "Brief okunuyor",
+        "browse": "Tarayıcı gezintisi",
+        "screen": "Eleme"
       },
       "counters": {
         "evidence": "Kanıt",
@@ -187,37 +208,8 @@
       "pausedHeading": "Keşif duraklatıldı",
       "waitingForYou": "Durduruldu — arama yukarıdaki sorunun yanıtını bekliyor. Siz yanıtlayana veya süre dolana kadar hiçbir şey ilerlemez."
     },
-    "platforms": {
-      "heading": "Platform kapsamı",
-      "empty": "Henüz hiçbir platform kontrol edilmedi.",
-      "detailLabel": "Gerekçe",
-      "noDetail": "Ek ayrıntı verilmedi.",
-      "legendTitle": "“Engellendi” ile “bulunamadı” aynı şey değildir",
-      "legendBody": "“Engellendi”, platformun bizi geri çevirdiği anlamına gelir; hesabın olup olmadığını hâlâ bilmiyoruz. “Bulunamadı” ise baktık ve böyle bir hesap yok demektir.",
-      "status": {
-        "found": "Bulundu",
-        "not_found": "Bulunamadı",
-        "blocked": "Engellendi",
-        "error": "Hata",
-        "unsupported": "Desteklenmiyor"
-      },
-      "meaning": {
-        "found": "{platform} üzerinde bir hesap bulundu.",
-        "not_found": "{platform} kontrol edildi, böyle bir hesap yok.",
-        "blocked": "{platform} kontrolü engelledi. Hesabın olup olmadığı hâlâ bilinmiyor.",
-        "error": "{platform} kontrolü sonuca ulaşamadan başarısız oldu.",
-        "unsupported": "{platform} kontrol edilemiyor."
-      }
-    },
     "profile": {
       "heading": "Hesaplar",
-      "foundCount": "{count} bulundu",
-      "summary": {
-        "accounts": "Hesaplar",
-        "platforms": "Platform",
-        "confirmed": "Doğrulandı",
-        "alternates": "Adaşlar"
-      },
       "confidence": "Güven",
       "checkedAt": "Kontrol",
       "followers": "Takipçi",
@@ -237,7 +229,9 @@
         "possible": "Olası eşleşme",
         "weak": "Zayıf eşleşme",
         "rejected": "Reddedildi"
-      }
+      },
+      "settledCount": "{total} içinden {shown}",
+      "settledHint": "Bu platformda bir hesabı onayladın; diğer {count} kullanıcı adı elendi."
     },
     "pictures": {
       "heading": "Profil fotoğrafları",
@@ -249,31 +243,38 @@
     },
     "question": {
       "heading": "Arama durdu ve yanıtını bekliyor",
-      "subheading": "Sen yanıtlayana ya da süre dolana kadar hiçbir şey ilerlemiyor.",
-      "timeLeft": "{seconds} sn kaldı",
-      "expired": "Süre doldu — arama yanıt almadan devam etti.",
+      "subheading": "Sen cevaplayana kadar hiçbir şey ilerlemez.",
       "dontKnow": "Bilmiyorum",
-      "skip": "Atla",
       "submit": "Yanıtı gönder",
       "sending": "Gönderiliyor…",
       "freeTextLabel": "Ya da kendin yaz",
       "freeTextPlaceholder": "Yanıtını yaz…",
       "closed": "Bu soru çoktan kapandı — arama yoluna devam etti.",
-      "noPenalty": "“Bilmiyorum” hiçbir şeye mal olmaz: ne kanıt ekler ne de var olanı götürür."
-    },
-    "alternates": {
-      "heading": "Aynı adı taşıyan farklı kişiler",
-      "body": "Bunlar yukarıdaki profile DAHİL DEĞİL. Bulduğumuz adaşlar ve bilerek ayrı tutuldular.",
-      "accounts": "{count} hesap",
-      "platforms": "Platformlar",
-      "samples": "Örnekler"
+      "noPenalty": "“Bilmiyorum” hiçbir şeye mal olmaz: ne kanıt ekler ne de var olanı götürür.",
+      "yes": "Evet",
+      "no": "Hayır",
+      "pickAllThatApply": "Uyan hepsini seç.",
+      "confirmSelection": "{count} seçimi onayla",
+      "openProfile": "Profili aç"
     },
     "claims": {
       "heading": "Biyografi",
       "empty": "Hiçbir ifade kanıtla desteklenemedi.",
-      "sourceBadge": "{count} kaynak",
+      "sourcesHeading": "Kaynaklar",
       "noSources": "Kaynak yok",
       "confidence": "Güven"
+    },
+    "contacts": {
+      "heading": "İletişim",
+      "email": "E-posta",
+      "phone": "Telefon",
+      "empty": "Herkese açık bir iletişim bilgisi bulunamadı.",
+      "sourceTitle": "{domain} adresinde bulundu"
+    },
+    "confirmed": {
+      "heading": "Doğrulanmış hesaplar",
+      "count": "{count} doğrulandı",
+      "empty": "Hiçbir hesap doğrulanmış bandına ulaşmadı."
     },
     "notices": {
       "heading": "Uyarılar",
@@ -287,6 +288,454 @@
         "error": "Hata",
         "question_timeout": "Soru zaman aşımına uğradı",
         "reconnect": "Akış yeniden bağlandı"
+      }
+    },
+    "browse": {
+      "heading": "Canlı gezinti",
+      "step": "Adım {step}/{total}",
+      "frameAlt": "Tarayıcının {platform} üzerinde gördüğü",
+      "frameUnavailable": "Henüz görüntü yok.",
+      "refused": "Reddedildi: {reason}",
+      "stop": "Gezintiyi durdur",
+      "stopping": "Durduruluyor…",
+      "move": "Paneli taşı",
+      "resize": "Panelin boyutunu değiştir",
+      "outcome": {
+        "extracted": "Sayfa okundu ve söyledikleri alındı.",
+        "reached_empty": "Sayfa açıldı ama bu kişiye dair bir şey içermiyordu. Platform hükmü değişmedi.",
+        "not_found": "Sayfa 404 döndü — böyle bir hesap yok.",
+        "login_wall": "Giriş duvarı bizi durdurdu. Hesabın var olup olmadığı hâlâ bilinmiyor.",
+        "challenge": "Bot doğrulaması bizi durdurdu. Hesabın var olup olmadığı hâlâ bilinmiyor.",
+        "refused": "Kendi korumamız ajanı durdurdu.",
+        "stalled": "Ajan kendini tekrarladı ve durduruldu.",
+        "step_budget": "Adım bütçesi doldu.",
+        "time_budget": "Süre bütçesi doldu.",
+        "model_unavailable": "Yerel görsel model kullanılamadı.",
+        "error": "Gezinti başarısız oldu.",
+        "unavailable": "Bu ortamda kullanılabilir bir tarayıcı yok.",
+        "stopped": "Gezintiyi sen durdurdun."
+      },
+      "by": {
+        "rule": "kural",
+        "model": "model"
+      }
+    },
+    "disconnected": {
+      "heading": "Canlı akış koptu",
+      "body": "Arama sunucuda hâlâ sürüyor. İzlemeye devam etmek için yeniden bağlan.",
+      "reconnect": "Yeniden bağlan",
+      "reconnecting": "Bağlanılıyor…"
+    },
+    "attention": {
+      "toggle": "{count} tanesi dikkat istiyor",
+      "detailLabel": "Ayrıntı",
+      "noDetail": "Ayrıntı bildirilmedi.",
+      "meaning": {
+        "blocked": "{platform} bizi reddetti — hesabın var olup olmadığı hâlâ bilinmiyor.",
+        "error": "{platform} adresine ulaşılamadı."
+      }
+    }
+  },
+  "shell": {
+    "newChat": "Yeni sohbet — konsolu temizle ve baştan başla",
+    "newChatStopsSearch": "Yeni sohbet — süren aramayı durdurur ve konsolu temizler",
+    "searchStopped": "Arama durduruldu. Konsol yeni bir arama için hazır."
+  },
+  "consoleState": {
+    "idle": "Konsol hazır.",
+    "thinking": "Konsol çalışıyor.",
+    "asking": "Konsol cevabını bekliyor.",
+    "error": "Konsol bir hata bildirdi."
+  },
+  "platformScope": {
+    "buttonLabel": "Hangi platformlarda aranacağını seç",
+    "loadError": "Platform listesi yüklenemedi.",
+    "title": "Aranacak platformlar",
+    "counter": "{selected}/{total}",
+    "all": "Tümü",
+    "none": "Hiçbiri",
+    "empty": "Kullanılabilir platform yok.",
+    "extendedLabel": "{count} derin platformu da dahil et",
+    "extendedHint": "Yalnızca {level} ve üzeri efor seviyelerinde taranır.",
+    "stealthHint": "Stealth katmanından kontrol edilir, daha yavaştır.",
+    "unsupportedHint": "Bu platform kontrol edilemiyor.",
+    "discoveryOnlyHint": "Sadece arama sonuçları ve bağlantılar üzerinden bulunur; platform kullanıcı adını doğrulayamaz.",
+    "categories": {
+      "academic": "Akademik",
+      "blogging": "Blog",
+      "creative": "Yaratıcı",
+      "developer": "Geliştirici",
+      "finance": "Finans",
+      "fitness": "Spor",
+      "forum": "Forum",
+      "gaming": "Oyun",
+      "messaging": "Mesajlaşma",
+      "misc": "Diğer",
+      "music": "Müzik",
+      "photo": "Fotoğraf",
+      "professional": "Profesyonel",
+      "reading": "Okuma",
+      "shopping": "Alışveriş",
+      "social": "Sosyal",
+      "video": "Video"
+    }
+  },
+  "searchEffort": {
+    "triggerLabel": "Arama eforu: {level}",
+    "menuTitle": "Arama eforu",
+    "hint": "Yüksek efor daha çok kaynağa ulaşır ve daha uzun sürer.",
+    "levels": {
+      "low": {
+        "label": "Düşük",
+        "description": "Tek motor. En hızlı cevap."
+      },
+      "medium": {
+        "label": "Orta",
+        "description": "Birkaç motor ve temel platformlar."
+      },
+      "high": {
+        "label": "Yüksek",
+        "description": "Daha çok tur, daha çok platform, daha derin sayfalar."
+      },
+      "xhigh": {
+        "label": "Çok yüksek",
+        "description": "Yavaş platformları ve stealth katmanını da ekler."
+      },
+      "max": {
+        "label": "Azami",
+        "description": "Bütçe elverdiği sürece her şey."
+      }
+    }
+  },
+  "agentConsole": {
+    "emptyTitle": "Ajan konsolu",
+    "emptyHint": "Bir şey iste; ajan çalıştırmadan önce ne yapacağını söyler.",
+    "placeholder": "Ajana ne yapacağını söyle…",
+    "running": "{tool} çalışıyor…",
+    "toolResult": "Araç sonucu",
+    "toolResultFrom": "{tool} sonucu",
+    "approvalTitle": "Bu adım onayını bekliyor",
+    "approve": "Onayla",
+    "deny": "Reddet"
+  },
+  "searchBrief": {
+    "title": "Anladıklarımız",
+    "genderLabel": "Cinsiyet",
+    "photoAdd": "Referans fotoğrafı ekle",
+    "photoAttached": "Referans fotoğrafı",
+    "photoUploading": "Yükleniyor…",
+    "photoHint": "Yalnızca herkese açık profil fotoğraflarıyla karşılaştırmak için kullanılır.",
+    "pinnedHint": "Bu {platform} hesabını sen verdin, yeniden aranmıyor.",
+    "remove": "{value} öğesini kaldır",
+    "unparsedHint": "Metnin geri kalanı yazdığın gibi arandı.",
+    "gender": {
+      "male": "Erkek",
+      "female": "Kadın",
+      "unknown": "Belirtilmemiş"
+    }
+  },
+  "spatial": {
+    "dock": {
+      "title": "Odada",
+      "failed": "Öne gelmedi",
+      "hint": "Öne getirmek için tıkla · taşımak için iki elini birleştir"
+    },
+    "handover": {
+      "windows": {
+        "off": "Kendi pencerelerin odada değil: pencere kontrolü kapalı (SPATIAL_WINDOW_CONTROL)",
+        "unsupported": "Kendi pencerelerin odada değil: bu makine sürülemiyor",
+        "error": "Kendi pencerelerin odada değil: backend yanıt vermedi — pencere rotalarını alması için yeniden başlat"
+      },
+      "idle": { "title": "Kontrolü almak için iki elini birleştir" },
+      "oneHand": { "title": "Şimdi diğer elin — ikisini birleştir" },
+      "closing": { "title": "Bir an öyle tut" },
+      "waiting": "Odada {panels} panel ve senin {windows} pencerelerin var",
+      "waitingPanels": "Odada {panels} panel var"
+    },
+    "windows": {
+      "blocked": "Windows bu pencereyi taşıtmıyor",
+      "off": "Pencere kontrolü kapalı",
+      "unsupported": "Pencereler burada desteklenmiyor",
+      "error": "Pencere bağlantısı koptu"
+    },
+    "scene": {
+      "fold": "Açıklamayı kapat",
+      "unfold": "Açıklamanın tamamını oku",
+      "look": "Odaya bak",
+      "lookHint": "Yerel görüntü modelini birkaç saniyeliğine yükler",
+      "looking": "Odaya bakılıyor…",
+      "again": "Tekrar bak",
+      "noFrame": "Kamera henüz bir kare üretmedi.",
+      "failed": "Bu kare tarif edilemedi.",
+      "unavailable": "Yerel görüntü modeli yanıt vermiyor, bu yüzden tarif yok — geri kalan her şey çalışıyor."
+    },
+    "offscreen": {
+      "left": "Solunda {count} tane",
+      "right": "Sağında {count} tane"
+    },
+    "camera": {
+      "retry": "Tekrar dene",
+      "idle": {
+        "title": "Oda görünümü",
+        "hint": "Kamera başlatılıyor…"
+      },
+      "requesting": {
+        "title": "Oda görünümü",
+        "hint": "Kamera izni bekleniyor."
+      },
+      "live": {
+        "title": "Oda görünümü",
+        "hint": "Kamera açık."
+      },
+      "blocked": {
+        "title": "Kamera engellendi",
+        "hint": "Adres çubuğundaki simgeden bu siteye kamera izni ver, sonra tekrar dene."
+      },
+      "unavailable": {
+        "title": "Kamera yok",
+        "hint": "Bir webcam bağla ve konsolu localhost ya da https üzerinden aç."
+      },
+      "error": {
+        "title": "Kamera başlamadı",
+        "hint": "Başka bir uygulama kamerayı tutuyor olabilir. Onu kapatıp tekrar dene."
+      }
+    },
+    "mode": {
+      "view": "İmleç",
+      "hand": "Eller"
+    },
+    "tracker": {
+      "loading": "El takibi yükleniyor…",
+      "missing": "Modeller eksik",
+      "error": "El takibi başarısız"
+    },
+    "gesture": {
+      "mode_toggle": "Mod",
+      "grab_start": "Tuttu",
+      "grab_move": "Sürüklüyor",
+      "grab_end": "Bıraktı",
+      "tap": "Tıkladı",
+      "cycle": "Sıradaki pencere",
+      "pan": "Kaydırıyor",
+      "pan_end": "Kaydırma bitti",
+      "scale": "Boyutlandırıyor",
+      "scale_end": "Boyutlandırma bitti",
+      "slap": "Tokat",
+      "panic": "Durduruldu"
+    },
+    "legend": {
+      "title": "Hareketler",
+      "close": "Hareketleri kapat",
+      "note": "Tek açık el odayı asla oynatmaz. Kaydırma iki eli ister; böylece bir karta uzanırken oda ayağının altından kaymaz.",
+      "together": { "move": "İki elini birleştir", "does": "El kontrolünü açar veya kapatır" },
+      "cursor": { "move": "Tek elin açık, gezdir", "does": "Sadece imleç — istediğin yere rahatça uzan" },
+      "pinch": { "move": "Baş ve işaret parmağını kartın üstünde birleştir", "does": "Kartı tutar; elini oynattıkça taşınır" },
+      "release": { "move": "Çimdiği aç", "does": "Bırakır — en yakın yüzeye oturur" },
+      "tap": { "move": "Çimdikle ve kıpırdamadan bırak", "does": "Tıklar, ya da paneli açar" },
+      "pan": { "move": "İki avuç havada, yana süpür", "does": "Odayı kaydırır; ekran dışına bıraktıklarını geri getirir" },
+      "scale": { "move": "İki elinle birden çimdikle ve aç", "does": "Tuttuğun şeyi büyütür veya küçültür" },
+      "fist": { "move": "Yumruk yap, sonra aç", "does": "Sıradaki pencereye geçer" },
+      "fistTurn": { "move": "Yumruğu tutup sağa veya sola kaydır", "does": "Pencereler arasında adım adım gezer" },
+      "slap": { "move": "Tek açık elinle hızlıca yana savur", "does": "Öndekini o yöne fırlatır; arkadaki öne gelir" },
+      "panic": { "move": "İki elini de yum ve bekle", "does": "Her şeyi durdurur, el kontrolünden çıkar" }
+    }
+  },
+  "panels": {
+    "common": {
+      "loading": "Yükleniyor…",
+      "retry": "Tekrar dene",
+      "panelCrashed": "Bu panel çalışmayı durdurdu: {reason}"
+    },
+    "tabs": {
+      "ariaLabel": "Paneller",
+      "close": "Paneli kapat",
+      "spatial": "Mekân",
+      "logs": "Kayıtlar",
+      "memory": "Hafıza",
+      "watch": "İzleme",
+      "plugins": "Eklentiler",
+      "system": "Sistem",
+      "health": "Sağlık"
+    },
+    "logs": {
+      "title": "Arama geçmişi",
+      "empty": "Henüz konuşma yok.",
+      "emptyHint": "Yaptığın her arama burada listelenir.",
+      "noResult": "Kayıtlı sonuç yok",
+      "open": "{query} konuşmasını aç",
+      "openFailed": "Bu arama yeniden açılamadı.",
+      "deleteItem": "{query} kaydını sil",
+      "deleteFailed": "Kayıt silinemedi.",
+      "loadFailed": "Geçmiş yüklenemedi.",
+      "restored": "Geçmişten geri yüklendi.",
+      "footer": "Bu makinede, yerel olarak saklanır.",
+      "status": {
+        "running": "Sürüyor",
+        "completed": "Tamamlandı",
+        "failed": "Başarısız",
+        "cancelled": "İptal edildi",
+        "abandoned": "Yarıda kaldı"
+      }
+    },
+    "memory": {
+      "title": "Hafıza",
+      "search": "Ara",
+      "searchPlaceholder": "Kayıtlarda ara",
+      "clearSearch": "Aramayı temizle",
+      "searchFailed": "Arama başarısız oldu.",
+      "searchShapeFailed": "Arama beklenmeyen bir biçimde cevap verdi.",
+      "resultCount": "{count} eşleşme",
+      "noMatches": "Eşleşme yok.",
+      "noMatchesHint": "Daha kısa veya daha genel bir terim dene.",
+      "add": "Ekle",
+      "cancelAdd": "Vazgeç",
+      "store": "Kaydet",
+      "storing": "Kaydediliyor…",
+      "saved": "Kaydedildi.",
+      "saveFailed": "Kaydedilemedi.",
+      "category": "Kategori",
+      "importance": "Önem {value}",
+      "keyPlaceholder": "Anahtar, örn. tercih ettiği editör",
+      "valuePlaceholder": "Değer",
+      "empty": "Kayıtlı bilgi yok.",
+      "emptyHint": "Buraya kaydedilen her şey sonraki aramalarda kullanılabilir.",
+      "deleteItem": "{key} kaydını sil",
+      "deleteFailed": "Silinemedi.",
+      "loadFailed": "Hafıza yüklenemedi.",
+      "footer": "{count} kayıt saklanıyor."
+    },
+    "plugins": {
+      "title": "Eklentiler",
+      "empty": "Eklenti bulunamadı.",
+      "emptyHint": "Bir eklenti konsola yeni bir kaynak veya araç ekler.",
+      "byAuthor": "{author} tarafından",
+      "enabledCount": "{enabled}/{total} etkin",
+      "run": "Çalıştır",
+      "runManually": "Elle çalıştır",
+      "runPlaceholder": "Sorgu",
+      "runItem": "{plugin} eklentisini çalıştır",
+      "runFailed": "Eklenti çalıştırılamadı.",
+      "toggleItem": "{plugin} eklentisini aç/kapat",
+      "toggleFailed": "Eklentinin durumu değiştirilemedi.",
+      "resultTitle": "{plugin} · {query}",
+      "resultCount": "{count} sonuç",
+      "resultUnstructured": "Eklenti serbest biçimli çıktı döndürdü.",
+      "dismissResult": "Bu sonucu kapat",
+      "loadFailed": "Eklenti listesi yüklenemedi.",
+      "footer": "{total} eklentinin {enabled} tanesi etkin."
+    },
+    "system": {
+      "title": "Sistem",
+      "monitoring": "İzleniyor",
+      "notMonitoring": "İzlenmiyor",
+      "statusUnknown": "Durum bilinmiyor",
+      "uptime": "{minutes} dk çalışıyor",
+      "uptimeUnknown": "Çalışma süresi: bilinmiyor",
+      "recoveryAttempts": "Kurtarma denemeleri",
+      "noServices": "Henüz servis verisi yok.",
+      "noServicesHint": "Backend çalışmaya başladığında servis listesini yayınlar.",
+      "recentEvents": "Son olaylar",
+      "noHistory": "Kayıtlı olay yok.",
+      "noHistoryHint": "Onaylanan ve reddedilen işlemler burada listelenir.",
+      "requiresApproval": "Onay gerekiyor",
+      "noPending": "Bekleyen işlem yok.",
+      "noPendingHint": "Onay gerektiren bir işlem burada belirir.",
+      "pendingCount": "{count} bekliyor",
+      "approve": "Onayla",
+      "approveItem": "Onayla: {description}",
+      "approveFailed": "İşlem onaylanamadı.",
+      "deny": "Reddet",
+      "denyItem": "Reddet: {description}",
+      "denyFailed": "İşlem reddedilemedi.",
+      "requestExecution": "İşlem talep et",
+      "actionTypeLabel": "İşlem türü",
+      "sectionsLabel": "Bölümler",
+      "appSuggestionsLabel": "Uygulamalar",
+      "appSearching": "Aranıyor…",
+      "noAppsFound": "Eşleşen uygulama yok.",
+      "submitFailed": "Talep gönderilemedi.",
+      "loadFailed": "Sistem durumu yüklenemedi.",
+      "types": {
+        "command": "KOMUT",
+        "app": "UYGULAMA",
+        "url": "URL"
+      },
+      "placeholders": {
+        "command": "Çalıştırılacak komut",
+        "app": "Uygulama adı",
+        "url": "Açılacak URL"
+      },
+      "tabs": {
+        "pending": "Bekleyen",
+        "history": "Geçmiş",
+        "new": "Yeni",
+        "status": "Durum"
+      }
+    },
+    "watch": {
+      "title": "İzlemeler",
+      "add": "Ekle",
+      "cancelAdd": "Vazgeç",
+      "start": "Başlat",
+      "starting": "Başlatılıyor…",
+      "started": "{query} artık izleniyor.",
+      "startFailed": "İzleme başlatılamadı.",
+      "targetPlaceholder": "İzlenecek isim veya URL",
+      "interval": "Her {minutes} dk",
+      "everyMinutes": "her {minutes} dakikada",
+      "activeCount": "{count} etkin",
+      "changes": "{count} değişiklik",
+      "lastChecked": "Son kontrol {time}",
+      "neverChecked": "Henüz taranmadı",
+      "empty": "Etkin izleme yok.",
+      "emptyHint": "İzleme, bir aramayı düzenli aralıkla tekrarlar ve neyin değiştiğini bildirir.",
+      "stopItem": "{query} izlemesini durdur",
+      "stopFailed": "İzleme durdurulamadı.",
+      "stopAll": "Hepsini durdur",
+      "stopAllFailed": "İzlemeler durdurulamadı.",
+      "pollFailed": "İzleme listesi yenilenemedi.",
+      "loadFailed": "İzlemeler yüklenemedi.",
+      "footer": "{count} izleme çalışıyor."
+    },
+    "health": {
+      "title": "Sağlık",
+      "disclaimer": "Kendin için tuttuğun notlar. Bu tıbbi tavsiye değildir.",
+      "quickLog": "Hızlı kayıt",
+      "recordEntry": "Kaydet",
+      "recording": "Kaydediliyor…",
+      "recordFailed": "Kayıt oluşturulamadı.",
+      "addEntry": "Kayıt ekle",
+      "closeForm": "Formu kapat",
+      "entryLabel": "Ne",
+      "entryValue": "Değer",
+      "categoryLabel": "Kategori",
+      "allCategories": "Tümü",
+      "noPresets": "Bu kategoride hazır seçenek yok.",
+      "empty": "Henüz sağlık verisi yok.",
+      "emptyCategory": "Bu kategoride kayıt yok.",
+      "entries": "{count} kayıt",
+      "dataPoints": "{count} veri noktası",
+      "deleteEntry": "Sil",
+      "deleteItem": "{key} kaydını sil",
+      "deleteFailed": "Kayıt silinemedi.",
+      "loadFailed": "Kayıtlar yüklenemedi.",
+      "patterns": "Örüntüler",
+      "patternsHint": "Kendi kayıtlarında bulunan eğilimler.",
+      "patternsFailed": "Örüntüler hesaplanamadı.",
+      "needMoreEntries": "Bir örüntünün anlam taşıması için birkaç kayıt daha gerekiyor.",
+      "dismissPatterns": "Örüntüleri gizle",
+      "dismissSuggestions": "Önerileri gizle",
+      "suggestionsFailed": "Öneriler yüklenemedi.",
+      "askTitle": "Kayıtlarına soru sor",
+      "askLabel": "Nasıl hissettiğini anlat",
+      "askPlaceholder": "örn. bu ay uykum nasıl değişti?",
+      "ask": "Sor",
+      "stop": "Durdur",
+      "time": {
+        "justNow": "az önce",
+        "minutes": "{count} dk önce",
+        "hours": "{count} sa önce",
+        "days": "{count} gün önce"
       }
     }
   }

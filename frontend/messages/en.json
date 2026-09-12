@@ -9,12 +9,6 @@
     "dns": "DNS",
     "publicNote": "Public RDAP / DNS / CT source"
   },
-  "provenance": {
-    "title": "Sources / Provenance",
-    "source": "Source",
-    "retrievedAt": "Retrieved",
-    "confidence": "Confidence"
-  },
   "sanctions": {
     "title": "Sanctions / Watchlist Screening",
     "matchScore": "Match",
@@ -108,7 +102,8 @@
     "stopSearch": "Stop search",
     "fallbackNotice": "Interactive discovery is disabled on this backend (HTTP 503), so the classic one-shot search ran instead. It cannot pause to ask you clarifying questions — set DISCOVERY_ENABLED=true on the server to get them.",
     "sessionDone": "Interactive search finished: {rounds} round(s), {evidence} evidence item(s), {profiles} profile(s). The live panel above holds the full breakdown.",
-    "sessionCancelled": "Search cancelled. Whatever was found before the stop is still shown above."
+    "sessionCancelled": "Search cancelled. Whatever was found before the stop is still shown above.",
+    "sessionDisconnected": "The live feed dropped, but the search kept running on the server. Reopen it from Logs to see how it ended."
   },
   "psychAnalysis": {
     "title": "Psychological Warfare Analysis",
@@ -151,13 +146,36 @@
     "done": "Got it",
     "skip": "Skip",
     "steps": {
-      "nav": { "title": "Navigation Rail", "body": "Open Logs, Memory, Watch, Plugins, System and Health from the left rail." },
-      "search": { "title": "Command Input", "body": "Type a name to search, toggle Agent mode, set depth, or upload an image." },
-      "dock": { "title": "Intel Dock", "body": "Live status, social nodes, weather and analysis gauges appear on the right." }
+      "nav": {
+        "title": "Navigation Rail",
+        "body": "Open Logs, Memory, Watch, Plugins, System and Health from the left rail."
+      },
+      "search": {
+        "title": "Command Input",
+        "body": "Type a name to search, toggle Agent mode, set depth, or upload an image."
+      },
+      "dock": {
+        "title": "Intel Dock",
+        "body": "Live status, social nodes, weather and analysis gauges appear on the right."
+      }
     }
   },
   "monitor": {
-    "title": "Live search"
+    "title": "Live search",
+    "lines": {
+      "repeats": "×{count}",
+      "thinking": "Thinking…",
+      "engine": "Searching on {engine}",
+      "enginePaused": "{engine} is not answering — paused for {seconds}s",
+      "enginePausedRateLimited": "{engine} is rate-limiting us — paused for {seconds}s",
+      "enginePausedChallenge": "{engine} served a challenge — paused for {seconds}s",
+      "enginePausedRefused": "{engine} refused us — paused for {seconds}s",
+      "platformPinned": "{platform}:{username} came from you — not searched again",
+      "sessionStarted": "Searching for {target}",
+      "modelReady": "Local model {model} is ready",
+      "archiveUnreadable": "An archive snapshot could not be read",
+      "actionPending": "An action is waiting for approval"
+    }
   },
   "discovery": {
     "heading": "Live discovery",
@@ -176,7 +194,10 @@
         "enrich": "Enriching",
         "score": "Scoring",
         "reflect": "Reflecting",
-        "finalize": "Finalising"
+        "finalize": "Finalising",
+        "brief": "Reading the brief",
+        "browse": "Browsing",
+        "screen": "Screening"
       },
       "counters": {
         "evidence": "Evidence",
@@ -187,37 +208,8 @@
       "pausedHeading": "Discovery paused",
       "waitingForYou": "Stopped — the search is waiting for your answer above. Nothing advances until you reply or the timer runs out."
     },
-    "platforms": {
-      "heading": "Platform coverage",
-      "empty": "No platforms checked yet.",
-      "detailLabel": "Reason",
-      "noDetail": "No further detail given.",
-      "legendTitle": "Blocked is not the same as not found",
-      "legendBody": "“Blocked” means the platform refused us, so we still do not know. “Not found” means we looked and there is no such account.",
-      "status": {
-        "found": "Found",
-        "not_found": "Not found",
-        "blocked": "Blocked",
-        "error": "Error",
-        "unsupported": "Unsupported"
-      },
-      "meaning": {
-        "found": "We found an account on {platform}.",
-        "not_found": "We checked {platform} and there is no such account.",
-        "blocked": "{platform} refused the check. Whether an account exists is still unknown.",
-        "error": "The check on {platform} failed before reaching a verdict.",
-        "unsupported": "{platform} cannot be checked."
-      }
-    },
     "profile": {
       "heading": "Accounts",
-      "foundCount": "{count} found",
-      "summary": {
-        "accounts": "Accounts",
-        "platforms": "Platforms",
-        "confirmed": "Confirmed",
-        "alternates": "Namesakes"
-      },
       "confidence": "Confidence",
       "checkedAt": "Checked",
       "followers": "Followers",
@@ -237,7 +229,9 @@
         "possible": "Possible match",
         "weak": "Weak match",
         "rejected": "Rejected"
-      }
+      },
+      "settledCount": "{shown} of {total}",
+      "settledHint": "You confirmed an account here, so {count} other handle(s) on this platform were ruled out."
     },
     "pictures": {
       "heading": "Profile pictures",
@@ -249,31 +243,38 @@
     },
     "question": {
       "heading": "The search is paused and needs your answer",
-      "subheading": "Nothing continues until you reply or the timer runs out.",
-      "timeLeft": "{seconds}s left",
-      "expired": "Time is up — the search continued without an answer.",
+      "subheading": "Nothing continues until you reply.",
       "dontKnow": "I don’t know",
-      "skip": "Skip",
       "submit": "Send answer",
       "sending": "Sending…",
       "freeTextLabel": "Or type an answer",
       "freeTextPlaceholder": "Type your answer…",
       "closed": "That question already closed — the search has moved on.",
-      "noPenalty": "“I don’t know” costs nothing: it adds no evidence and takes none away."
-    },
-    "alternates": {
-      "heading": "Different people who share this name",
-      "body": "These are NOT part of the profile above. They are namesakes we found and deliberately kept separate.",
-      "accounts": "{count} account(s)",
-      "platforms": "Platforms",
-      "samples": "Examples"
+      "noPenalty": "“I don’t know” costs nothing: it adds no evidence and takes none away.",
+      "yes": "Yes",
+      "no": "No",
+      "pickAllThatApply": "Pick every one that applies.",
+      "confirmSelection": "Confirm {count} selection(s)",
+      "openProfile": "Open the profile"
     },
     "claims": {
       "heading": "Biography",
       "empty": "No statement could be backed by evidence.",
-      "sourceBadge": "{count} source(s)",
+      "sourcesHeading": "Sources",
       "noSources": "No source",
       "confidence": "Confidence"
+    },
+    "contacts": {
+      "heading": "Contact",
+      "email": "E-mail",
+      "phone": "Phone",
+      "empty": "No public contact detail was found.",
+      "sourceTitle": "Found on {domain}"
+    },
+    "confirmed": {
+      "heading": "Confirmed accounts",
+      "count": "{count} confirmed",
+      "empty": "No account reached the confirmed band."
     },
     "notices": {
       "heading": "Caveats",
@@ -287,6 +288,454 @@
         "error": "Error",
         "question_timeout": "Question timed out",
         "reconnect": "Stream reconnected"
+      }
+    },
+    "browse": {
+      "heading": "Live browse",
+      "step": "Step {step} of {total}",
+      "frameAlt": "What the browser sees on {platform}",
+      "frameUnavailable": "No frame yet.",
+      "refused": "Refused: {reason}",
+      "stop": "Stop browsing",
+      "stopping": "Stopping…",
+      "move": "Move the panel",
+      "resize": "Resize the panel",
+      "outcome": {
+        "extracted": "Read the page and took what it said.",
+        "reached_empty": "The page loaded and held nothing about this person. The platform verdict is unchanged.",
+        "not_found": "The page answered 404 — there is no such account.",
+        "login_wall": "A login wall stopped us. Whether the account exists is still unknown.",
+        "challenge": "A bot challenge stopped us. Whether the account exists is still unknown.",
+        "refused": "Our own guard stopped the agent.",
+        "stalled": "The agent repeated itself and was stopped.",
+        "step_budget": "The step budget ran out.",
+        "time_budget": "The time budget ran out.",
+        "model_unavailable": "The local vision model was unavailable.",
+        "error": "The browse failed.",
+        "unavailable": "No browser is available in this environment.",
+        "stopped": "You stopped the browse."
+      },
+      "by": {
+        "rule": "rule",
+        "model": "model"
+      }
+    },
+    "disconnected": {
+      "heading": "The live feed dropped",
+      "body": "The search itself is still running on the server. Reconnect to keep watching it.",
+      "reconnect": "Reconnect",
+      "reconnecting": "Reconnecting…"
+    },
+    "attention": {
+      "toggle": "{count} need attention",
+      "detailLabel": "Detail",
+      "noDetail": "No detail was reported.",
+      "meaning": {
+        "blocked": "{platform} refused us — whether the account exists is still unknown.",
+        "error": "{platform} could not be reached."
+      }
+    }
+  },
+  "shell": {
+    "newChat": "New chat — clear the console and start over",
+    "newChatStopsSearch": "New chat — stops the running search and clears the console",
+    "searchStopped": "Search stopped. The console is ready for a new one."
+  },
+  "consoleState": {
+    "idle": "Console ready.",
+    "thinking": "Console working.",
+    "asking": "Console is waiting for your answer.",
+    "error": "Console reported a failure."
+  },
+  "platformScope": {
+    "buttonLabel": "Choose which platforms to search",
+    "loadError": "The platform list could not be loaded.",
+    "title": "Platforms to search",
+    "counter": "{selected}/{total}",
+    "all": "All",
+    "none": "None",
+    "empty": "No platforms available.",
+    "extendedLabel": "Include {count} deeper platforms",
+    "extendedHint": "Only reached from {level} effort upwards.",
+    "stealthHint": "Checked through the stealth tier, which is slower.",
+    "unsupportedHint": "This platform cannot be checked.",
+    "discoveryOnlyHint": "Found through search results and links only; the platform cannot confirm a handle.",
+    "categories": {
+      "academic": "Academic",
+      "blogging": "Blogging",
+      "creative": "Creative",
+      "developer": "Developer",
+      "finance": "Finance",
+      "fitness": "Fitness",
+      "forum": "Forums",
+      "gaming": "Gaming",
+      "messaging": "Messaging",
+      "misc": "Other",
+      "music": "Music",
+      "photo": "Photo",
+      "professional": "Professional",
+      "reading": "Reading",
+      "shopping": "Shopping",
+      "social": "Social",
+      "video": "Video"
+    }
+  },
+  "searchEffort": {
+    "triggerLabel": "Search effort: {level}",
+    "menuTitle": "Search effort",
+    "hint": "Higher effort reaches more sources and takes longer.",
+    "levels": {
+      "low": {
+        "label": "Low",
+        "description": "One engine. The fastest answer."
+      },
+      "medium": {
+        "label": "Medium",
+        "description": "Several engines and the core platforms."
+      },
+      "high": {
+        "label": "High",
+        "description": "More rounds, more platforms, deeper pages."
+      },
+      "xhigh": {
+        "label": "XHigh",
+        "description": "Adds the slow platforms and the stealth tier."
+      },
+      "max": {
+        "label": "Max",
+        "description": "Everything, for as long as the budget allows."
+      }
+    }
+  },
+  "agentConsole": {
+    "emptyTitle": "Agent console",
+    "emptyHint": "Ask for something and the agent will say what it plans to run before it runs it.",
+    "placeholder": "Tell the agent what to do…",
+    "running": "Running {tool}…",
+    "toolResult": "Tool result",
+    "toolResultFrom": "Result from {tool}",
+    "approvalTitle": "This step needs your approval",
+    "approve": "Approve",
+    "deny": "Deny"
+  },
+  "searchBrief": {
+    "title": "What we understood",
+    "genderLabel": "Gender",
+    "photoAdd": "Add a reference photo",
+    "photoAttached": "Reference photo",
+    "photoUploading": "Uploading…",
+    "photoHint": "Used only to compare against public profile pictures.",
+    "pinnedHint": "You gave this {platform} account, so it is not searched for again.",
+    "remove": "Remove {value}",
+    "unparsedHint": "The rest of your text was searched as written.",
+    "gender": {
+      "male": "Male",
+      "female": "Female",
+      "unknown": "Unspecified"
+    }
+  },
+  "spatial": {
+    "dock": {
+      "title": "In the room",
+      "failed": "Would not come forward",
+      "hint": "Click one to raise it · join both hands to move them"
+    },
+    "handover": {
+      "windows": {
+        "off": "Your own windows are not in the room: window control is switched off (SPATIAL_WINDOW_CONTROL)",
+        "unsupported": "Your own windows are not in the room: this machine cannot be driven",
+        "error": "Your own windows are not in the room: the backend did not answer — restart it to pick up the window routes"
+      },
+      "idle": { "title": "Bring both hands together to take control" },
+      "oneHand": { "title": "Now the other hand — bring them together" },
+      "closing": { "title": "Hold them together for a moment" },
+      "waiting": "{panels} panels and {windows} of your windows are in the room",
+      "waitingPanels": "{panels} panels are in the room"
+    },
+    "windows": {
+      "blocked": "Windows will not let this one be moved",
+      "off": "Window control off",
+      "unsupported": "Windows unsupported here",
+      "error": "Window link failed"
+    },
+    "scene": {
+      "fold": "Fold the description away",
+      "unfold": "Read the whole description",
+      "look": "Look at the room",
+      "lookHint": "Loads the local vision model for a few seconds",
+      "looking": "Looking at the room…",
+      "again": "Look again",
+      "noFrame": "The camera has not produced a frame yet.",
+      "failed": "That frame could not be described.",
+      "unavailable": "The local vision model is not answering, so there is no description — everything else still works."
+    },
+    "offscreen": {
+      "left": "{count} to your left",
+      "right": "{count} to your right"
+    },
+    "camera": {
+      "retry": "Retry",
+      "idle": {
+        "title": "Room view",
+        "hint": "Starting the camera…"
+      },
+      "requesting": {
+        "title": "Room view",
+        "hint": "Waiting for camera permission."
+      },
+      "live": {
+        "title": "Room view",
+        "hint": "The camera is live."
+      },
+      "blocked": {
+        "title": "Camera blocked",
+        "hint": "Allow the camera for this site from the icon in the address bar, then retry."
+      },
+      "unavailable": {
+        "title": "No camera",
+        "hint": "Connect a webcam, and open the console over localhost or https."
+      },
+      "error": {
+        "title": "Camera did not start",
+        "hint": "Another application may be holding it. Close that application and retry."
+      }
+    },
+    "mode": {
+      "view": "Pointer",
+      "hand": "Hands"
+    },
+    "tracker": {
+      "loading": "Loading hand tracking…",
+      "missing": "Models missing",
+      "error": "Hand tracking failed"
+    },
+    "gesture": {
+      "mode_toggle": "Mode",
+      "grab_start": "Grab",
+      "grab_move": "Drag",
+      "grab_end": "Drop",
+      "tap": "Tap",
+      "cycle": "Next window",
+      "pan": "Pan",
+      "pan_end": "Pan ended",
+      "scale": "Resize",
+      "scale_end": "Resize ended",
+      "slap": "Slap",
+      "panic": "Stopped"
+    },
+    "legend": {
+      "title": "Gestures",
+      "close": "Close gestures",
+      "note": "One open hand never moves the room. Panning takes both, so you can always reach for a card without the room sliding out from under it.",
+      "together": { "move": "Bring both hands together", "does": "Turn hand control on or off" },
+      "cursor": { "move": "Move one open hand around", "does": "Nothing but the cursor — reach wherever you like" },
+      "pinch": { "move": "Close thumb and index on a card", "does": "Grab it, then move your hand to carry it" },
+      "release": { "move": "Open the pinch", "does": "Drop it — it settles onto whatever is nearest" },
+      "tap": { "move": "Pinch and let go without moving", "does": "Click it, or open the panel" },
+      "pan": { "move": "Both palms up, swept sideways", "does": "Scroll the room, bringing back what you left off-screen" },
+      "scale": { "move": "Pinch with both hands and pull apart", "does": "Make what you are holding bigger or smaller" },
+      "fist": { "move": "Make a fist, then open it", "does": "Switch to the next window" },
+      "fistTurn": { "move": "Hold the fist and move it left or right", "does": "Step back and forth through the windows" },
+      "slap": { "move": "Throw one open hand sideways, fast", "does": "Fling the front one that way; the next comes forward" },
+      "panic": { "move": "Close both hands and hold", "does": "Stop everything and leave hand control" }
+    }
+  },
+  "panels": {
+    "common": {
+      "loading": "Loading…",
+      "retry": "Retry",
+      "panelCrashed": "This panel stopped working: {reason}"
+    },
+    "tabs": {
+      "ariaLabel": "Panels",
+      "close": "Close panel",
+      "spatial": "Spatial",
+      "logs": "Logs",
+      "memory": "Memory",
+      "watch": "Watch",
+      "plugins": "Plugins",
+      "system": "System",
+      "health": "Health"
+    },
+    "logs": {
+      "title": "Search history",
+      "empty": "No conversations yet.",
+      "emptyHint": "Every search you run is listed here.",
+      "noResult": "No stored result",
+      "open": "Open the conversation {query}",
+      "openFailed": "That search could not be reopened.",
+      "deleteItem": "Delete log {query}",
+      "deleteFailed": "The entry could not be deleted.",
+      "loadFailed": "The history could not be loaded.",
+      "restored": "Restored from history.",
+      "footer": "Stored locally, on this machine.",
+      "status": {
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed",
+        "cancelled": "Cancelled",
+        "abandoned": "Abandoned"
+      }
+    },
+    "memory": {
+      "title": "Memory",
+      "search": "Search",
+      "searchPlaceholder": "Search memories",
+      "clearSearch": "Clear search",
+      "searchFailed": "The search failed.",
+      "searchShapeFailed": "The search answered in an unexpected format.",
+      "resultCount": "{count} match(es)",
+      "noMatches": "Nothing matched.",
+      "noMatchesHint": "Try a shorter or more general term.",
+      "add": "Add",
+      "cancelAdd": "Cancel",
+      "store": "Store",
+      "storing": "Storing…",
+      "saved": "Saved.",
+      "saveFailed": "It could not be saved.",
+      "category": "Category",
+      "importance": "Importance {value}",
+      "keyPlaceholder": "Key, e.g. favourite editor",
+      "valuePlaceholder": "Value",
+      "empty": "No memories stored.",
+      "emptyHint": "Anything stored here is available to every later search.",
+      "deleteItem": "Delete memory {key}",
+      "deleteFailed": "It could not be deleted.",
+      "loadFailed": "Memory could not be loaded.",
+      "footer": "{count} entry(ies) stored."
+    },
+    "plugins": {
+      "title": "Plugins",
+      "empty": "No plugins found.",
+      "emptyHint": "A plugin adds a source or a tool to the console.",
+      "byAuthor": "by {author}",
+      "enabledCount": "{enabled}/{total} enabled",
+      "run": "Run",
+      "runManually": "Run manually",
+      "runPlaceholder": "Query",
+      "runItem": "Run {plugin}",
+      "runFailed": "The plugin failed to run.",
+      "toggleItem": "Toggle {plugin}",
+      "toggleFailed": "The plugin could not be switched.",
+      "resultTitle": "{plugin} · {query}",
+      "resultCount": "{count} results",
+      "resultUnstructured": "The plugin returned free-form output.",
+      "dismissResult": "Dismiss this result",
+      "loadFailed": "The plugin list could not be loaded.",
+      "footer": "{enabled} of {total} plugins are enabled."
+    },
+    "system": {
+      "title": "System",
+      "monitoring": "Monitoring",
+      "notMonitoring": "Not monitoring",
+      "statusUnknown": "Status unknown",
+      "uptime": "Up for {minutes} min",
+      "uptimeUnknown": "Uptime: unknown",
+      "recoveryAttempts": "Recovery attempts",
+      "noServices": "No service data yet.",
+      "noServicesHint": "The backend publishes a service list once it is running.",
+      "recentEvents": "Recent events",
+      "noHistory": "No events recorded.",
+      "noHistoryHint": "Approved and denied actions are listed here.",
+      "requiresApproval": "Needs approval",
+      "noPending": "No pending actions.",
+      "noPendingHint": "An action that needs approval will appear here.",
+      "pendingCount": "{count} waiting",
+      "approve": "Approve",
+      "approveItem": "Approve: {description}",
+      "approveFailed": "The action could not be approved.",
+      "deny": "Deny",
+      "denyItem": "Deny: {description}",
+      "denyFailed": "The action could not be denied.",
+      "requestExecution": "Request execution",
+      "actionTypeLabel": "Action type",
+      "sectionsLabel": "Sections",
+      "appSuggestionsLabel": "Applications",
+      "appSearching": "Searching…",
+      "noAppsFound": "No application matched.",
+      "submitFailed": "The request could not be sent.",
+      "loadFailed": "System status could not be loaded.",
+      "types": {
+        "command": "CMD",
+        "app": "APP",
+        "url": "URL"
+      },
+      "placeholders": {
+        "command": "Command to run",
+        "app": "App name",
+        "url": "URL to open"
+      },
+      "tabs": {
+        "pending": "Pending",
+        "history": "History",
+        "new": "New",
+        "status": "Status"
+      }
+    },
+    "watch": {
+      "title": "Watches",
+      "add": "Add",
+      "cancelAdd": "Cancel",
+      "start": "Start",
+      "starting": "Starting…",
+      "started": "Now watching {query}.",
+      "startFailed": "The watch could not be started.",
+      "targetPlaceholder": "Name or URL to watch",
+      "interval": "Every {minutes} min",
+      "everyMinutes": "every {minutes} min",
+      "activeCount": "{count} active",
+      "changes": "{count} change(s)",
+      "lastChecked": "Last checked {time}",
+      "neverChecked": "Not scanned yet",
+      "empty": "No active watches.",
+      "emptyHint": "A watch re-runs a search on a schedule and reports what changed.",
+      "stopItem": "Stop watching {query}",
+      "stopFailed": "The watch could not be stopped.",
+      "stopAll": "Stop all",
+      "stopAllFailed": "The watches could not be stopped.",
+      "pollFailed": "The watch list could not be refreshed.",
+      "loadFailed": "The watches could not be loaded.",
+      "footer": "{count} watch(es) running."
+    },
+    "health": {
+      "title": "Health",
+      "disclaimer": "Notes you keep for yourself. This is not medical advice.",
+      "quickLog": "Quick entry",
+      "recordEntry": "Record",
+      "recording": "Recording…",
+      "recordFailed": "The entry could not be recorded.",
+      "addEntry": "Add an entry",
+      "closeForm": "Close the form",
+      "entryLabel": "What",
+      "entryValue": "Value",
+      "categoryLabel": "Category",
+      "allCategories": "All",
+      "noPresets": "No presets for this category.",
+      "empty": "No health data yet.",
+      "emptyCategory": "Nothing recorded in this category.",
+      "entries": "{count} entry(ies)",
+      "dataPoints": "{count} data point(s)",
+      "deleteEntry": "Delete",
+      "deleteItem": "Delete {key}",
+      "deleteFailed": "The entry could not be deleted.",
+      "loadFailed": "The entries could not be loaded.",
+      "patterns": "Patterns",
+      "patternsHint": "Trends found across your own entries.",
+      "patternsFailed": "The patterns could not be computed.",
+      "needMoreEntries": "A few more entries are needed before a pattern means anything.",
+      "dismissPatterns": "Hide the patterns",
+      "dismissSuggestions": "Hide the suggestions",
+      "suggestionsFailed": "The suggestions could not be loaded.",
+      "askTitle": "Ask about your entries",
+      "askLabel": "Describe how you feel",
+      "askPlaceholder": "e.g. how has my sleep changed this month?",
+      "ask": "Ask",
+      "stop": "Stop",
+      "time": {
+        "justNow": "just now",
+        "minutes": "{count} min ago",
+        "hours": "{count} h ago",
+        "days": "{count} d ago"
       }
     }
   }
