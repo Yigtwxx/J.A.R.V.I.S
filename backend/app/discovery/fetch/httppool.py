@@ -38,6 +38,32 @@ from app.utils.logger import logger
 # multiply out to nine requests for one logical fetch.
 NO_INNER_RETRY = 1
 
+CONNECT_TIMEOUT_S = 5.0
+"""How long to wait for a TCP handshake, separately from the read budget.
+
+curl is handed one number unless you give it a pair, and that number then covers
+the *whole* request — so an address the network drops silently burns the OS
+connect timeout before failing. Measured on 2026-08-29 against a host this
+network drops (unreachable on both 80 and 443, while every other host tested
+connected normally):
+
+    timeout=30      -> 21.1 s   curl (28) "Failed to connect ... after 21098 ms"
+    timeout=(5, 30) ->  5.0 s   curl (28) "Connection timed out after 5015 ms"
+
+``FetchStatus.TIMEOUT`` is retryable, so that 21 s was paid three times per
+logical fetch. Five seconds is generous for a handshake — a host that has not
+completed one by then is not reachable, and a slow *page* is unaffected because
+its slowness is in the body, which still gets the full read budget."""
+
+
+def connect_read_timeout(total_s: float) -> tuple[float, float]:
+    """Split a total budget into ``(connect, read)`` for curl.
+
+    Clamped so a caller asking for less than the connect budget is never
+    silently promoted to a longer handshake than it asked for.
+    """
+    return (min(CONNECT_TIMEOUT_S, total_s), total_s)
+
 
 @dataclass(slots=True)
 class _Realm:
@@ -118,7 +144,7 @@ class HttpSessionPool:
                 session = FetcherSession(
                     impersonate=self._impersonate,
                     stealthy_headers=True,
-                    timeout=self._timeout_s,
+                    timeout=connect_read_timeout(self._timeout_s),
                     retries=NO_INNER_RETRY,
                     follow_redirects=True,
                 )
