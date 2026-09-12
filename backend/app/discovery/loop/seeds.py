@@ -15,9 +15,9 @@ from app.discovery.engines.queries import entity_queries, evidence_queries, plat
 from app.discovery.evidence.model import Evidence
 from app.discovery.identity import usernames as un
 from app.discovery.loop.state import DiscoveryState
-from app.discovery.platforms.registry import PlatformRegistry
+from app.discovery.platforms.registry import PlatformRegistry, is_discovery_only
 from app.discovery.platforms.spec import PlatformSpec
-from app.discovery.types import EntityType, EvidenceKind, PlatformTier
+from app.discovery.types import EntityType, EvidenceKind, PlatformTier, SourceKind
 
 # Which part of a site holds profiles. Only Google understands `site:host/path`,
 # so `platform_queries` turns this into a plain phrase for every other engine.
@@ -32,6 +32,11 @@ _PATH_HINTS: dict[str, str] = {
 
 # Evidence that is worth turning into new queries. A bio or a mention is too
 # noisy; a username or an employer genuinely opens new ground.
+# How many refused pairs one round may re-probe. Each retry costs a fetch on a
+# host that has already said no once, so the fan-out is capped even though the
+# per-session cap in `DiscoveryState.take_retry_pairs` already bounds the total.
+MAX_RETRY_PAIRS_PER_ROUND = 12
+
 _EXPANDABLE_KINDS: frozenset[EvidenceKind] = frozenset(
     {
         EvidenceKind.USERNAME,
@@ -93,7 +98,9 @@ def round_zero_queries(state: DiscoveryState, registry: PlatformRegistry) -> lis
     handles = [c.value for c in top]
 
     for spec in _platforms_for(state, registry, tier=PlatformTier.CORE):
-        if not spec.host:
+        if not spec.host or spec.key in state.pinned_platforms:
+            # The user gave us this account. A `site:instagram.com "Name"` dork
+            # can only return other people's profiles from here.
             continue
         queries.extend(
             platform_queries(
@@ -108,10 +115,20 @@ def round_zero_queries(state: DiscoveryState, registry: PlatformRegistry) -> lis
 
 
 def followup_queries(state: DiscoveryState, fresh: Sequence[Evidence]) -> list[str]:
-    """Queries derived from evidence first seen in the previous round."""
+    """Queries derived from evidence first seen in the previous round.
+
+    An address the *user* gave us is theirs to search with. One we scraped off a
+    page is not: expanding it would put a contact detail we collected into a
+    query sent to DuckDuckGo, Bing and Brave — transmitting it to third parties
+    unprompted. `EvidenceKind.EMAIL` has sat in `_EXPANDABLE_KINDS` since this
+    module was written and was harmless only because nothing produced EMAIL
+    evidence; the moment a producer exists the gate has to be real.
+    """
     queries: list[str] = []
     for ev in fresh:
         if ev.kind not in _EXPANDABLE_KINDS:
+            continue
+        if ev.kind is EvidenceKind.EMAIL and ev.source_kind is not SourceKind.USER_ANSWER:
             continue
         value = (ev.value or "").strip()
         if len(value) < 3:
@@ -126,14 +143,40 @@ def platform_probe_pairs(
     *,
     include_extended: bool,
 ) -> list[tuple[str, str]]:
-    """`(platform, username)` pairs still worth an existence check this round."""
+    """`(platform, username)` pairs still worth an existence check this round.
+
+    Two sources: pairs never probed at all, and pairs whose last probe was refused
+    or errored. The second is why the list is not simply "everything not in
+    `usernames_tried`" — a platform that rate-limited us in round 0 has told us
+    nothing about the account, and the block frequently clears within the run.
+    """
     top = un.top_n(state.usernames.values(), state.budget.max_username_variations)
-    pairs: list[tuple[str, str]] = []
+    # Retries first: they are the only pairs backed by an actual observation, and
+    # taking them before the cap-sensitive loop below keeps them from being
+    # crowded out by fresh guesses.
+    # The pin filter has to be applied here too, not just in the loop below: a
+    # retry is claimed from `pair_verdicts`, which can hold handles probed before
+    # the platform was pinned by a mid-run "yes". The pinned handle itself stays
+    # retryable — if the platform refused the one read of the account the user
+    # gave us, that read is still the most valuable request in the round.
+    pairs: list[tuple[str, str]] = [
+        pair for pair in state.take_retry_pairs(MAX_RETRY_PAIRS_PER_ROUND) if not state.is_pinned_stranger(*pair)
+    ]
 
     tiers = [PlatformTier.CORE] + ([PlatformTier.EXTENDED] if include_extended else [])
     for tier in tiers:
         extended = tier is PlatformTier.EXTENDED
         for spec in _platforms_for(state, registry, tier=tier):
+            if spec.key in state.pinned_platforms:
+                # Same reason as the dorks above: the account is already known, so
+                # every permutation probed here is a different person.
+                continue
+            if is_discovery_only(spec.key):
+                # Nothing a probe returns here distinguishes a real handle from an
+                # invented one, so a guess can only ever cost a request. Measured
+                # on Spotify: 15 permutations per round, every one unanswerable.
+                # The dork above still runs — that is how the account is found.
+                continue
             for candidate in top:
                 if extended and state.extended_checks_used >= state.budget.max_extended_checks:
                     return pairs
