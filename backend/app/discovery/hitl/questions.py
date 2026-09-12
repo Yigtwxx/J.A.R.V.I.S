@@ -3,10 +3,9 @@
 THE "I DON'T KNOW" RULE
 ----------------------
 Every question carries an implicit unknown option, surfaced with the reserved id
-``__unknown__`` (and a skip option, ``__skip__``). An ``unknown`` answer, a
-``skipped`` answer and a ``timed_out`` answer all mean exactly one thing: **we
-still don't know**. They add no evidence and they apply no penalty, so
-:func:`apply_answer` returns ``[]`` for all three.
+``__unknown__``. It means exactly one thing: **we still don't know**. It adds no
+evidence and it applies no penalty, so :func:`apply_answer` returns ``[]`` for it,
+as it does for the ``skipped`` and ``timed_out`` answers still in the history.
 
 :attr:`Answer.is_negative` is True only when the user picked the explicit "no"
 option, ``__no__``. Treating silence as denial is the single most destructive
@@ -14,6 +13,19 @@ thing this layer could do: a user who walks away from the screen, or who simply
 does not recognise a handle, would then demolish correct findings the evidence
 already supports. Absence of an answer is not a "no", exactly as absence of
 proof is not proof of absence elsewhere in this pipeline.
+
+NOBODY IS ON A CLOCK
+--------------------
+A question has no deadline: the round parks on it until a human answers. A
+deadline would have answered "I don't know" on the user's behalf after two
+minutes, throwing away the one input this pipeline cannot derive on its own —
+and it did, on every run where the user was reading rather than clicking.
+
+``SKIP_OPTION_ID``, :attr:`Answer.skipped` and :attr:`Answer.timed_out` outlive
+the two features that produced them (a Skip button that meant exactly what "I
+don't know" already means, and that deadline). They stay because answers
+recorded under them are already in the database, and :attr:`is_unresolved` has
+to keep reading those rows correctly.
 
 The generators below are deterministic rather than LLM-driven, so a given state
 always produces the same question and every branch is unit-testable.
@@ -53,6 +65,11 @@ class QuestionOption:
     label: str
     detail: str | None = None
     thumbnail_url: str | None = None
+    url: str | None = None
+    """The public page this option names, so the user can go and look at it.
+
+    Answering "is this the right account?" from a handle and a thumbnail is a
+    guess; the only way to actually know is to open the profile."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,20 +79,32 @@ class Question:
     text: str
     options: tuple[QuestionOption, ...] = ()
     allow_free_text: bool = False
-    allow_skip: bool = True
     allow_unknown: bool = True
-    timeout_seconds: int = 120
     context: dict[str, Any] = field(default_factory=dict)
     semantic_hash: str = ""
     """``sha1(kind|subject)``: the identity of the *topic*, not of this instance."""
 
+    subject_url: str = ""
+    """The one account a yes/no question is about. Empty when there is not one."""
+
+    multi_select: bool = False
+    """May more than one option be chosen?
+
+    False for a question whose answers are mutually exclusive — one identity, one
+    employer. True where they genuinely are not: the same person owns accounts on
+    several platforms and uses a different picture on each, so "which of these is
+    the person you mean?" has to be answerable with "both"."""
+
     def wire_options(self) -> list[dict[str, Any]]:
-        """Options as the client sees them, with the implicit choices appended."""
+        """Options as the client sees them, with the implicit "I don't know" appended.
+
+        A yes/no question therefore offers exactly three answers — yes, no, and
+        "I don't know" — which is the whole answer space. The Skip that used to
+        follow them was a fourth button carrying the third one's meaning.
+        """
         out = [asdict(opt) for opt in self.options]
         if self.allow_unknown:
             out.append(asdict(QuestionOption(UNKNOWN_OPTION_ID, "I don't know")))
-        if self.allow_skip:
-            out.append(asdict(QuestionOption(SKIP_OPTION_ID, "Skip")))
         return out
 
 
@@ -118,10 +147,22 @@ def _question(
     options: Sequence[QuestionOption] = (),
     allow_free_text: bool = False,
     context: dict[str, Any] | None = None,
+    subject_url: str = "",
+    multi_select: bool = False,
 ) -> Question:
     digest = semantic_hash(kind, subject)
     opts, ctx = tuple(options), context or {}
-    return Question(f"q_{digest}", kind, text, opts, allow_free_text, context=ctx, semantic_hash=digest)
+    return Question(
+        f"q_{digest}",
+        kind,
+        text,
+        opts,
+        allow_free_text,
+        context=ctx,
+        semantic_hash=digest,
+        subject_url=subject_url,
+        multi_select=multi_select,
+    )
 
 
 # -- generators --------------------------------------------------------------
@@ -156,32 +197,75 @@ def _disambiguate(state: Any) -> Question | None:
 
 
 def _confirm_avatar(state: Any) -> Question | None:
-    """The elected identity shows visually different faces — pick the real one."""
+    """The elected identity shows visually different faces — which is the target?
+
+    Two rules, both learned from the same live report.
+
+    **Accounts the user has already settled are not in question.** The user gave
+    an Instagram account in the brief and answered yes to a LinkedIn one, and was
+    then asked which of those two was "the person you mean" — a question they had
+    already answered twice. `settled` drops them, and with nothing unsettled left
+    there is no question to ask.
+
+    **The answer may be "both".** A person uses a different picture on each
+    platform, so distinct faces are the normal case, not a contradiction. The
+    effect has always confirmed every account sharing a chosen picture without
+    punishing the rest; only the wording and the single-choice UI said otherwise.
+    """
     keys = set(clusters[0].member_keys) if (clusters := _read(state, "clusters", [])) else set()
     distinct: dict[str, Any] = {}
     for pic in _read(state, "pictures", []):
+        if getattr(pic, "settled", False):
+            continue
         if not keys or f"{pic.platform}:{str(pic.username).lower()}" in keys:
             distinct.setdefault(pic.dhash, pic)
     if len(distinct) < 2:
         return None
     top = [distinct[d] for d in sorted(distinct)][:_MAX_OPTIONS]
-    opts = [QuestionOption(id=p.sha256, label=f"{p.platform}/{p.username}", thumbnail_url=p.local_url) for p in top]
+    opts = [
+        QuestionOption(
+            id=p.sha256,
+            label=f"{p.platform}/{p.username}",
+            thumbnail_url=p.local_url,
+            url=getattr(p, "url", "") or None,
+        )
+        for p in top
+    ]
     return _question(
         QuestionKind.CONFIRM_AVATAR,
         "|".join(sorted(distinct)),
-        "These profiles show different pictures. Which one is the person you mean?",
+        "Which of these is the person you are looking for? Pick every one that is.",
         options=opts,
         context={"sha256": [p.sha256 for p in top]},
+        multi_select=True,
     )
 
 
 def _confirm_profile(state: Any) -> Question | None:
-    """The best candidate is only "possible" (40-59) — one yes/no settles it."""
-    live = [c for c in _read(state, "candidates", []) if c.is_live and not (c.user_confirmed or c.user_rejected)]
+    """The best candidate is unsettled (`weak` or `possible`) — one yes/no fixes it.
+
+    `weak` belongs here as much as `possible` does. A correct account scores low
+    whenever the web layer gathered little corroboration — engines refused, a
+    platform blocked — and that is precisely the run where the search cannot
+    finish on its own. Restricting the question to `possible` closed the
+    `user_confirmed` escape hatch (+35, the largest signal there is) in the one
+    situation that needed it.
+    """
+    pinned = _read(state, "pinned_platforms", {})
+    live = [
+        c
+        for c in _read(state, "candidates", [])
+        if c.is_live
+        and not (c.user_confirmed or c.user_rejected)
+        # A platform whose account the user already gave, or already confirmed,
+        # is settled. Spending the one question a round is allowed on "is this
+        # other Instagram account them?" asks about somebody we know is not.
+        and c.platform not in pinned
+    ]
     if not live:
         return None
     top = max(live, key=lambda c: (c.score.value, c.platform, c.username))
-    if top.score.band is not MatchBand.POSSIBLE:
+    if top.score.band not in (MatchBand.WEAK, MatchBand.POSSIBLE):
         return None
     return _question(
         QuestionKind.CONFIRM_PROFILE,
@@ -192,6 +276,7 @@ def _confirm_profile(state: Any) -> Question | None:
             QuestionOption(id=NO_OPTION_ID, label="No, that's someone else"),
         ],
         context={"candidate_key": top.key, "platform": top.platform, "username": top.username},
+        subject_url=top.url,
     )
 
 
