@@ -36,9 +36,10 @@ from pathlib import Path
 from typing import Any
 
 from app.config import get_settings
+from app.discovery.browse.page import PatchrightPage
 from app.discovery.errors import FetchLayerUnavailable
 from app.discovery.fetch.cookies import CookieVault, extract_cookies
-from app.discovery.fetch.httppool import HttpSessionPool
+from app.discovery.fetch.httppool import HttpSessionPool, connect_read_timeout
 from app.discovery.fetch.identity import IdentityPicker
 from app.discovery.fetch.profiles import BrowserProfilePool
 from app.discovery.fetch.proxy import ProxySelector, mask_proxy
@@ -116,6 +117,24 @@ class FetchStats:
             "wait_seconds": round(self.wait_seconds, 2),
             "per_domain": dict(sorted(self.per_domain.items(), key=lambda kv: -kv[1])[:20]),
         }
+
+
+def _browser_is_gone(exc: Exception) -> bool:
+    """Did this fail because the browser itself is no longer there?
+
+    Playwright reports it as ``TargetClosedError``, whose message names the
+    three things that can have gone: ``Target page, context or browser has been
+    closed``. Matched on both the type name and the wording, because the same
+    condition surfaces as a plain ``Error`` from some call sites, and a false
+    negative here costs the whole browser tier for the rest of the search.
+
+    Deliberately narrow: a timeout or a navigation failure is *not* this. Those
+    are the page misbehaving, and restarting the browser would not help.
+    """
+    if type(exc).__name__ == "TargetClosedError":
+        return True
+    text = str(exc).lower()
+    return "has been closed" in text or "browser has been closed" in text
 
 
 class FetchSession:
@@ -214,6 +233,7 @@ class FetchSession:
         timeout_s: float | None = None,
         min_html_bytes: int = 2_000,
         expect_selector: str | None = None,
+        wait_selector: str | None = None,
         headers: dict[str, str] | None = None,
         use_cache: bool = True,
     ) -> FetchResult:
@@ -224,6 +244,10 @@ class FetchSession:
             escalate: Allow HTTP -> STEALTH promotion.
             min_html_bytes: Below this, a 200 is treated as an interstitial stub.
             expect_selector: When given and absent from a 200, treat it as a stub.
+            wait_selector: Browser tier only — return as soon as this appears,
+                instead of waiting for the network to fall idle. Some pages never
+                go idle: Google's SERP kept polling until the 60 s ceiling, so a
+                query whose results were on screen in three seconds took 64.
         """
         cached = self._cache.get(url) if use_cache else None
         if cached is not None:
@@ -235,7 +259,19 @@ class FetchSession:
             return FetchResult.failure(url, FetchStatus.ERROR, tier=tier, error="fetch budget exhausted")
 
         if tier is FetchTier.STEALTH:
-            result = await self._fetch_stealth(url, timeout_ms=None, headers=headers)
+            result = await self._fetch_stealth(
+                url,
+                # Honoured on this path too. It used to be dropped, so a caller
+                # could not bound a browser fetch at all: when a `wait_selector`
+                # never appeared — a consent page instead of a SERP — the wait
+                # ran to the 90 s ceiling for a page that was never coming.
+                timeout_ms=int(timeout_s * 1000) if timeout_s else None,
+                headers=headers,
+                # Waiting for both is waiting for the slower one, and on a page
+                # that never idles that is the whole timeout.
+                network_idle=wait_selector is None,
+                wait_selector=wait_selector,
+            )
         else:
             result = await self._fetch_http(url, timeout_s=timeout_s, headers=headers)
             if escalate and self._should_escalate(
@@ -246,6 +282,8 @@ class FetchSession:
                     url,
                     timeout_ms=None,
                     headers=headers,
+                    network_idle=wait_selector is None,
+                    wait_selector=wait_selector,
                     solve_cloudflare=result.block_signal == "cf_challenge",
                 )
                 # Only keep the promotion when it actually improved matters — a
@@ -290,6 +328,54 @@ class FetchSession:
             return result, _json.loads(result.html)
         except (ValueError, TypeError):
             return result, None
+
+    async def resolve_redirects(self, urls: Sequence[str], *, timeout_s: float | None = None) -> list[str | None]:
+        """Resolve a batch of one-hop redirects, returning each ``Location``.
+
+        Google's SERP no longer contains result URLs. Every organic anchor points
+        at ``/goto?url=<token>`` and the token is opaque — measured 2026-08-29,
+        105 bytes of high-entropy data with no URL anywhere inside it. The only
+        route to the real address is to ask Google, and the only cheap way to ask
+        is a request that reads the ``Location`` header instead of downloading
+        whatever it points at.
+
+        A *batch*, deliberately. These are not eight independent visits to
+        google.com, they are the tail of one page fetch that has already been
+        paced, so the domain limiter is acquired once for the group rather than
+        once per link. Resolved individually they inherited the full per-domain
+        spacing and arrived 8 s apart: 56 s to finish a job that takes 0.4 s.
+
+        Entries are None where the response was not a redirect to an absolute
+        URL, so a caller can drop those rows rather than invent one.
+        """
+        if not urls:
+            return []
+
+        self.stats.wait_seconds += await self._rate.acquire(urls[0])
+        timeout = timeout_s if timeout_s is not None else self._http_timeout_s
+
+        async def one(url: str) -> str | None:
+            identity = self._identity.for_url(url, useragent=self._cookies.useragent_for(url))
+            kwargs: dict[str, Any] = {
+                "timeout": connect_read_timeout(timeout),
+                "stealthy_headers": True,
+                "follow_redirects": False,
+                "impersonate": identity.impersonate,
+                "headers": identity.headers(),
+            }
+            if carried := self._cookies.cookies_for(url):
+                kwargs["cookies"] = carried
+            if proxy := self._proxy.for_url(url):
+                kwargs["proxy"] = proxy
+            try:
+                response = await self._http.get(url, **kwargs)
+            except Exception as exc:
+                logger.log_warning(f"Redirect resolution failed for {url[:80]}: {type(exc).__name__}", broadcast=False)
+                return None
+            location = (response.headers.get("location") or "").strip()
+            return location if location.startswith(("http://", "https://")) else None
+
+        return list(await asyncio.gather(*(one(url) for url in urls)))
 
     async def get_bytes(self, url: str, *, timeout_s: float | None = None) -> tuple[FetchResult, bytes | None]:
         """Fetch a binary asset (avatar images). Returns ``(result, raw_bytes)``."""
@@ -360,6 +446,51 @@ class FetchSession:
     def stealth_unavailable_reason(self) -> str | None:
         return self._stealth_unavailable_reason
 
+    # -- the browse tier's page ------------------------------------------------
+
+    async def open_agent_page(
+        self,
+        *,
+        viewport: tuple[int, int] = (1280, 800),
+        timeout_ms: int | None = None,
+    ) -> PatchrightPage:
+        """Lend the browse tier a page that survives many actions.
+
+        Opened on the stealth session's ``context`` rather than through
+        ``fetch()``, because scrapling's own page helper closes the page after
+        every call — fine for "read this URL", useless for an agent that has to
+        scroll, dismiss a banner and then read.
+
+        Routed through ``_ensure_stealth`` so the browse tier inherits every
+        failure path already built there: the real-Chrome fallback, the profile
+        eviction, the concurrency semaphore, and ``FetchLayerUnavailable`` when
+        no browser can start at all. This keeps ``FetchSession`` the single owner
+        of the browser, which is the rule ``discovery/dependencies`` is built on.
+
+        Pages opened this way bypass scrapling's ``PagePool``, so they consume no
+        ``max_pages`` slot and are never closed for us — the caller's ``finally``
+        is the only thing that closes them.
+        """
+        session = await self._ensure_stealth()
+        context = getattr(session, "context", None)
+        if context is None:
+            raise FetchLayerUnavailable(
+                "the browser session exposes no context; the browse tier needs a persistent context"
+            )
+
+        page = await context.new_page()
+        try:
+            # A smaller viewport than the context's default: the screenshot is
+            # what the vision model reads, and a 1920-wide frame downscaled to
+            # 1024 loses the text this tier exists to read.
+            await page.set_viewport_size({"width": int(viewport[0]), "height": int(viewport[1])})
+        except Exception as exc:
+            logger.log_warning(f"Browse page kept the context viewport: {exc}", broadcast=False)
+
+        adapter = PatchrightPage(page, timeout_ms=timeout_ms or self._stealth_timeout_ms)
+        await adapter.prepare()
+        return adapter
+
     # -- tiers ----------------------------------------------------------------
 
     async def _fetch_http(
@@ -387,7 +518,7 @@ class FetchSession:
             self.stats.wait_seconds += await self._rate.acquire(url)
 
             kwargs: dict[str, Any] = {
-                "timeout": timeout,
+                "timeout": connect_read_timeout(timeout),
                 "stealthy_headers": True,
                 "follow_redirects": True,
                 "impersonate": identity.impersonate,
@@ -433,6 +564,7 @@ class FetchSession:
         network_idle: bool = True,
         solve_cloudflare: bool = False,
         wait_selector: str | None = None,
+        retried_after_crash: bool = False,
     ) -> FetchResult:
         started = time.monotonic()
         if not self._stealth_enabled:
@@ -480,6 +612,24 @@ class FetchSession:
         try:
             response = await session.fetch(url, **kwargs)
         except Exception as exc:
+            # A dead browser is recoverable; a dead *cached* browser is not, so
+            # drop it and let the next attempt build one. Once only — if the
+            # replacement dies the same way the problem is not the session.
+            if not retried_after_crash and _browser_is_gone(exc):
+                logger.log_warning(
+                    f"The browser had closed under us ({type(exc).__name__}); starting a new one",
+                    broadcast=False,
+                )
+                await self._discard_stealth()
+                return await self._fetch_stealth(
+                    url,
+                    timeout_ms=timeout_ms,
+                    headers=headers,
+                    network_idle=network_idle,
+                    solve_cloudflare=solve_cloudflare,
+                    wait_selector=wait_selector,
+                    retried_after_crash=True,
+                )
             return self._from_exception(url, exc, FetchTier.STEALTH, 1, started)
 
         # The point of paying for a browser is the cookies it walks away with.
@@ -501,6 +651,36 @@ class FetchSession:
                 wait_selector=wait_selector,
             )
         return result
+
+    async def _discard_stealth(self) -> None:
+        """Forget a browser that has died, so the next call can start a fresh one.
+
+        The session is cached for the life of the search, which is right while it
+        works and fatal when it does not: a Chromium that crashes — out of memory
+        beside the vision model, killed by the OS, gone for any reason at all —
+        leaves ``self._stealth`` pointing at a corpse, and *every* later stealth
+        fetch raises ``TargetClosedError`` against it. One crash cost the whole
+        browser tier for the rest of the run.
+
+        The leased profile goes with it rather than being returned to the pool:
+        whatever killed the browser may well be in that user-data directory, and
+        handing it to the next search would spread the failure.
+        """
+        async with self._stealth_lock:
+            stealth, self._stealth = self._stealth, None
+            if stealth is not None:
+                try:
+                    await stealth.__aexit__(None, None, None)
+                except Exception as exc:  # it is already broken; closing it may fail too
+                    logger.log_warning(f"Discarding a dead stealth session raised {exc}", broadcast=False)
+
+            if self._profiles is not None and self._profile_path is not None:
+                path, self._profile_path = self._profile_path, None
+                await self._profiles.evict(path)
+
+            if self._stealth_slot_held:
+                self._stealth_slot_held = False
+                (await _stealth_semaphore()).release()
 
     async def _ensure_stealth(self) -> Any:
         """Start the browser on first use, at most once, under a process-wide cap."""
