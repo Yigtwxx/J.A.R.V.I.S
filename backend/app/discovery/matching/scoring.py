@@ -30,9 +30,24 @@ from app.discovery.identity.normalize import (
     token_overlap,
 )
 from app.discovery.matching.candidate import MatchScore, ProfileCandidate, ScoreReason
-from app.discovery.matching.signals import cap_for, points_for, text_for
+from app.discovery.matching.signals import (
+    PINNED_VALUE,
+    USER_ASSERTED_CODE,
+    USER_ASSERTED_TEXT,
+    cap_for,
+    points_for,
+    text_for,
+)
+from app.discovery.media.hashing import hamming
 from app.discovery.platforms.urlmatch import is_generic_handle, match_profile_url
-from app.discovery.types import EvidenceKind, ExistenceVerdict, MatchBand, PlatformTier, band_for
+from app.discovery.types import EvidenceKind, ExistenceVerdict, Gender, MatchBand, PlatformTier, band_for
+
+REFERENCE_DHASH_THRESHOLD = 6
+"""Bit distance at which two dhashes are "the same picture".
+
+6/64 survives a resize and a JPEG re-encode while still separating two genuinely
+different photographs. It is the same working point `media.hashing` documents.
+"""
 
 
 @dataclass(slots=True)
@@ -63,8 +78,42 @@ class ScoringContext:
     reverse_image_hits: dict[str, set[str]] = field(default_factory=dict)
     """candidate key -> platforms the same picture was found on."""
 
+    # -- constraints the user supplied up front (the search brief) -------------
+    brief_gender: Gender = Gender.UNKNOWN
+    """Gender the user stated. UNKNOWN disables both gender signals entirely."""
+
+    reference_avatar_sha: str = ""
+    """sha256 of a picture the user says is the target. File identity, not a face."""
+
+    reference_avatar_dhash: str = ""
+    """dhash of the same picture, so a resize or a re-encode still matches."""
+
     def pair(self, a: str, b: str) -> tuple[str, str]:
         return (a, b) if a <= b else (b, a)
+
+    @property
+    def has_reference_avatar(self) -> bool:
+        return bool(self.reference_avatar_sha or self.reference_avatar_dhash)
+
+
+def _assertion_stands(candidate: ProfileCandidate) -> bool:
+    """Does the user's word about this account still hold?
+
+    Three ways it does not:
+
+    * they never gave it - ``user_confirmed`` is the only thing that sets this,
+      whether from the brief or from answering "yes" to a question;
+    * they looked at it and said no. An explicit rejection is a later, more
+      specific statement than the confirmation it overrides;
+    * the platform authoritatively answers *no such account*. That is the one
+      case where a source outranks the user, because it is not an opinion about
+      whose account it is - a mistyped or deleted URL cannot be anybody's. Being
+      *blocked* is not that: we simply could not look, and absence of proof is
+      not proof of absence.
+    """
+    return (
+        candidate.user_confirmed and not candidate.user_rejected and candidate.verdict is not ExistenceVerdict.NOT_FOUND
+    )
 
 
 def score_profile(
@@ -189,6 +238,29 @@ def score_profile(
     for platform in sorted(ctx.reverse_image_hits.get(key, set())):
         add("reverse_image_hit", other=platform)
 
+    # A picture the user handed us is an assertion, not a coincidence between two
+    # unknown accounts, so it outscores `avatar_sha256_identical`. It is still a
+    # *file* comparison: it recognises the same photograph reused, never the same
+    # person in a different one. `generic_images` still vetoes it, because a stock
+    # image the user happened to upload would otherwise match half the platform.
+    if ctx.has_reference_avatar and not (sha and sha in ctx.generic_images):
+        if sha and ctx.reference_avatar_sha and sha == ctx.reference_avatar_sha:
+            add("reference_avatar_identical")
+        elif (
+            candidate.avatar_dhash
+            and ctx.reference_avatar_dhash
+            and hamming(candidate.avatar_dhash, ctx.reference_avatar_dhash) <= REFERENCE_DHASH_THRESHOLD
+        ):
+            add("reference_avatar_near")
+
+    # Gender read off the bio. Only an explicit marker counts, and only a stated
+    # constraint can be contradicted - see `brief.gender.gender_from_bio`.
+    if ctx.brief_gender.is_stated and candidate.stated_gender.is_stated:
+        if ctx.brief_gender.contradicts(candidate.stated_gender):
+            add("gender_conflict")
+        else:
+            add("gender_match")
+
     # -- corroboration from search engines ------------------------------------
     for engine in sorted(ctx.serp_engines.get(key, set())):
         add("serp_corroboration", other=engine)
@@ -205,6 +277,16 @@ def score_profile(
         add("extended_platform_uncorroborated")
     if candidate.data and candidate.data.verified:
         add("verified_badge")
+
+    if _assertion_stands(candidate):
+        # The user is not one more source to be weighed - they are the answer the
+        # search is trying to reach. Everything earned above stays visible, and
+        # the gap to 100 is carried by its own reason so the sentences on screen
+        # still add up to the number beside them, which is this module's contract.
+        earned = finalize(reasons)
+        reasons.append(
+            ScoreReason(code=USER_ASSERTED_CODE, text=USER_ASSERTED_TEXT, points=round(PINNED_VALUE - earned.value, 1))
+        )
 
     return finalize(reasons)
 
@@ -224,7 +306,15 @@ def require_independent_sources(score: MatchScore, *, source_domains: int, requi
 
     Only the band moves — the numeric value is untouched, so the confidence shown
     to the user stays exactly what the evidence earned.
+
+    An account the user gave or confirmed is exempt, and the exemption is tested
+    here rather than at the call site so that a future caller cannot forget it.
+    The rule asks for independent *sources*; the user is the most independent one
+    the pipeline has, and holding their own answer back at 'likely' for want of
+    corroboration would be asking the web to vouch for something already settled.
     """
+    if any(reason.code == USER_ASSERTED_CODE for reason in score.reasons):
+        return score
     if required <= 1 or score.band is not MatchBand.CONFIRMED or source_domains >= required:
         return score
     reason = ScoreReason(
@@ -233,6 +323,67 @@ def require_independent_sources(score: MatchScore, *, source_domains: int, requi
         points=0.0,
     )
     return MatchScore(value=score.value, band=MatchBand.LIKELY, reasons=(*score.reasons, reason))
+
+
+def hold_back_unattributed(score: MatchScore) -> MatchScore:
+    """Keep an account out of the top band when it is not the elected identity's.
+
+    A platform the elected cluster has no account on is still reported, from the
+    best candidate the search reached there — see ``runner._build_result``. That
+    row is a *status*: the account exists, and clustering decided it belongs to
+    somebody else. Letting it keep a ``confirmed`` band would list a stranger's
+    account among the confirmed accounts of this person, which is the single
+    failure the clustering step exists to prevent.
+
+    Only the band moves, like :func:`require_independent_sources`: the value the
+    evidence earned is untouched, so the number and the sentences behind it still
+    agree.
+    """
+    if score.band is not MatchBand.CONFIRMED:
+        return score
+    reason = ScoreReason(
+        code="not_the_elected_identity",
+        text="held at 'likely': the account exists but was not tied to this person",
+        points=0.0,
+    )
+    return MatchScore(value=score.value, band=MatchBand.LIKELY, reasons=(*score.reasons, reason))
+
+
+def demote_on_brief_conflict(score: MatchScore, *, code: str, other: str = "") -> MatchScore:
+    """Rule a candidate out because it contradicts something the user told us.
+
+    Applied *after* :func:`score_profile`, for the same reason
+    :func:`require_independent_sources` is: the conflict is established by a step
+    that does I/O (reading an avatar with the vision model), and folding it into
+    the pure scorer would make the scorer depend on state it never receives.
+
+    Both halves matter. The signal's own weight moves the number, so the score a
+    user reads agrees with the verdict; and the band is forced to ``REJECTED``
+    so no arithmetic edge case - a candidate that had banked +95 from links and
+    handles - can survive as attributable. ``ATTRIBUTABLE_BANDS`` excludes
+    ``REJECTED``, so the account leaves the biography and the accounts list while
+    staying in the returned list with this sentence attached to it.
+
+    Applying it twice is a no-op: the reason is already there.
+    """
+    if any(reason.code == code for reason in score.reasons):
+        return score
+    reason = ScoreReason(code=code, text=text_for(code, other), points=round(points_for(code), 1))
+    demoted = finalize((*score.reasons, reason))
+    return MatchScore(value=demoted.value, band=MatchBand.REJECTED, reasons=demoted.reasons)
+
+
+def exclusion_subject(candidate: ProfileCandidate) -> str:
+    """What ``{other}`` stands for in this candidate's exclusion sentence.
+
+    Each exclusion code names a different thing the account contradicts — a
+    gender reading for `photo_gender_conflict`, the platform for
+    `platform_settled`. Choosing it at the call site meant every caller had to
+    remember every code, and the one that forgot rendered "another source".
+    """
+    if candidate.excluded_by == "platform_settled":
+        return candidate.platform
+    return candidate.avatar_gender.description
 
 
 def finalize(reasons: Sequence[ScoreReason]) -> MatchScore:
