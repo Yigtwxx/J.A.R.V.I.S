@@ -1,6 +1,7 @@
 """
 Export routes — PDF, JSON, CSV dossier generation from saved profiles or search results.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -47,10 +48,20 @@ def _get_profile_dict(profile_id: int, db: Session) -> dict:
     data = {c.name: getattr(profile, c.name) for c in profile.__table__.columns}
     # Include JSON fields stored in additional_info
     if data.get("additional_info") and isinstance(data["additional_info"], dict):
-        for key in ("ai_response", "sources", "sentiment_analysis", "face_match_results",
-                     "social_media_score", "social_media_score_breakdown", "platform_activity",
-                     "last_activity_summary", "location_country", "location_city", "weather_info",
-                     "company_records"):
+        for key in (
+            "ai_response",
+            "sources",
+            "sentiment_analysis",
+            "face_match_results",
+            "social_media_score",
+            "social_media_score_breakdown",
+            "platform_activity",
+            "last_activity_summary",
+            "location_country",
+            "location_city",
+            "weather_info",
+            "company_records",
+        ):
             if key in data["additional_info"] and key not in data:
                 data[key] = data["additional_info"][key]
     return data
