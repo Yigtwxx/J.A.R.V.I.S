@@ -13,6 +13,7 @@ from typing import Any
 import httpx
 
 from app.utils.logger import logger
+
 from .base_plugin import BasePlugin
 
 
@@ -20,7 +21,10 @@ class ShodanPlugin(BasePlugin):
     name = "shodan"
     display_name = "Shodan IoT Scanner"
     version = "1.0.0"
-    description = "Search Shodan for internet-connected devices, open ports, and services associated with a target IP or domain."
+    description = (
+        "Search Shodan for internet-connected devices, open ports, and services associated with a target IP or domain."
+    )
+    author = "J.A.R.V.I.S"
 
     def __init__(self) -> None:
         self.api_key = os.getenv("SHODAN_API_KEY", "")
@@ -45,18 +49,20 @@ class ShodanPlugin(BasePlugin):
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    results.append({
-                        "type": "host",
-                        "ip": data.get("ip_str"),
-                        "os": data.get("os"),
-                        "ports": data.get("ports", []),
-                        "hostnames": data.get("hostnames", []),
-                        "city": data.get("city"),
-                        "country": data.get("country_name"),
-                        "org": data.get("org"),
-                        "isp": data.get("isp"),
-                        "vulns": data.get("vulns", []),
-                    })
+                    results.append(
+                        {
+                            "type": "host",
+                            "ip": data.get("ip_str"),
+                            "os": data.get("os"),
+                            "ports": data.get("ports", []),
+                            "hostnames": data.get("hostnames", []),
+                            "city": data.get("city"),
+                            "country": data.get("country_name"),
+                            "org": data.get("org"),
+                            "isp": data.get("isp"),
+                            "vulns": data.get("vulns", []),
+                        }
+                    )
             except Exception as e:
                 logger.log_detail(f"Shodan host lookup failed for {query}: {e}")
 
@@ -69,15 +75,17 @@ class ShodanPlugin(BasePlugin):
                 if resp.status_code == 200:
                     data = resp.json()
                     for match in data.get("matches", [])[:5]:
-                        results.append({
-                            "type": "search_match",
-                            "ip": match.get("ip_str"),
-                            "port": match.get("port"),
-                            "org": match.get("org"),
-                            "product": match.get("product"),
-                            "version": match.get("version"),
-                            "os": match.get("os"),
-                        })
+                        results.append(
+                            {
+                                "type": "search_match",
+                                "ip": match.get("ip_str"),
+                                "port": match.get("port"),
+                                "org": match.get("org"),
+                                "product": match.get("product"),
+                                "version": match.get("version"),
+                                "os": match.get("os"),
+                            }
+                        )
             except Exception as e:
                 logger.log_detail(f"Shodan search failed for {query}: {e}")
 
