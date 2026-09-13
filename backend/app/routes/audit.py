@@ -2,6 +2,7 @@
 Audit log endpoints — query and clean up the security audit trail.
 All endpoints require API key authentication.
 """
+
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -87,8 +88,5 @@ async def cleanup_audit_logs(
     cutoff = datetime.utcnow() - timedelta(days=settings.audit_log_retention_days)
     deleted = db.query(AuditLog).filter(AuditLog.timestamp < cutoff).delete()
     db.commit()
-    logger.log_action(
-        f"Audit cleanup: deleted {deleted} entries older than "
-        f"{settings.audit_log_retention_days} days"
-    )
+    logger.log_action(f"Audit cleanup: deleted {deleted} entries older than {settings.audit_log_retention_days} days")
     return {"deleted": deleted, "cutoff": cutoff.isoformat()}
