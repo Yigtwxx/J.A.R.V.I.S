@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.middleware.security import verify_api_key
+from app.services.app_launcher import discover_apps_async, unavailable_reason
+from app.services.app_launcher.matching import suggest
 from app.services.self_healing_service import self_healing_service
 from app.services.system_service import system_service
-from app.utils.logger import logger
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
@@ -42,9 +43,9 @@ async def request_command(request: CommandRequest, _api_key: str = Depends(verif
             "message": "This action requires user approval before execution.",
         }
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/execute/app")
@@ -62,7 +63,11 @@ async def request_open_app(request: AppRequest, _api_key: str = Depends(verify_a
             "description": action.description,
         }
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        # An unknown or ambiguous application name. The message names the
+        # candidates, so it is written for the user, not just for the log.
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/execute/url")
@@ -80,7 +85,30 @@ async def request_open_url(request: UrlRequest, _api_key: str = Depends(verify_a
             "description": action.description,
         }
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/apps")
+async def list_apps(
+    q: str = "",
+    refresh: bool = False,
+    _api_key: str = Depends(verify_api_key),
+):
+    """Applications installed on this machine, for the panel to suggest from.
+
+    Discovery is blocking I/O over the registry and the filesystem, so it runs in
+    a thread rather than on the event loop. Results are cached; ``refresh=true``
+    is the escape hatch for "I just installed something".
+    """
+    entries = await discover_apps_async(refresh=refresh)
+    matches = suggest(q, entries)
+    return {
+        "apps": [{"name": e.name, "kind": e.kind, "source": e.source} for e in matches],
+        "total": len(entries),
+        "detail": "" if entries else unavailable_reason(),
+    }
 
 
 @router.post("/approve")
@@ -93,10 +121,10 @@ async def approve_action(request: ActionApproval, _api_key: str = Depends(verify
             "result": action.result,
             "action_id": action.action_id,
         }
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Action not found")
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail="Action not found") from e
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/deny")
@@ -105,8 +133,8 @@ async def deny_action(request: ActionApproval, _api_key: str = Depends(verify_ap
     try:
         action = system_service.deny_action(request.action_id)
         return {"status": "denied", "action_id": action.action_id}
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Action not found")
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail="Action not found") from e
 
 
 @router.get("/pending")
@@ -122,6 +150,7 @@ async def action_history(limit: int = 50, _api_key: str = Depends(verify_api_key
 
 
 # ─── Self-Healing / Service Status ─────────────────────────
+
 
 @router.get("/service-status")
 async def service_status(_api_key: str = Depends(verify_api_key)):
