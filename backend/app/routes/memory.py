@@ -1,6 +1,7 @@
 """
 Memory routes — CRUD for user memories (Agentic Memory layer).
 """
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -10,6 +11,7 @@ from app.dependencies import get_memory_service
 from app.middleware.security import verify_api_key
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
+
 
 class MemoryCreate(BaseModel):
     category: str = Field(..., description="Memory category: preference, fact, interaction, personality")
@@ -75,8 +77,8 @@ async def semantic_search(
     memory_service=Depends(get_memory_service),
 ):
     """Search through user memories using keyword matching."""
-    results = memory_service.semantic_recall(db, query.query, n_results=query.n_results)
-    return {"results": results, "query": query.query}
+    results = memory_service.search(db, query.query, n_results=query.n_results)
+    return {"results": results, "count": len(results), "query": query.query}
 
 
 @router.delete("/{memory_id}")
