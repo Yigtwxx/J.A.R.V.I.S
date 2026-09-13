@@ -16,8 +16,8 @@ The approach is a union-find over an **agreement graph**:
 
 Then exactly one cluster is elected. Everything the user sees — biography,
 picture, accounts, work history — is built from the elected cluster alone. The
-others are returned separately as `alternate_identities` so a genuine namesake is
-still surfaced, but never merged into the answer.
+others are returned separately as the run's alternates so a genuine namesake is
+kept out of the answer rather than merged into it.
 """
 
 from __future__ import annotations
@@ -171,11 +171,24 @@ def elect(clusters: Sequence[IdentityCluster]) -> tuple[IdentityCluster | None, 
 
 
 def _cluster_rank(cluster: IdentityCluster) -> float:
-    """Primary ranking: overall confidence, weighted by how much of it is solid."""
+    """Primary ranking: overall confidence, weighted by how much of it is solid.
+
+    `cluster.score` is the subject confidence, and its largest single term rewards
+    being seen across many independent domains. That is a good measure of a real
+    identity and a perfect measure of a common surname, which is on many sites for
+    reasons that have nothing to do with the target. Watched live on 2026-08-29:
+    a search for "Yigit Erdogan" elected the handle `erdogan` on twelve platforms,
+    every member scored out at 0-25, over a cluster whose members scored 54.
+
+    So the best single attribution is part of the rank. Breadth still counts —
+    eight corroborating accounts still outrank one slightly better lone hit — but
+    it can no longer stand in for attribution entirely.
+    """
     confirmed = sum(1 for m in cluster.live_members if m.score.band is MatchBand.CONFIRMED)
     likely = sum(1 for m in cluster.live_members if m.score.band is MatchBand.LIKELY)
     user_confirmed = any(m.user_confirmed for m in cluster.members)
-    return cluster.score.value + confirmed * 12 + likely * 5 + (50 if user_confirmed else 0)
+    best = max((m.score.value for m in cluster.live_members), default=0)
+    return cluster.score.value + best + confirmed * 12 + likely * 5 + (50 if user_confirmed else 0)
 
 
 def limit_per_platform(
@@ -328,6 +341,15 @@ def _conflict_edges(candidates: Sequence[ProfileCandidate]) -> set[tuple[str, st
     for i, first in enumerate(candidates):
         for second in candidates[i + 1 :]:
             pair = (first.key, second.key) if first.key <= second.key else (second.key, first.key)
+            # An account ruled out by a constraint the user gave up front cannot
+            # share an identity with one that was not. Modelled as a conflict
+            # rather than as a missing agreement because a conflict always wins
+            # (see `build_clusters`): otherwise a shared handle or a shared
+            # avatar file would drag the excluded account back into the elected
+            # cluster, which is precisely what the exclusion was for.
+            if bool(first.excluded_by) != bool(second.excluded_by):
+                conflicts.add(pair)
+                continue
             if first.user_rejected != second.user_rejected and (first.user_confirmed or second.user_confirmed):
                 conflicts.add(pair)
                 continue
