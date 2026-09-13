@@ -10,7 +10,9 @@ Weights are ordered by how hard the signal is to fake or coincide with:
 * A **reciprocal link** (A links to B and B links back) is the strongest keyless
   evidence that exists — it requires control of both accounts.
 * A shared **avatar file hash** is strong but not conclusive (people reuse stock
-  images), hence the `generic_image` counter-signal.
+  images), hence the `generic_image` counter-signal. A match against a picture the
+  **user supplied** outranks it: two unknown accounts sharing a file is a
+  coincidence to be explained, whereas the reference photo is an assertion.
 * A **name match** is weak on its own. Thousands of people share a name; that is
   the entire reason this pipeline exists.
 """
@@ -27,10 +29,12 @@ POSITIVE: Final[dict[str, tuple[float, str]]] = {
     "personal_site_backlink": (25.0, "the personal site {other} links here and this profile links back"),
     "outbound_link_match": (22.0, "links to {other}, which is already confirmed"),
     "exact_username_anchor": (18.0, "username is identical to the confirmed handle '{other}'"),
+    "reference_avatar_identical": (20.0, "profile picture is byte-identical to the reference photo you gave"),
     "display_name_exact": (16.0, "display name contains every part of the target's name"),
     "cv_document": (15.0, "a CV/resume document ties this identity to {other}"),
     "email_local_match": (14.0, "username matches the local part of the confirmed email"),
     "reverse_image_hit": (14.0, "the same profile picture was found on {other}"),
+    "reference_avatar_near": (14.0, "profile picture is visually near-identical to the reference photo you gave"),
     "avatar_sha256_identical": (12.0, "byte-identical profile picture to {other}"),
     "employer_match": (12.0, "employer matches the confirmed employer '{other}'"),
     "registry_record": (12.0, "a company/scholarly registry ties this name to {other}"),
@@ -44,15 +48,27 @@ POSITIVE: Final[dict[str, tuple[float, str]]] = {
     "display_name_partial": (7.0, "display name contains part of the target's name"),
     "cross_platform_handle_recurrence": (6.0, "the same handle appears on {other}"),
     "serp_corroboration": (5.0, "returned by {other} for the target's name"),
+    "gender_match": (6.0, "the bio states a gender matching the one you gave"),
     "verified_badge": (5.0, "the platform marks this account as verified"),
 }
 
 # Negative signals.
 NEGATIVE: Final[dict[str, tuple[float, str]]] = {
+    # Larger than `user_rejected` on purpose: this one is paired with a forced
+    # band demotion, so the number has to move far enough that the score a user
+    # reads agrees with the verdict shown beside it.
+    "photo_gender_conflict": (-70.0, "the profile picture appears to show {other}, which is not the gender you gave"),
+    # Paired with a forced band demotion, like `photo_gender_conflict`, so the
+    # number a user reads agrees with the verdict printed beside it.
+    "platform_settled": (
+        -70.0,
+        "you confirmed a different {other} account, so this handle belongs to somebody else",
+    ),
     "user_rejected": (-60.0, "you said this account is NOT the target"),
     "name_mismatch": (-18.0, "the display name shares nothing with the target's name"),
     "name_conflict": (-16.0, "'{other}' shares a surname but is a different given name"),
     "unverified_existence": (-15.0, "the page loaded but nothing structurally confirms this handle"),
+    "gender_conflict": (-14.0, "the bio states a gender that conflicts with the one you gave"),
     "conflicting_location": (-12.0, "location '{other}' conflicts with the confirmed location"),
     "conflicting_employer": (-10.0, "employer '{other}' conflicts with the confirmed employer"),
     "generic_handle": (-8.0, "the handle is a common word rather than a personal handle"),
@@ -61,6 +77,17 @@ NEGATIVE: Final[dict[str, tuple[float, str]]] = {
     "stale_profile": (-5.0, "no activity for over five years and nothing corroborates it"),
     "blocked_existence": (-5.0, "the platform refused us, so this could not be verified"),
 }
+
+# The one code whose points are computed rather than tabled, which is why it is
+# deliberately absent from POSITIVE: `points_for("user_asserted")` returning a
+# fixed weight would be a lie. An account the user handed us, or confirmed when we
+# asked, is not evidence to be weighed against other evidence - it is the answer.
+# `scoring.score_profile` pins such a candidate to PINNED_VALUE and records the
+# difference under this code, so the reasons on screen still sum to the number
+# beside them.
+USER_ASSERTED_CODE: Final[str] = "user_asserted"
+USER_ASSERTED_TEXT: Final[str] = "you gave or confirmed this account, so its confidence is pinned to 100"
+PINNED_VALUE: Final[int] = 100
 
 # Signals that may fire more than once, with a ceiling on the total they can add.
 CAPPED: Final[dict[str, float]] = {
