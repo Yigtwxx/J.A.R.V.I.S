@@ -2,6 +2,7 @@
 Audit trail middleware — records every non-exempt HTTP request to audit_logs.
 Failures are logged but never propagate to the caller.
 """
+
 import time
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -9,9 +10,15 @@ from starlette.requests import Request
 
 from app.utils.logger import logger
 
-_EXEMPT_PATHS = frozenset({
-    "/health", "/docs", "/openapi.json", "/redoc", "/api/status/stream",
-})
+_EXEMPT_PATHS = frozenset(
+    {
+        "/health",
+        "/docs",
+        "/openapi.json",
+        "/redoc",
+        "/api/status/stream",
+    }
+)
 
 
 class AuditMiddleware(BaseHTTPMiddleware):
@@ -30,6 +37,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         try:
             from app.config import get_settings
+
             settings = get_settings()
 
             if not settings.audit_log_enabled:
@@ -56,11 +64,11 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 db.add(entry)
                 db.commit()
             except Exception as e:
-                logger.log_warning(f"Audit log write failed (non-critical): {e}")
+                logger.log_warning(f"Audit log write failed (non-critical): {e}", broadcast=False)
                 db.rollback()
             finally:
                 db.close()
         except Exception as e:
-            logger.log_warning(f"Audit middleware error (non-critical): {e}")
+            logger.log_warning(f"Audit middleware error (non-critical): {e}", broadcast=False)
 
         return response
