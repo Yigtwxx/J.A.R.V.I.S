@@ -3,6 +3,7 @@ UserMemory — stores user preferences, past interactions, and behavioral patter
 
 Enables J.A.R.V.I.S to recognize and adapt to the user over time.
 """
+
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, Integer, String, Text
@@ -12,6 +13,7 @@ from app.database.connection import Base
 
 class UserMemory(Base):
     """Persistent user memory record."""
+
     __tablename__ = "user_memories"
 
     id = Column(Integer, primary_key=True, index=True)
