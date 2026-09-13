@@ -40,7 +40,7 @@ async def verify_api_key(api_key: str | None = Security(_api_key_header)) -> str
         return None  # Auth disabled
 
     if not api_key or api_key != settings.api_key:
-        logger.log_warning("Unauthorized API access attempt — invalid or missing API key")
+        logger.log_warning("Unauthorized API access attempt — invalid or missing API key", broadcast=False)
         raise HTTPException(
             status_code=401,
             detail="Invalid or missing API key. Provide a valid key via the X-API-Key header.",
@@ -49,17 +49,35 @@ async def verify_api_key(api_key: str | None = Security(_api_key_header)) -> str
 
 
 # ---------------------------------------------------------------------------
+# Shared rate-limit exemptions
+# ---------------------------------------------------------------------------
+
+_EXEMPT_PATHS = frozenset({"/", "/health", "/docs", "/openapi.json", "/redoc"})
+
+# Authenticated reads of already-collected media. One finished search renders a
+# dozen or more avatars at once, so counting them against a per-minute request
+# budget makes the UI rate-limit itself: the avatars 429, the pictures render
+# broken, and the log fills with "rate limit exceeded" for the user's own
+# browser. They are static bytes behind the same API key, not an abuse surface
+# worth a counter.
+_EXEMPT_PREFIXES = ("/docs", "/redoc", "/api/media/")
+
+
+def is_rate_limit_exempt(path: str) -> bool:
+    """Whether a request path is outside the rate limiter."""
+    return path in _EXEMPT_PATHS or path.startswith(_EXEMPT_PREFIXES)
+
+
+# ---------------------------------------------------------------------------
 # 2. Rate Limiting Middleware (in-memory sliding window)
 # ---------------------------------------------------------------------------
+
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """
     Sliding-window rate limiter based on client IP address.
     Skips rate limiting for health/docs endpoints.
     """
-
-    # Endpoints exempt from rate limiting
-    _EXEMPT_PATHS = frozenset({"/", "/health", "/docs", "/openapi.json", "/redoc"})
 
     def __init__(self, app, max_requests: int = 30, window_seconds: int = 60):
         super().__init__(app)
@@ -76,8 +94,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
 
-        # Skip rate limiting for exempt paths
-        if path in self._EXEMPT_PATHS or path.startswith("/docs") or path.startswith("/redoc"):
+        if is_rate_limit_exempt(path):
             return await call_next(request)
 
         client_ip = request.client.host if request.client else "unknown"
@@ -86,7 +103,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._clean_old_entries(client_ip, now)
 
         if len(self._requests[client_ip]) >= self.max_requests:
-            logger.log_warning(f"Rate limit exceeded for IP {client_ip} — {self.max_requests} req/{self.window_seconds}s")
+            logger.log_warning(
+                f"Rate limit exceeded for IP {client_ip} — {self.max_requests} req/{self.window_seconds}s",
+                broadcast=False,
+            )
             return JSONResponse(
                 status_code=429,
                 content={
@@ -115,13 +135,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 # 3. Persistent Rate Limiting Middleware (SQLite-backed sliding window)
 # ---------------------------------------------------------------------------
 
+
 class PersistentRateLimitMiddleware(BaseHTTPMiddleware):
     """
     SQLite-backed sliding-window rate limiter.
     State survives server restarts — use when rate limit persistence is required.
     """
-
-    _EXEMPT_PATHS = frozenset({"/", "/health", "/docs", "/openapi.json", "/redoc"})
 
     def __init__(self, app, max_requests: int = 30, window_seconds: int = 60):
         super().__init__(app)
@@ -130,7 +149,7 @@ class PersistentRateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        if path in self._EXEMPT_PATHS or path.startswith("/docs") or path.startswith("/redoc"):
+        if is_rate_limit_exempt(path):
             return await call_next(request)
 
         client_ip = request.client.host if request.client else "unknown"
@@ -144,15 +163,20 @@ class PersistentRateLimitMiddleware(BaseHTTPMiddleware):
 
             db = SessionLocal()
             try:
-                count = db.query(RateLimit).filter(
-                    RateLimit.ip_address == client_ip,
-                    RateLimit.timestamp > cutoff,
-                ).count()
+                count = (
+                    db.query(RateLimit)
+                    .filter(
+                        RateLimit.ip_address == client_ip,
+                        RateLimit.timestamp > cutoff,
+                    )
+                    .count()
+                )
 
                 if count >= self.max_requests:
                     logger.log_warning(
                         f"Rate limit exceeded for IP {client_ip} (persistent) — "
-                        f"{self.max_requests} req/{self.window_seconds}s"
+                        f"{self.max_requests} req/{self.window_seconds}s",
+                        broadcast=False,
                     )
                     return JSONResponse(
                         status_code=429,
@@ -173,12 +197,12 @@ class PersistentRateLimitMiddleware(BaseHTTPMiddleware):
                 db.commit()
                 remaining = max(0, self.max_requests - count - 1)
             except Exception as e:
-                logger.log_warning(f"Persistent rate limit DB error: {e}")
+                logger.log_warning(f"Persistent rate limit DB error: {e}", broadcast=False)
                 db.rollback()
             finally:
                 db.close()
         except Exception as e:
-            logger.log_warning(f"Persistent rate limit middleware error: {e}")
+            logger.log_warning(f"Persistent rate limit middleware error: {e}", broadcast=False)
 
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"] = str(self.max_requests)
@@ -190,6 +214,7 @@ class PersistentRateLimitMiddleware(BaseHTTPMiddleware):
 # 4. Redis-backed Rate Limiting Middleware (optional — requires Redis)
 # ---------------------------------------------------------------------------
 
+
 class RedisRateLimitMiddleware(BaseHTTPMiddleware):
     """
     Redis-backed sliding-window rate limiter using a sorted set per IP.
@@ -197,9 +222,9 @@ class RedisRateLimitMiddleware(BaseHTTPMiddleware):
     Requires REDIS_URL to be set in config.
     """
 
-    _EXEMPT_PATHS = frozenset({"/", "/health", "/docs", "/openapi.json", "/redoc"})
-
-    def __init__(self, app, max_requests: int = 30, window_seconds: int = 60, redis_url: str = "redis://localhost:6379"):
+    def __init__(
+        self, app, max_requests: int = 30, window_seconds: int = 60, redis_url: str = "redis://localhost:6379"
+    ):
         super().__init__(app)
         self.max_requests = max_requests
         self.window_seconds = window_seconds
@@ -210,6 +235,7 @@ class RedisRateLimitMiddleware(BaseHTTPMiddleware):
         if self._redis is None:
             try:
                 import redis as _redis
+
                 self._redis = _redis.from_url(self._redis_url, decode_responses=True)
                 self._redis.ping()
             except Exception as e:
@@ -221,7 +247,7 @@ class RedisRateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        if path in self._EXEMPT_PATHS or path.startswith("/docs") or path.startswith("/redoc"):
+        if is_rate_limit_exempt(path):
             return await call_next(request)
 
         client_ip = request.client.host if request.client else "unknown"
@@ -241,8 +267,8 @@ class RedisRateLimitMiddleware(BaseHTTPMiddleware):
 
             if count >= self.max_requests:
                 logger.log_warning(
-                    f"Rate limit exceeded for IP {client_ip} (redis) — "
-                    f"{self.max_requests} req/{self.window_seconds}s"
+                    f"Rate limit exceeded for IP {client_ip} (redis) — {self.max_requests} req/{self.window_seconds}s",
+                    broadcast=False,
                 )
                 return JSONResponse(
                     status_code=429,
@@ -263,7 +289,7 @@ class RedisRateLimitMiddleware(BaseHTTPMiddleware):
         except RuntimeError:
             raise
         except Exception as e:
-            logger.log_warning(f"Redis rate limit error (allowing request): {e}")
+            logger.log_warning(f"Redis rate limit error (allowing request): {e}", broadcast=False)
 
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"] = str(self.max_requests)
