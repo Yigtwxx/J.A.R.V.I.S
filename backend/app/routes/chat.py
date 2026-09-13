@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -11,13 +10,16 @@ from app.utils.logger import logger
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
+
 class ChatMessage(BaseModel):
     role: str
     content: str
 
+
 class ChatRequest(BaseModel):
     query_name: str
     messages: list[ChatMessage]
+
 
 @router.post("/")
 async def chat_endpoint(
@@ -47,14 +49,11 @@ async def chat_endpoint(
 
     # The ai_service.chat_with_context returns an async generator
     generator = ai_service.chat_with_context(
-        request.query_name, request.messages, user_context=user_context,
+        request.query_name,
+        request.messages,
+        user_context=user_context,
     )
 
     return StreamingResponse(
-        generator,
-        media_type="text/plain",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive"
-        }
+        generator, media_type="text/plain", headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
     )
