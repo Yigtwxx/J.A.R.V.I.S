@@ -10,8 +10,10 @@ from app.utils.logger import logger
 
 router = APIRouter(prefix="/api/face-match", tags=["Face Matching"])
 
+
 class CompareRequest(BaseModel):
     """Request body for manual face comparison"""
+
     images: list[dict]  # [{"label": "GitHub", "url": "https://..."}, ...]
 
 
