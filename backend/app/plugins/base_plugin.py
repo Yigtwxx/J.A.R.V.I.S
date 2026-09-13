@@ -11,6 +11,7 @@ class BasePlugin(ABC):
     display_name: str = ""
     version: str = "1.0.0"
     description: str = ""
+    author: str = "unknown"
 
     @abstractmethod
     async def search(self, query: str, **kwargs: Any) -> dict[str, Any]:
@@ -49,4 +50,5 @@ class BasePlugin(ABC):
             "display_name": self.display_name,
             "version": self.version,
             "description": self.description,
+            "author": self.author,
         }
