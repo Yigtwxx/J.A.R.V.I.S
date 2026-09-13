@@ -3,7 +3,13 @@ from .profile import ProfileCreate, ProfileResponse, SearchQuery, SearchResponse
 from .snapshot import ChangeReport, FieldChange, SnapshotResponse
 
 __all__ = [
-    "ProfileCreate", "ProfileResponse", "SearchQuery", "SearchResponse",
-    "SnapshotResponse", "FieldChange", "ChangeReport",
-    "FacePairResult", "FaceMatchReport"
+    "ProfileCreate",
+    "ProfileResponse",
+    "SearchQuery",
+    "SearchResponse",
+    "SnapshotResponse",
+    "FieldChange",
+    "ChangeReport",
+    "FacePairResult",
+    "FaceMatchReport",
 ]
