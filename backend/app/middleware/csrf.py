@@ -2,6 +2,7 @@
 CSRF protection middleware (opt-in via csrf_enabled=True in config).
 Implements the double-submit cookie pattern.
 """
+
 import hmac
 import secrets
 
@@ -30,6 +31,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         from app.config import get_settings
+
         settings = get_settings()
 
         if not settings.csrf_enabled:
@@ -44,7 +46,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                     "csrf_token",
                     token,
                     samesite="strict",
-                    secure=False,   # Set True behind TLS in production
+                    secure=False,  # Set True behind TLS in production
                     httponly=False,  # Must be JS-readable for header injection
                 )
             return response
@@ -55,7 +57,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
         if not csrf_header or not csrf_cookie:
             logger.log_warning(
-                f"CSRF token missing on {request.method} {request.url.path}"
+                f"CSRF token missing on {request.method} {request.url.path}",
+                broadcast=False,
             )
             return JSONResponse(
                 status_code=403,
@@ -69,7 +72,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
         if not hmac.compare_digest(csrf_header, csrf_cookie):
             logger.log_warning(
-                f"CSRF token mismatch on {request.method} {request.url.path}"
+                f"CSRF token mismatch on {request.method} {request.url.path}",
+                broadcast=False,
             )
             return JSONResponse(
                 status_code=403,
