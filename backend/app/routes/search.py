@@ -1,15 +1,14 @@
-import asyncio
-
 from cachetools import TTLCache
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
-from app.dependencies import get_search_orchestration, get_scraper_service
+from app.dependencies import get_search_orchestration
 from app.middleware.security import verify_api_key
 from app.schemas import SearchQuery, SearchResponse
 from app.services.depth_config import DepthConfig
+from app.services.discovery_bridge import to_api
 from app.utils.logger import logger
 
 router = APIRouter(prefix="/api/search", tags=["search"])
@@ -55,7 +54,7 @@ async def search_person(
 
         depth_config = DepthConfig(query.depth)
         logger.log_thought(f"Incoming connection detected on secure channel: {raw_query}")
-        logger.log_action(f"Search depth: {depth_config.depth} ({depth_config.tier})")
+        logger.log_action(f"Search effort: {depth_config.effort} (depth {depth_config.depth})")
 
         # 1. Parse query
         real_name, username = orchestration.parse_query(raw_query)
@@ -63,7 +62,7 @@ async def search_person(
         # 2. Parallel data fetching (no orchestration timeout — deep scans sweep
         # many sources; per-source HTTP timeouts still bound each request)
         current_step = "data_fetch"
-        orch_result, github_data, search_results = await orchestration.fetch_parallel_data(
+        orch_result, github_data, search_results, discovery_result = await orchestration.fetch_parallel_data(
             real_name,
             username,
             depth_config=depth_config,
@@ -104,9 +103,11 @@ async def search_person(
             context=context,
             deep_context=deep_context,
             sentiment_report=sentiment_report,
+            depth_config=depth_config,
         )
 
         # 8. Build response
+        current_step = "build_response"
         response = orchestration.build_response(
             ai_response,
             real_name,
@@ -122,7 +123,18 @@ async def search_person(
             depth_config=depth_config,
         )
 
+        # 8b. Merge the discovery pipeline's typed fields.
+        # The blocking route is deliberately non-interactive — an HTTP request
+        # cannot wait on a human answer — so it gets everything except the
+        # clarifying questions. The interactive path lives at /api/search/sessions.
+        if discovery_result is not None:
+            current_step = "discovery_merge"
+            for field_name, value in to_api(discovery_result).items():
+                if hasattr(response, field_name):
+                    setattr(response, field_name, value)
+
         # 9. Save history
+        current_step = "save_history"
         orchestration.save_history(db, raw_query, response)
 
         # Store in cache
@@ -131,25 +143,29 @@ async def search_person(
         logger.log_success(f"SEARCH COMPLETED FOR TARGET: {raw_query}")
         return response
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         step_messages = {
             "data_fetch": "Data collection timed out. The target may have too many online profiles to scan.",
-            "ai_analysis": "AI analysis timed out. The language model is taking too long to respond. Try reducing search depth.",
-            "post_analysis": "Post-analysis timed out. Try again with a lower search depth.",
+            "ai_analysis": "AI analysis timed out. The language model is taking too long to respond. Try a lower search effort.",
+            "post_analysis": "Post-analysis timed out. Try again at a lower search effort.",
+            "build_response": "Timed out while assembling the final report. Try again at a lower search effort.",
+            "save_history": "Timed out while saving the report. The analysis itself completed.",
         }
-        detail = step_messages.get(current_step, "Search timed out. Try again with lower search depth.")
-        logger.log_error(f"Search timed out at step '{current_step}' for: {raw_query}")
-        raise HTTPException(status_code=504, detail=detail)
+        detail = step_messages.get(current_step, "Search timed out. Try again at a lower search effort.")
+        logger.log_exception(f"Search timed out at step '{current_step}'")
+        raise HTTPException(status_code=504, detail=detail) from None
     except HTTPException:
         raise
     except Exception as e:
-        # Log the raw error server-side, but do not leak internal exception
-        # details (paths, library internals) to the client.
-        logger.log_error(f"Error during search: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Search failed due to an internal error. Please try again.",
-        ) from e
+        # Log the raw error server-side (with traceback, to the rotating log file),
+        # but do not leak internal exception details to the client in production.
+        logger.log_exception(f"Search failed at step '{current_step}': {type(e).__name__}: {e}")
+        detail = (
+            f"Search failed at step '{current_step}': {type(e).__name__}: {e}"
+            if _settings.debug
+            else "Search failed due to an internal error. Please try again."
+        )
+        raise HTTPException(status_code=500, detail=detail) from e
 
 
 @router.get("/test")
@@ -162,24 +178,3 @@ async def test_search(_api_key: str = Depends(verify_api_key)):
         "message": "JARVIS search API is operational",
         "services": {"ai": "Ollama", "search": "Google Scraping", "github": "GitHub API", "social": "Web Scraping"},
     }
-
-
-@router.get("/test-scraper")
-async def test_scraper(
-    q: str = "Elon Musk",
-    _api_key: str = Depends(verify_api_key),
-    scraper_service=Depends(get_scraper_service),
-):
-    """Debug endpoint — run the scraper and return raw results."""
-    if not _settings.debug:
-        raise HTTPException(status_code=404, detail="Not found")
-    try:
-        results = await asyncio.to_thread(scraper_service.find_all_profiles, q)
-        return {
-            "query": q,
-            "found_count": sum(1 for v in results.values() if v),
-            "profiles": {k: v for k, v in results.items() if v},
-            "empty_platforms": [k for k, v in results.items() if not v],
-        }
-    except Exception as e:
-        return {"error": str(e)}
