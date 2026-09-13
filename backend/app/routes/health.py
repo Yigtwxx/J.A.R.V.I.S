@@ -1,6 +1,7 @@
 """
 Health routes — biometric telemetry and wellness tracking endpoints.
 """
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -8,9 +9,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_health_service
 from app.middleware.security import verify_api_key
-from app.services.health_service import HEALTH_CATEGORIES
 
 router = APIRouter(prefix="/api/health", tags=["health"])
+
 
 class HealthRecordCreate(BaseModel):
     category: str = Field(..., description="Health category (e.g. health_sleep, health_energy)")
@@ -44,7 +45,7 @@ async def record_health_data(
         result = health_service.record(db, data.category, data.key, data.value, data.context)
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/history")
@@ -59,7 +60,24 @@ async def get_health_history(
     try:
         return health_service.get_history(db, category=category, limit=limit)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.delete("/record/{record_id}")
+async def delete_health_record(
+    record_id: int,
+    db: Session = Depends(get_db),
+    _api_key: str = Depends(verify_api_key),
+    health_service=Depends(get_health_service),
+):
+    """Delete a single health record."""
+    try:
+        deleted = health_service.delete(db, record_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Health record {record_id} not found")
+    return {"status": "deleted", "id": record_id}
 
 
 @router.post("/suggestions")
