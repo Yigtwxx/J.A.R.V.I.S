@@ -12,8 +12,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from app.discovery.brief.gender import gender_from_bio
 from app.discovery.platforms.extract import ProfileData
-from app.discovery.types import ExistenceVerdict, MatchBand, PlatformStatus, PlatformTier
+from app.discovery.types import ExistenceVerdict, Gender, MatchBand, PlatformStatus, PlatformTier
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,16 +74,38 @@ class ProfileCandidate:
     signals: tuple[str, ...] = ()
     discovered_round: int = 0
     discovered_via: str = ""
-    """``serp``, ``username_permutation``, ``outbound_link``, ``reverse_image``, ``user_answer``."""
+    """``serp``, ``username_permutation``, ``outbound_link``, ``reverse_image``,
+    ``user_answer``, ``user_supplied``."""
 
     avatar_sha256: str | None = None
     avatar_dhash: str | None = None
     avatar_local_url: str | None = None
+
+    avatar_gender: Gender = Gender.UNKNOWN
+    """What the vision model made of the profile picture, when it was asked.
+
+    Set by the avatar-gender screen, which only runs when the user stated a
+    gender. ``UNKNOWN`` covers every honest "cannot tell": no face, several
+    faces, a logo, a cat, or a reading the model was not confident about.
+    """
+
     archived_only: bool = False
     """Profile is gone but the archive still has it. Never counted as existing."""
 
     user_confirmed: bool = False
     user_rejected: bool = False
+
+    excluded_by: str = ""
+    """Reason code for a candidate ruled out by a constraint the user supplied.
+
+    Distinct from ``user_rejected``, which means "you looked at this account and
+    said no". This one means "it contradicts something you told us up front" —
+    the profile picture shows the other gender, say. The account is still
+    returned and still says why: the band drops to ``rejected`` so it leaves the
+    identity, but nothing is deleted, because a wrong exclusion the user cannot
+    see is a wrong exclusion nobody can correct.
+    """
+
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
@@ -122,8 +145,35 @@ class ProfileCandidate:
         return self.data.bio if self.data else None
 
     @property
+    def stated_gender(self) -> Gender:
+        """Gender this profile states *about itself*, from explicit bio markers.
+
+        A property rather than a stored field so no enrichment step can forget to
+        fill it. It is pure text analysis over the bio - pronouns and honorifics
+        only - and returns ``UNKNOWN`` for the overwhelming majority of profiles,
+        which say nothing at all. The display name is deliberately not consulted:
+        inferring gender from a given name is exactly the mistake that would
+        reject the right person.
+        """
+        return gender_from_bio(self.bio or "")
+
+    @property
     def outbound_links(self) -> list[str]:
         return list(self.data.outbound_links) if self.data else []
+
+    @property
+    def rel_me_links(self) -> list[str]:
+        """Links this profile marked ``rel="me"`` — an explicit identity claim."""
+        return list(self.data.rel_me_links) if self.data else []
+
+    @property
+    def avatar_url(self) -> str | None:
+        """The picture's address *on the platform*.
+
+        Distinct from ``avatar_local_url``, which is our own copy and is not
+        reachable by anyone else — reverse-image engines need the public one.
+        """
+        return self.data.avatar_url if self.data else None
 
     @property
     def employer(self) -> str | None:
