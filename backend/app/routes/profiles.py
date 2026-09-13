@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 
@@ -12,7 +11,9 @@ router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 
 
 @router.post("/", response_model=ProfileResponse)
-async def create_profile(profile: ProfileCreate, db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)):
+async def create_profile(
+    profile: ProfileCreate, db: Session = Depends(get_db), _api_key: str = Depends(verify_api_key)
+):
     """
     Create a new profile in the database
 
@@ -35,7 +36,6 @@ async def create_profile(profile: ProfileCreate, db: Session = Depends(get_db), 
                 reddit_url=profile.reddit_url,
                 facebook_url=profile.facebook_url,
                 pinterest_url=profile.pinterest_url,
-                medium_url=profile.medium_url,
                 threads_url=profile.threads_url,
                 steam_url=profile.steam_url,
                 tinder_mention=profile.tinder_mention,
