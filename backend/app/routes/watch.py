@@ -1,7 +1,8 @@
 """
 Watch routes — real-time target monitoring and change detection.
 """
-from fastapi import APIRouter, Depends
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.middleware.security import verify_api_key
@@ -23,7 +24,7 @@ async def start_watch(
 ):
     """Start monitoring a target for changes."""
     logger.log_action(f"Watch mode requested for: {request.query}")
-    result = watch_service.start_watch(
+    result = watch_service.start_discovery_watch(
         query=request.query,
         interval_minutes=request.interval_minutes,
     )
@@ -66,5 +67,7 @@ async def get_watch_status(
     """Get status of a specific watch."""
     status = watch_service.get_watch_status(query)
     if not status:
-        return {"status": "not_found", "query": query}
+        # A 200 here used to hand the client a body with none of the keys its
+        # schema requires, which reads as a corrupt watch rather than a missing one.
+        raise HTTPException(status_code=404, detail=f"No watch is running for '{query}'.")
     return status
