@@ -5,17 +5,18 @@ Built on top of UserMemoryService to store health data in the same
 SQLite + ChromaDB infrastructure. Adds health-specific categories,
 AI-powered suggestions, and pattern detection.
 """
+
 from __future__ import annotations
 
 import json
 import re
-from datetime import UTC, datetime
 from typing import Any
 
-import ollama
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.models.user_memory import UserMemory
+from app.services.ollama_client import build_ollama_client
 from app.services.user_memory_service import UserMemoryService
 from app.utils.logger import logger
 
@@ -47,7 +48,7 @@ class HealthService:
 
     def __init__(self, memory_service: UserMemoryService):
         self._memory = memory_service
-        self._client = ollama.AsyncClient()
+        self._client = build_ollama_client()
         self._model = settings.ollama_model
 
     @staticmethod
@@ -73,47 +74,56 @@ class HealthService:
         if category not in HEALTH_CATEGORIES:
             raise ValueError(f"Invalid category '{category}'. Must be one of: {HEALTH_CATEGORIES}")
 
-        # Timestamp-prefix the key for chronological tracking
-        ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
-        timestamped_key = f"{ts} | {key}"
-
-        memory = self._memory.remember(
-            db, category, timestamped_key, value,
-            context=context, importance=7,
+        # Appended, never upserted: health entries are observations on a
+        # timeline, so logging "energy: Low" and then "energy: High" must leave
+        # two rows. The key stays clean — the timestamp lives in created_at.
+        memory = self._memory.append(
+            db,
+            category,
+            key,
+            value,
+            context=context,
+            importance=7,
         )
-        return {
-            "id": memory.id,
-            "category": memory.category,
-            "key": memory.key,
-            "value": memory.value,
-            "created_at": memory.created_at.isoformat() if memory.created_at else None,
-        }
+        return _record_to_dict(memory)
+
+    def delete(self, db: Session, record_id: int) -> bool:
+        """Delete one health record.
+
+        Refuses non-health memories so the health panel can never erase the
+        user's general memory rows, which share this table.
+        """
+        memory = db.query(UserMemory).filter(UserMemory.id == record_id).first()
+        if not memory:
+            return False
+        if memory.category not in HEALTH_CATEGORIES:
+            raise ValueError(f"Record {record_id} is not a health record")
+        return self._memory.forget(db, record_id)
 
     # -- Data Retrieval -------------------------------------------------------
 
     def get_history(
-        self, db: Session, category: str | None = None, limit: int = 50,
+        self,
+        db: Session,
+        category: str | None = None,
+        limit: int = 50,
     ) -> list[dict[str, Any]]:
         """Retrieve health records, optionally filtered by category."""
         if category and category not in HEALTH_CATEGORIES:
             raise ValueError(f"Invalid category '{category}'")
 
-        if category:
-            return self._memory.recall(db, category=category)[:limit]
-
-        all_records: list[dict[str, Any]] = []
-        for cat in HEALTH_CATEGORIES:
-            all_records.extend(self._memory.recall(db, category=cat))
-        # Sort by most recent first
-        all_records.sort(key=lambda r: r.get("updated_at") or r.get("created_at") or "", reverse=True)
-        return all_records[:limit]
+        query = db.query(UserMemory).filter(
+            UserMemory.category == category if category else UserMemory.category.in_(HEALTH_CATEGORIES)
+        )
+        # Newest first, and id as the tiebreaker: two entries logged in the same
+        # second share a created_at, and without a stable second key their order
+        # flips between reads, which reads as the list shuffling itself.
+        records = query.order_by(UserMemory.created_at.desc(), UserMemory.id.desc()).limit(limit).all()
+        return [_record_to_dict(m) for m in records]
 
     def get_categories(self) -> list[dict[str, str]]:
         """Return available health categories with labels."""
-        return [
-            {"id": cat, "label": CATEGORY_LABELS.get(cat, cat)}
-            for cat in HEALTH_CATEGORIES
-        ]
+        return [{"id": cat, "label": CATEGORY_LABELS.get(cat, cat)} for cat in HEALTH_CATEGORIES]
 
     # -- AI-Powered Suggestions -----------------------------------------------
 
@@ -124,7 +134,7 @@ class HealthService:
         Ollama for personalized health recommendations.
         """
         # 1. Semantic search for related health memories
-        semantic_context = self._memory.semantic_recall(user_report, n_results=10)
+        semantic_context = self._memory.semantic_recall(db, user_report, n_results=10)
 
         # 2. Get recent health history
         recent = self.get_history(db, limit=30)
@@ -216,10 +226,7 @@ Do NOT include ```json tags.
             cat = r.get("category", "unknown")
             by_cat.setdefault(cat, []).append(f"{r['key']}: {r['value']}")
 
-        evidence = "\n".join(
-            f"[{cat}]\n" + "\n".join(items[:15])
-            for cat, items in by_cat.items()
-        )
+        evidence = "\n".join(f"[{cat}]\n" + "\n".join(items[:15]) for cat, items in by_cat.items())
 
         prompt = f"""You are J.A.R.V.I.S., analyzing your owner's health data for patterns.
 
@@ -259,8 +266,23 @@ Do NOT include ```json tags.
 
             if start_idx != -1 and end_idx > start_idx:
                 parsed = json.loads(response_text[start_idx:end_idx])
+                # Coerced per field rather than passed through: this is raw model
+                # output, and a pattern missing "category" reached the panel as
+                # undefined, where `category.includes(...)` threw and took the
+                # console down. get_suggestions already coerces for this reason.
+                raw_patterns = parsed.get("patterns", [])
+                patterns = [
+                    {
+                        "description": str(p.get("description", "")),
+                        "category": str(p.get("category", "")),
+                        "severity": str(p.get("severity", "low")),
+                        "recommendation": str(p.get("recommendation", "")),
+                    }
+                    for p in (raw_patterns if isinstance(raw_patterns, list) else [])
+                    if isinstance(p, dict)
+                ]
                 return {
-                    "patterns": parsed.get("patterns", []),
+                    "patterns": patterns,
                     "summary": str(parsed.get("summary", "")),
                     "data_points": len(history),
                 }
@@ -273,3 +295,27 @@ Do NOT include ```json tags.
             "summary": "Pattern analysis could not be completed.",
             "data_points": len(history),
         }
+
+
+# Entries written before health records moved off ``remember`` carry the
+# timestamp inside the key ("2026-08-23 09:26 | sleep_hours"), which the panel
+# rendered raw. Strip it on read so old and new rows look the same; created_at
+# is the timestamp either way.
+_LEGACY_KEY_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?\s*\|\s*")
+
+
+def _clean_key(key: str) -> str:
+    return _LEGACY_KEY_PREFIX.sub("", key)
+
+
+def _record_to_dict(memory: UserMemory) -> dict[str, Any]:
+    return {
+        "id": memory.id,
+        "category": memory.category,
+        "key": _clean_key(memory.key),
+        "value": memory.value,
+        "context": memory.context,
+        "importance": memory.importance,
+        "created_at": memory.created_at.isoformat() if memory.created_at else None,
+        "updated_at": memory.updated_at.isoformat() if memory.updated_at else None,
+    }
