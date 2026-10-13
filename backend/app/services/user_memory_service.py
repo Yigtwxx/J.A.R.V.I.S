@@ -5,6 +5,7 @@ Stores user preferences, behavioral patterns, past conversation context,
 and personal information. Uses SQLite for structured storage and keyword-based
 search to enable J.A.R.V.I.S to adapt and personalize responses over time.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -31,11 +32,7 @@ class UserMemoryService:
         importance: int = 5,
     ) -> UserMemory:
         """Store or update a memory. If key exists in category, update it."""
-        existing = (
-            db.query(UserMemory)
-            .filter(UserMemory.category == category, UserMemory.key == key)
-            .first()
-        )
+        existing = db.query(UserMemory).filter(UserMemory.category == category, UserMemory.key == key).first()
         if existing:
             existing.value = value
             existing.context = context or existing.context
@@ -57,6 +54,36 @@ class UserMemoryService:
         db.flush()
         db.refresh(memory)
         logger.log_success(f"Memory stored: [{category}] {key}")
+        return memory
+
+    def append(
+        self,
+        db: Session,
+        category: str,
+        key: str,
+        value: str,
+        context: str | None = None,
+        importance: int = 5,
+    ) -> UserMemory:
+        """Store a new memory unconditionally, never updating an existing one.
+
+        ``remember`` upserts on (category, key), which is right for facts that
+        have one current answer ("theme: dark"). Time series are the opposite:
+        two sleep entries logged under the same label are two observations, and
+        upserting silently destroys the earlier one. Callers that log events
+        rather than facts must use this.
+        """
+        memory = UserMemory(
+            category=category,
+            key=key,
+            value=value,
+            context=context,
+            importance=importance,
+        )
+        db.add(memory)
+        db.flush()
+        db.refresh(memory)
+        logger.log_action(f"Memory appended: [{category}] {key}")
         return memory
 
     def recall(self, db: Session, category: str | None = None, key: str | None = None) -> list[dict[str, Any]]:
@@ -86,9 +113,9 @@ class UserMemoryService:
 
     # -- Keyword Search (SQLite) -------------------------------------------
 
-    def semantic_recall(self, db: Session, query: str, n_results: int = 5) -> str:
-        """Search user memories using keyword matching (SQLite LIKE)."""
-        memories = (
+    def _match_memories(self, db: Session, query: str, n_results: int) -> list[UserMemory]:
+        """Rows matching ``query`` across value, key and context, most important first."""
+        return (
             db.query(UserMemory)
             .filter(
                 UserMemory.value.ilike(f"%{query}%")
@@ -99,6 +126,20 @@ class UserMemoryService:
             .limit(n_results)
             .all()
         )
+
+    def search(self, db: Session, query: str, n_results: int = 5) -> list[dict[str, Any]]:
+        """Search memories and return whole records.
+
+        Deliberately separate from ``semantic_recall``, which flattens the same
+        rows into one prompt string for the LLM. Serving that string from the
+        API made the client read a string where it expected a list and crash on
+        ``.reduce`` — the wire shape and the prompt shape are not the same thing.
+        """
+        return [_memory_to_dict(m) for m in self._match_memories(db, query, n_results)]
+
+    def semantic_recall(self, db: Session, query: str, n_results: int = 5) -> str:
+        """Flatten matching memories into a prompt fragment for the LLM."""
+        memories = self._match_memories(db, query, n_results)
         if not memories:
             return ""
         parts = [f"[{m.category}] {m.key}: {m.value}" for m in memories]
@@ -108,9 +149,9 @@ class UserMemoryService:
 
     def build_user_context(self, db: Session) -> str:
         """Build a context string from all user memories for AI prompt injection."""
-        memories = db.query(UserMemory).order_by(
-            UserMemory.importance.desc(), UserMemory.updated_at.desc()
-        ).limit(50).all()
+        memories = (
+            db.query(UserMemory).order_by(UserMemory.importance.desc(), UserMemory.updated_at.desc()).limit(50).all()
+        )
 
         if not memories:
             return ""
@@ -138,8 +179,14 @@ class UserMemoryService:
             if pattern in lower:
                 name = user_message.split(pattern.strip())[-1].strip().split()[0].strip(".,!?")
                 if len(name) > 1:
-                    self.remember(db, "identity", "user_name", name,
-                                  context=f"User introduced themselves: '{user_message}'", importance=9)
+                    self.remember(
+                        db,
+                        "identity",
+                        "user_name",
+                        name,
+                        context=f"User introduced themselves: '{user_message}'",
+                        importance=9,
+                    )
                 break
 
         # Detect profession/role
@@ -147,13 +194,21 @@ class UserMemoryService:
             if pattern in lower:
                 role = user_message.split(pattern.strip())[-1].strip().split(".")[0].strip()
                 if len(role) > 2:
-                    self.remember(db, "identity", "profession", role,
-                                  context=f"User mentioned role: '{user_message}'", importance=8)
+                    self.remember(
+                        db,
+                        "identity",
+                        "profession",
+                        role,
+                        context=f"User mentioned role: '{user_message}'",
+                        importance=8,
+                    )
                 break
 
         # Track interaction patterns
         self.remember(
-            db, "interaction", "last_interaction",
+            db,
+            "interaction",
+            "last_interaction",
             datetime.now(UTC).isoformat(),
             context="Last conversation timestamp",
             importance=3,
