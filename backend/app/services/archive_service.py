@@ -16,7 +16,7 @@ Never raises — degrades to an empty result so the pipeline is never broken.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -32,15 +32,13 @@ _MAX_SNAPSHOTS_PER_URL = 12
 
 
 def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _wayback_ts_to_iso(ts: str) -> str:
     """Convert a Wayback timestamp (YYYYMMDDhhmmss) to an ISO date string."""
     try:
-        return datetime.strptime(ts[:14], "%Y%m%d%H%M%S").replace(
-            tzinfo=timezone.utc
-        ).isoformat()
+        return datetime.strptime(ts[:14], "%Y%m%d%H%M%S").replace(tzinfo=UTC).isoformat()
     except Exception:  # noqa: BLE001
         return ts
 
@@ -103,15 +101,15 @@ class ArchiveService:
             if not isinstance(row, list) or len(row) < 2:
                 continue
             ts, original = row[0], row[1]
-            snapshots.append({
-                "url": original,
-                "snapshot_url": f"https://web.archive.org/web/{ts}/{original}",
-                "timestamp": _wayback_ts_to_iso(ts),
-                "source_url": (
-                    f"{_CDX_BASE}?url={url}&output=json&collapse=timestamp:6"
-                ),
-                "retrieved_at": now,
-            })
+            snapshots.append(
+                {
+                    "url": original,
+                    "snapshot_url": f"https://web.archive.org/web/{ts}/{original}",
+                    "timestamp": _wayback_ts_to_iso(ts),
+                    "source_url": (f"{_CDX_BASE}?url={url}&output=json&collapse=timestamp:6"),
+                    "retrieved_at": now,
+                }
+            )
         return snapshots
 
     async def aggregate(self, urls: list[str]) -> list[dict]:
