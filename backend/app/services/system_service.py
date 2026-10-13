@@ -18,8 +18,16 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 from app.config import get_settings
+from app.services.app_launcher import (
+    AppEntry,
+    discover_apps,
+    launch_app,
+    resolve_app,
+    unavailable_reason,
+)
 from app.utils.logger import logger
 
 settings = get_settings()
@@ -49,29 +57,89 @@ class PendingAction:
 # Add entries here as needed; everything else is rejected.
 COMMAND_WHITELIST: set[str] = {
     # System info
-    "systeminfo", "hostname", "whoami", "ver", "date", "time",
+    "systeminfo",
+    "hostname",
+    "whoami",
+    "ver",
+    "date",
+    "time",
     # File & directory listing (read-only)
-    "dir", "ls", "type", "cat", "head", "tail", "find", "where", "tree",
+    "dir",
+    "ls",
+    "type",
+    "cat",
+    "head",
+    "tail",
+    "find",
+    "where",
+    "tree",
     # Network diagnostics
-    "ping", "ipconfig", "ifconfig", "nslookup", "tracert", "traceroute",
-    "netstat", "curl", "wget",
+    "ping",
+    "ipconfig",
+    "ifconfig",
+    "nslookup",
+    "tracert",
+    "traceroute",
+    "netstat",
+    "curl",
+    "wget",
     # Process / service info (read-only)
-    "tasklist", "ps", "sc", "wmic",
+    "tasklist",
+    "ps",
+    "sc",
+    "wmic",
     # Python & dev tools
-    "python", "python3", "pip", "pip3", "node", "npm", "git",
+    "python",
+    "python3",
+    "pip",
+    "pip3",
+    "node",
+    "npm",
+    "git",
     # Utilities
-    "echo", "cls", "clear",
+    "echo",
+    "cls",
+    "clear",
 }
 
-# Application aliases for cross-platform launching
-APP_ALIASES: dict[str, list[str]] = {
-    "notepad": ["notepad.exe"],
-    "calculator": ["calc.exe"],
-    "browser": ["start", "msedge"],
-    "explorer": ["explorer.exe"],
-    "vscode": ["code"],
-    "spotify": ["spotify"],
-}
+# Only web URLs may be handed to the browser. `webbrowser.open` happily accepts
+# `file://`, `data:` and OS-specific handler schemes, which would turn an
+# approved "open a link" action into arbitrary local file / handler access.
+ALLOWED_URL_SCHEMES: frozenset[str] = frozenset({"http", "https"})
+
+
+def normalize_url(raw: str) -> str:
+    """Validate a user-supplied URL and return a form the browser can open.
+
+    A scheme-less host such as ``youtube.com`` is what people actually type, but
+    ``webbrowser.open`` resolves it as a relative *path* and silently opens
+    nothing, so it is promoted to ``https://`` here rather than rejected.
+    """
+    url = (raw or "").strip()
+    if not url:
+        raise ValueError("URL is empty.")
+
+    parsed = urlparse(url)
+    had_scheme = bool(parsed.scheme)
+    if not had_scheme:
+        parsed = urlparse(f"https://{url}")
+    elif parsed.scheme.lower() not in ALLOWED_URL_SCHEMES:
+        raise ValueError(
+            f"Unsupported URL scheme '{parsed.scheme}'. Only "
+            f"{' and '.join(sorted(ALLOWED_URL_SCHEMES))} URLs can be opened."
+        )
+
+    host = parsed.hostname or ""
+    if not host or any(c.isspace() for c in host):
+        raise ValueError(f"Not a valid URL: '{raw}'")
+
+    # A typed-in host with no scheme and no dot ("notaurl") is far more likely to
+    # be a typo than a hostname, so it is rejected. An explicit scheme means the
+    # user meant it, which keeps dev targets like http://localhost:3000 working.
+    if not had_scheme and "." not in host.strip(".") and host != "localhost":
+        raise ValueError(f"Not a valid URL: '{raw}'")
+
+    return urlunparse(parsed._replace(scheme=parsed.scheme.lower()))
 
 
 class SystemService:
@@ -87,9 +155,7 @@ class SystemService:
 
     def _check_enabled(self) -> None:
         if not self.is_enabled:
-            raise PermissionError(
-                "Computer control is disabled. Set ENABLE_COMPUTER_CONTROL=true in .env to enable."
-            )
+            raise PermissionError("Computer control is disabled. Set ENABLE_COMPUTER_CONTROL=true in .env to enable.")
 
     def _is_allowed(self, command: str) -> bool:
         """Check if the command's executable is in the whitelist."""
@@ -111,9 +177,23 @@ class SystemService:
         self._check_enabled()
 
         if action_type == "run_command" and not self._is_allowed(parameters.get("command", "")):
-            raise ValueError(
-                f"Command not in whitelist. Allowed executables: {', '.join(sorted(COMMAND_WHITELIST))}"
-            )
+            raise ValueError(f"Command not in whitelist. Allowed executables: {', '.join(sorted(COMMAND_WHITELIST))}")
+
+        if action_type == "open_app":
+            # Resolved here, not at execution, for the same reason URLs are:
+            # the approval card must show what will actually open, and a name
+            # that can never launch should fail now rather than after the user
+            # has already approved it.
+            entry = self._resolve_app(parameters.get("app_name", ""))
+            parameters = {**parameters, "app_name": entry.name}
+            description = f"Open application: {entry.name}"
+
+        if action_type == "open_url":
+            # Normalise before queueing so the approval card shows the exact URL
+            # that will be opened, and a bad one fails now instead of after the
+            # user has already approved it.
+            parameters = {**parameters, "url": normalize_url(parameters.get("url", ""))}
+            description = f"Open URL: {parameters['url']}"
 
         action = PendingAction(
             action_id=str(uuid.uuid4()),
@@ -134,7 +214,7 @@ class SystemService:
             raise ValueError(f"Action is already {action.status.value}")
 
         action.status = ActionStatus.APPROVED
-        result = self._execute(action)
+        self._execute(action)
         return action
 
     def deny_action(self, action_id: str) -> PendingAction:
@@ -238,23 +318,52 @@ class SystemService:
             output += f"\n[EXIT CODE]: {proc.returncode}"
         return output.strip() or "(no output)"
 
-    def _exec_open_app(self, params: dict) -> str:
-        """Launch an application from the predefined alias list only."""
-        app_name = params.get("app_name", "").lower()
-        cmd_parts = APP_ALIASES.get(app_name)
-        if not cmd_parts:
-            return f"Unknown application: '{app_name}'. Allowed: {', '.join(sorted(APP_ALIASES))}"
+    @staticmethod
+    def _resolve_app(app_name: str) -> AppEntry:
+        """The one installed application ``app_name`` names, or a clear refusal.
 
-        try:
-            subprocess.Popen(cmd_parts, shell=False)
-            return f"Launched: {app_name}"
-        except FileNotFoundError:
-            return f"Application not found: {app_name}"
+        Never picks between comparable matches: opening the wrong desktop
+        application is a much worse failure than one more question.
+        """
+        query = (app_name or "").strip()
+        if not query:
+            raise ValueError("No application name was given.")
+
+        # The catalogue is fetched once and passed in, so queueing and execution
+        # can never disagree about what was installed at that moment.
+        installed = discover_apps()
+        match = resolve_app(query, entries=installed)
+        if match.entry is not None:
+            return match.entry
+        if match.candidates:
+            names = ", ".join(candidate.name for candidate in match.candidates)
+            raise ValueError(f"'{query}' matches several applications. Did you mean: {names}?")
+        if not installed:
+            raise ValueError(unavailable_reason())
+        raise ValueError(f"'{query}' is not installed, or was not found among {len(installed)} applications.")
+
+    def _exec_open_app(self, params: dict) -> str:
+        """Launch an application discovered on this machine.
+
+        Re-resolved here as well: the queue is in-memory and the application may
+        have been uninstalled since approval. Execution is the only place a
+        target is handed to the OS, and that target is always one discovery
+        produced — the user's text only ever selected it.
+        """
+        entry = self._resolve_app(params.get("app_name", ""))
+        launch_app(entry)
+        return f"Launched: {entry.name}"
 
     def _exec_open_url(self, params: dict) -> str:
         """Open a URL in the default browser."""
-        url = params.get("url", "")
-        webbrowser.open(url)
+        # Re-validated here as well: the queue is in-memory, but execution is the
+        # only place that actually hands the string to the OS.
+        url = normalize_url(params.get("url", ""))
+        if not webbrowser.open(url):
+            raise RuntimeError(
+                f"No browser could be launched for {url}. "
+                "The backend may be running without a desktop session (e.g. in Docker)."
+            )
         return f"Opened in browser: {url}"
 
 
