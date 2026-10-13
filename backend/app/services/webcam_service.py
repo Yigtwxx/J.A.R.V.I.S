@@ -15,6 +15,7 @@ SCOPE / ETHICS: Only publisher-public cameras. This service NEVER accesses
 private, home/business security, or unsecured/exposed IP/CCTV cameras, and never
 tracks individuals. "Watch" links point to the stream's own public page.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -116,9 +117,7 @@ class WebcamService:
                     headers={"x-windy-api-key": api_key},
                 )
                 if resp.status_code != 200:
-                    logger.log_warning(
-                        f"Windy Webcams API HTTP {resp.status_code} — falling back to web search"
-                    )
+                    logger.log_warning(f"Windy Webcams API HTTP {resp.status_code} — falling back to web search")
                     return []
 
                 data = resp.json()
@@ -129,18 +128,18 @@ class WebcamService:
                     daylight = images.get("daylight", {}) or {}
                     loc = w.get("location", {}) or {}
                     urls = w.get("urls", {}) or {}
-                    cams.append({
-                        "title": w.get("title", "Untitled webcam"),
-                        "lat": loc.get("latitude"),
-                        "lng": loc.get("longitude"),
-                        "image_current": current.get("preview") or current.get("thumbnail", ""),
-                        "image_daylight": daylight.get("preview", ""),
-                        "page_url": urls.get("detail") or urls.get("provider") or "",
-                        "source": "Windy Webcams",
-                    })
-                logger.log_success(
-                    f"Windy Webcams: {len(cams)} public camera(s) near {coords['display_name']}"
-                )
+                    cams.append(
+                        {
+                            "title": w.get("title", "Untitled webcam"),
+                            "lat": loc.get("latitude"),
+                            "lng": loc.get("longitude"),
+                            "image_current": current.get("preview") or current.get("thumbnail", ""),
+                            "image_daylight": daylight.get("preview", ""),
+                            "page_url": urls.get("detail") or urls.get("provider") or "",
+                            "source": "Windy Webcams",
+                        }
+                    )
+                logger.log_success(f"Windy Webcams: {len(cams)} public camera(s) near {coords['display_name']}")
                 return cams
         except (httpx.RequestError, ValueError, KeyError) as exc:
             logger.log_warning(f"Windy Webcams lookup failed: {exc}")
@@ -167,22 +166,22 @@ class WebcamService:
                 if not url or url in seen:
                     continue
                 seen.add(url)
-                cams.append({
-                    "title": r.get("title", "Public live webcam"),
-                    "lat": None,
-                    "lng": None,
-                    "image_current": "",
-                    "image_daylight": "",
-                    "page_url": url,
-                    "source": "web",
-                })
+                cams.append(
+                    {
+                        "title": r.get("title", "Public live webcam"),
+                        "lat": None,
+                        "lng": None,
+                        "image_current": "",
+                        "image_daylight": "",
+                        "page_url": url,
+                        "source": "web",
+                    }
+                )
             if len(cams) >= 12:
                 break
 
         if cams:
-            logger.log_success(
-                f"Keyless webcam search: {len(cams)} public live-cam page(s) for '{place}'"
-            )
+            logger.log_success(f"Keyless webcam search: {len(cams)} public live-cam page(s) for '{place}'")
         else:
             logger.log_warning(f"No public webcams found for '{place}'")
         return cams[:12]
