@@ -29,15 +29,16 @@ from app.utils.logger import logger
 # Constants
 # ---------------------------------------------------------------------------
 
-_XON_BASE   = "https://api.xposedornot.com/v1"
-_TIMEOUT    = 12.0
+_XON_BASE = "https://api.xposedornot.com/v1"
+_TIMEOUT = 12.0
 _USER_AGENT = "J.A.R.V.I.S-OSINT/2.0"
-_REQ_DELAY  = 1.5   # stay comfortably under 2 req/s
+_REQ_DELAY = 1.5  # stay comfortably under 2 req/s
 
 
 # ---------------------------------------------------------------------------
 # Normalizer
 # ---------------------------------------------------------------------------
+
 
 def _normalize_breach(raw: dict[str, Any], email: str) -> dict[str, Any]:
     """
@@ -67,19 +68,19 @@ def _normalize_breach(raw: dict[str, Any], email: str) -> dict[str, Any]:
     name = raw.get("breach") or raw.get("breachID") or ""
 
     return {
-        "Name":        name,
-        "Title":       name,
-        "Domain":      raw.get("domain", "unknown"),
-        "BreachDate":  breach_date,
-        "PwnCount":    raw.get("xposed_records") or raw.get("xposed") or raw.get("xposedRecords") or 0,
+        "Name": name,
+        "Title": name,
+        "Domain": raw.get("domain", "unknown"),
+        "BreachDate": breach_date,
+        "PwnCount": raw.get("xposed_records") or raw.get("xposed") or raw.get("xposedRecords") or 0,
         "DataClasses": data_classes,
-        "IsVerified":  bool(raw.get("verified", False)),
+        "IsVerified": bool(raw.get("verified", False)),
         "IsSensitive": bool(raw.get("sensitive", False)),
-        "IsSpamList":  False,
+        "IsSpamList": False,
         "IsFabricated": False,
         "Description": raw.get("details") or raw.get("description") or "",
         "PasswordRisk": raw.get("password_risk") or raw.get("passwordRisk") or "",
-        "LogoPath":    raw.get("logo", ""),
+        "LogoPath": raw.get("logo", ""),
         "TargetEmail": email,
     }
 
@@ -87,6 +88,7 @@ def _normalize_breach(raw: dict[str, Any], email: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Public service
 # ---------------------------------------------------------------------------
+
 
 class BreachService:
     """
@@ -138,7 +140,7 @@ class BreachService:
 
                         for raw in breach_list:
                             name = raw.get("breachID") or raw.get("breach") or ""
-                            sig  = f"{email}_{name}"
+                            sig = f"{email}_{name}"
                             if sig not in seen:
                                 seen.add(sig)
                                 all_breaches.append(_normalize_breach(raw, email))
@@ -148,9 +150,7 @@ class BreachService:
                         await asyncio.sleep(5)
 
                     else:
-                        logger.log_warning(
-                            f"XON: Unexpected HTTP {resp.status_code} for {email}"
-                        )
+                        logger.log_warning(f"XON: Unexpected HTTP {resp.status_code} for {email}")
 
                 except httpx.RequestError as exc:
                     logger.log_warning(f"XON network error for {email}: {exc}")
@@ -160,13 +160,10 @@ class BreachService:
 
         if all_breaches:
             logger.log_warning(
-                f"THREAT INTEL [XposedOrNot]: "
-                f"{len(all_breaches)} breach(es) found for {len(emails)} identifier(s)."
+                f"THREAT INTEL [XposedOrNot]: {len(all_breaches)} breach(es) found for {len(emails)} identifier(s)."
             )
         else:
-            logger.log_success(
-                f"CLEAR [XposedOrNot]: No public leaks found for {len(emails)} identifier(s)."
-            )
+            logger.log_success(f"CLEAR [XposedOrNot]: No public leaks found for {len(emails)} identifier(s).")
 
         all_breaches.sort(key=lambda x: x.get("BreachDate", ""), reverse=True)
         return all_breaches
