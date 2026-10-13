@@ -12,9 +12,11 @@ from real data signals across 5 dimensions:
 """
 
 import math
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
+from app.services.discovery_integration import to_score_inputs
 from app.utils.logger import logger
 
 
@@ -22,7 +24,25 @@ class SocialScoreService:
     """Algorithmic engine for computing the Digital Impact Score."""
 
     # Maximum possible platforms we track
-    TRACKED_PLATFORMS = ["github", "instagram", "twitter", "linkedin", "spotify", "tiktok", "snapchat", "tumblr", "youtube", "reddit", "facebook", "pinterest", "medium", "threads", "steam", "tinder", "bumble", "discord"]
+    TRACKED_PLATFORMS = [
+        "github",
+        "instagram",
+        "twitter",
+        "linkedin",
+        "spotify",
+        "tiktok",
+        "snapchat",
+        "tumblr",
+        "youtube",
+        "reddit",
+        "facebook",
+        "pinterest",
+        "threads",
+        "steam",
+        "tinder",
+        "bumble",
+        "discord",
+    ]
 
     # Dimension weights (must sum to 100)
     W_PLATFORM_PRESENCE = 20
@@ -89,6 +109,24 @@ class SocialScoreService:
             "breakdown": breakdown,
             "explanation": explanation,
         }
+
+    def calculate_from_discovery(
+        self,
+        profiles: Sequence[Any],
+        raw_sources: list[dict[str, str]] | None = None,
+        web_results: str = "",
+    ) -> dict[str, Any]:
+        """Score a discovery-pipeline result.
+
+        Accepts `SocialProfile` or `ProfileCandidate` and maps them onto the
+        arguments `calculate_score` already takes. Only `found` profiles are fed
+        in: a blocked platform contributes nothing and — critically — subtracts
+        nothing, because absence of proof is not proof of absence. A rate-limited
+        scan must not report a lower digital impact score than the same subject
+        scanned an hour earlier.
+        """
+        github_data, social_profiles = to_score_inputs(profiles)
+        return self.calculate_score(github_data, social_profiles, raw_sources or [], web_results)
 
     # ─── Dimension Calculators ───────────────────────────────────────────
 
@@ -234,8 +272,15 @@ class SocialScoreService:
         # Personal:     Instagram, Twitter, TikTok
         # Creative:     Spotify
         has_professional = bool(github_data) or bool(social_profiles.get("linkedin"))
-        has_personal = any(social_profiles.get(p) for p in ["instagram", "twitter", "tiktok", "snapchat", "facebook", "tinder", "bumble"])
-        has_creative = bool(social_profiles.get("spotify")) or bool(social_profiles.get("tumblr")) or bool(social_profiles.get("youtube"))
+        has_personal = any(
+            social_profiles.get(p)
+            for p in ["instagram", "twitter", "tiktok", "snapchat", "facebook", "tinder", "bumble"]
+        )
+        has_creative = (
+            bool(social_profiles.get("spotify"))
+            or bool(social_profiles.get("tumblr"))
+            or bool(social_profiles.get("youtube"))
+        )
 
         diversity_types = sum([has_professional, has_personal, has_creative])
         # 1 type = 0.10, 2 types = 0.20, 3 types = 0.30
@@ -282,7 +327,20 @@ class SocialScoreService:
         found_platforms = []
         if github_data:
             found_platforms.append("GitHub")
-        for p in ["instagram", "twitter", "linkedin", "spotify", "tiktok", "snapchat", "tumblr", "youtube", "reddit", "facebook", "tinder", "bumble"]:
+        for p in [
+            "instagram",
+            "twitter",
+            "linkedin",
+            "spotify",
+            "tiktok",
+            "snapchat",
+            "tumblr",
+            "youtube",
+            "reddit",
+            "facebook",
+            "tinder",
+            "bumble",
+        ]:
             if social_profiles.get(p):
                 found_platforms.append(p.capitalize())
 
