@@ -5,16 +5,33 @@ The heavy logic now lives in individual pipeline step files under
 `app/services/pipeline/`. Async methods delegate to steps. Sync methods
 retain their original logic so callers (search.py) require zero changes.
 """
+
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import re
+import uuid
+from datetime import UTC, datetime
 from typing import Any
 
+from pydantic import ValidationError
+
+from app.discovery.loop.runner import target_key_for
+from app.discovery.types import EntityType
+from app.models.discovery import SearchSession
 from app.schemas import SearchResponse
-from app.utils.logger import logger
+from app.services.identity_resolver import (
+    anchor_corroborated_by_web,
+    classify_profiles,
+    filter_intelligence_sources,
+    web_relevance_ratio,
+)
+from app.services.pipeline.analysis_runner import AnalysisRunnerStep
+from app.services.pipeline.context import PipelineContext
+from app.services.pipeline.data_fetcher import DataFetcherStep
+from app.services.pipeline.image_collector import ImageCollectorStep
+from app.services.pipeline.post_analysis_runner import PostAnalysisRunnerStep
 
 # Re-export utility helpers so any existing imports still work
 from app.services.pipeline.utils import (  # noqa: F401
@@ -22,18 +39,26 @@ from app.services.pipeline.utils import (  # noqa: F401
     _join_bios,
     _join_urls,
     _parse_snippet_date,
+    sanitize_breach_list,
+    sanitize_email_list,
+    sanitize_network_connections,
+    sanitize_phone_list,
+    sanitize_str_list,
 )
-from app.services.identity_resolver import (
-    anchor_corroborated_by_web,
-    classify_profiles,
-    filter_intelligence_sources,
-    web_relevance_ratio,
-)
-from app.services.pipeline.context import PipelineContext
-from app.services.pipeline.data_fetcher import DataFetcherStep
-from app.services.pipeline.analysis_runner import AnalysisRunnerStep
-from app.services.pipeline.post_analysis_runner import PostAnalysisRunnerStep
-from app.services.pipeline.image_collector import ImageCollectorStep
+from app.utils.logger import logger
+
+
+def _assign_optional(response: SearchResponse, field: str, value: Any) -> None:
+    """Assign an optional enrichment section, dropping it if it fails validation.
+
+    SearchResponse validates on assignment, so a malformed section raises here
+    rather than deep inside FastAPI's response serialization. Losing one section
+    degrades the report; letting it raise would discard the entire search.
+    """
+    try:
+        setattr(response, field, value)
+    except ValidationError as exc:
+        logger.log_warning(f"Dropping invalid '{field}' from response: {exc.error_count()} validation error(s)")
 
 
 class SearchOrchestrationService:
@@ -79,11 +104,17 @@ class SearchOrchestrationService:
 
         # Pipeline step instances (reused across requests)
         self._data_fetcher = DataFetcherStep(github_service, search_service, search_orchestrator)
-        self._image_collector = ImageCollectorStep(scraper_service)
+        self._image_collector = ImageCollectorStep()
         self._analysis_runner = AnalysisRunnerStep(ai_service, face_matching_service)
         self._post_analysis_runner = PostAnalysisRunnerStep(
-            ai_service, breach_orchestrator, social_score_service, weather_service,
-            darkweb_service, geoint_service, psychological_service, predictive_service,
+            ai_service,
+            breach_orchestrator,
+            social_score_service,
+            weather_service,
+            darkweb_service,
+            geoint_service,
+            psychological_service,
+            predictive_service,
         )
 
     # -----------------------------------------------------------------------
@@ -108,11 +139,11 @@ class SearchOrchestrationService:
 
     async def fetch_parallel_data(self, real_name: str, username: str, depth_config=None):
         """Run orchestrator + GitHub + search concurrently. Returns raw tuple."""
-        ctx = PipelineContext(
-            real_name=real_name, username=username, depth_config=depth_config
-        )
+        ctx = PipelineContext(real_name=real_name, username=username, depth_config=depth_config)
         ctx = await self._data_fetcher.execute(ctx)
-        return ctx.orch_result, ctx.github_data, ctx.search_results
+        # Returned rather than stashed on `self`: this service is a process-wide
+        # singleton, so an attribute would be clobbered by any concurrent search.
+        return ctx.orch_result, ctx.github_data, ctx.search_results, ctx.discovery_result
 
     # -----------------------------------------------------------------------
     # Step 3: Process raw results
@@ -153,8 +184,8 @@ class SearchOrchestrationService:
 
         github_url = None
         if github_data:
-            context['github'] = self._github.format_github_data(github_data)
-            github_url = github_data.get('profile_url')
+            context["github"] = self._github.format_github_data(github_data)
+            github_url = github_data.get("profile_url")
             logger.log_success(f"GitHub profile found: {github_url}")
         else:
             logger.log_warning("No GitHub profile found")
@@ -162,15 +193,15 @@ class SearchOrchestrationService:
         # Identity disambiguation: label same-name namesakes so the AI does not
         # merge different people into one description.
         classification = classify_profiles(social_profiles, github_data, real_name, web_results or "")
-        context['anchor'] = classification.get('anchor')
-        context['social_media'] = self._scraper.format_social_profiles(social_profiles, classification)
+        context["anchor"] = classification.get("anchor")
+        context["social_media"] = self._scraper.format_social_profiles(social_profiles, classification)
         found_count = sum(1 for v in social_profiles.values() if v)
         logger.log_success(f"Found {found_count} social media profiles")
-        if classification.get('has_others'):
+        if classification.get("has_others"):
             logger.log_warning("Same-name candidate profiles detected — isolating primary target for analysis")
 
-        context['web_search'] = web_results
-        context['deep_context'] = deep_context
+        context["web_search"] = web_results
+        context["deep_context"] = deep_context
 
         # Low-confidence gate: when the web corpus is dominated by a different
         # same-name person, restrict the briefing to the confirmed GitHub/social
@@ -181,19 +212,17 @@ class SearchOrchestrationService:
         relevance = web_relevance_ratio(real_name, raw_sources)
         corroborated = anchor_corroborated_by_web(github_data, raw_sources, deep_context)
         has_anchor = bool(github_data) or found_count > 0
-        low_signal = corroborated is False or (
-            corroborated is None and relevance is not None and relevance < 0.5
-        )
+        low_signal = corroborated is False or (corroborated is None and relevance is not None and relevance < 0.5)
         if has_anchor and low_signal:
             reason = "anchor not corroborated by web" if corroborated is False else f"low web-name match ({relevance})"
             logger.log_warning(
                 f"Subject weakly identified ({reason}); restricting briefing to confirmed anchor identity"
             )
-            context['web_search'] = (
+            context["web_search"] = (
                 "(omitted — web results did not reliably match the subject; "
                 "analysis is restricted to the confirmed GitHub/social identity)"
             )
-            context['deep_context'] = ""
+            context["deep_context"] = ""
             deep_context = ""
         logger.log_success("Web search aggregation and deep-packet inspection completed")
 
@@ -209,10 +238,15 @@ class SearchOrchestrationService:
     # -----------------------------------------------------------------------
 
     def save_context(self, raw_query: str, context: dict) -> None:
-        """Persist context to JSON file and index into ChromaDB."""
+        """Persist the assembled context to a JSON file under ``data/contexts``.
+
+        Nothing is indexed into a vector store here — there is no ChromaDB (or
+        any other embedding index) anywhere in this path, despite what the log
+        line says. It is a plain file write, and a failure is non-fatal.
+        """
         try:
             os.makedirs("data/contexts", exist_ok=True)
-            safe_filename = re.sub(r'[^a-zA-Z0-9_\-]', '_', raw_query.lower())
+            safe_filename = re.sub(r"[^a-zA-Z0-9_\-]", "_", raw_query.lower())
             with open(f"data/contexts/{safe_filename}.json", "w", encoding="utf-8") as f:
                 json.dump(context, f, ensure_ascii=False, indent=2)
             logger.log_action("Context synchronized to local RAG knowledge base", target=safe_filename)
@@ -224,20 +258,27 @@ class SearchOrchestrationService:
     # -----------------------------------------------------------------------
 
     def collect_images(
-        self, social_profiles: dict, github_data: dict | None, wiki_image: str | None, real_name: str
+        self,
+        social_profiles: Any,
+        github_data: dict | None,
+        wiki_image: str | None,
+        real_name: str,
+        profile_pictures: list[Any] | None = None,
     ) -> list[str]:
         """Build a deduplicated list of avatar/profile images."""
-        return self._image_collector._collect_images(
-            social_profiles, github_data, wiki_image, real_name
+        return self._image_collector.collect_images(
+            social_profiles, github_data, wiki_image, real_name, profile_pictures
         )
 
     def collect_face_images(
-        self, social_profiles: dict, github_data: dict | None, wiki_image: str | None
+        self,
+        social_profiles: Any,
+        github_data: dict | None,
+        wiki_image: str | None,
+        profile_pictures: list[Any] | None = None,
     ) -> list[tuple[str, str]]:
-        """Build labeled (platform, url) pairs for face matching."""
-        return self._image_collector._collect_face_images(
-            social_profiles, github_data, wiki_image
-        )
+        """Build labeled (platform, image) pairs for face matching."""
+        return self._image_collector.collect_face_images(social_profiles, github_data, wiki_image, profile_pictures)
 
     # -----------------------------------------------------------------------
     # Step 6: Run AI + face match + sentiment (async — delegates to step)
@@ -273,12 +314,14 @@ class SearchOrchestrationService:
         context: dict | None = None,
         deep_context: str | None = None,
         sentiment_report: dict | None = None,
+        depth_config=None,
     ) -> dict:
         """Extract structured data, check breaches, cross-validate, compute scores."""
         # Reconstruct search_results tuple as PostAnalysisRunnerStep expects it
         search_results = (None, web_results, deep_context, raw_sources)
 
         ctx = PipelineContext(
+            depth_config=depth_config,
             real_name=real_name,
             username=username,
             github_data=github_data,
@@ -312,93 +355,92 @@ class SearchOrchestrationService:
         depth_config=None,
     ) -> SearchResponse:
         """Assemble the final SearchResponse."""
-        structured_data = post['structured_data']
+        structured_data = post["structured_data"]
 
+        # Pictures are NOT prefixed into `ai_response` as markdown any more. They
+        # travel in the typed `profile_pictures` field (populated by
+        # `discovery_bridge.to_api`), so a URL that stops resolving no longer
+        # renders as a broken image in the middle of the biography.
         if images:
-            logger.log_success(f"Injecting {len(images[:6])} visual identities.")
-            images_md = " ".join([f"![{real_name}]({img})" for img in images[:6]])
-            ai_response = f"{images_md}\n\n" + ai_response
+            logger.log_success(f"{len(images)} visual identity source(s) collected.")
 
         logger.log_success("Analysis complete")
         sp_keys = [k for k, v in social_profiles.items() if v]
         logger.log_action(f"[DIAG] build_response: {len(sp_keys)} platform(s): {sp_keys[:5]}")
 
         response = SearchResponse(
-            name=structured_data.get('name', real_name),
+            name=structured_data.get("name", real_name),
             github_url=github_url or None,
-            instagram_url=_join_urls(social_profiles, 'instagram'),
-            twitter_url=_join_urls(social_profiles, 'twitter'),
-            linkedin_url=_join_urls(social_profiles, 'linkedin'),
-            spotify_url=_join_urls(social_profiles, 'spotify'),
-            tiktok_url=_join_urls(social_profiles, 'tiktok'),
-            snapchat_url=_join_urls(social_profiles, 'snapchat'),
-            tumblr_url=_join_urls(social_profiles, 'tumblr'),
-            youtube_url=_join_urls(social_profiles, 'youtube'),
-            reddit_url=_join_urls(social_profiles, 'reddit'),
-            facebook_url=_join_urls(social_profiles, 'facebook'),
-            pinterest_url=_join_urls(social_profiles, 'pinterest'),
-            medium_url=_join_urls(social_profiles, 'medium'),
-            threads_url=_join_urls(social_profiles, 'threads'),
-            steam_url=_join_urls(social_profiles, 'steam'),
-            tinder_mention=_join_bios(social_profiles, 'tinder'),
-            bumble_mention=_join_bios(social_profiles, 'bumble'),
-            discord_mention=_join_bios(social_profiles, 'discord'),
-            phone_numbers=post['phone_numbers'] if post['phone_numbers'] else None,
-            location_country=structured_data.get('estimated_location'),
-            location_city=structured_data.get('capital_city'),
-            weather_info=post['weather_info'],
-            social_media_score=post['score_result']['total_score'],
-            social_media_score_breakdown=post['score_result']['breakdown'],
+            instagram_url=_join_urls(social_profiles, "instagram"),
+            twitter_url=_join_urls(social_profiles, "twitter"),
+            linkedin_url=_join_urls(social_profiles, "linkedin"),
+            spotify_url=_join_urls(social_profiles, "spotify"),
+            tiktok_url=_join_urls(social_profiles, "tiktok"),
+            snapchat_url=_join_urls(social_profiles, "snapchat"),
+            tumblr_url=_join_urls(social_profiles, "tumblr"),
+            youtube_url=_join_urls(social_profiles, "youtube"),
+            reddit_url=_join_urls(social_profiles, "reddit"),
+            facebook_url=_join_urls(social_profiles, "facebook"),
+            pinterest_url=_join_urls(social_profiles, "pinterest"),
+            threads_url=_join_urls(social_profiles, "threads"),
+            steam_url=_join_urls(social_profiles, "steam"),
+            tinder_mention=_join_bios(social_profiles, "tinder"),
+            bumble_mention=_join_bios(social_profiles, "bumble"),
+            discord_mention=_join_bios(social_profiles, "discord"),
+            phone_numbers=sanitize_phone_list(post["phone_numbers"]) or None,
+            location_country=structured_data.get("estimated_location"),
+            location_city=structured_data.get("capital_city"),
+            weather_info=post["weather_info"],
+            social_media_score=post["score_result"]["total_score"],
+            social_media_score_breakdown=post["score_result"]["breakdown"],
             last_activity_summary=_format_last_activity(github_data, social_profiles),
-            platform_activity=post['platform_activity'],
-            description=structured_data.get('description'),
-            additional_info=structured_data.get('additional_info'),
-            network_connections=structured_data.get('network_connections', []),
-            similar_profiles=structured_data.get('similar_profiles', []),
-            cross_validation_issues=post['all_issues'],
-            email_addresses=structured_data.get('email_addresses', []),
-            data_breaches=post['data_breaches'],
+            platform_activity=post["platform_activity"],
+            description=structured_data.get("description"),
+            additional_info=structured_data.get("additional_info"),
+            # Sanitized because these come straight from LLM-extracted JSON and the
+            # schema validators reject a single malformed item outright.
+            network_connections=sanitize_network_connections(structured_data.get("network_connections")),
+            similar_profiles=sanitize_str_list(structured_data.get("similar_profiles")),
+            cross_validation_issues=sanitize_str_list(post["all_issues"]),
+            email_addresses=sanitize_email_list(structured_data.get("email_addresses")),
+            data_breaches=sanitize_breach_list(post["data_breaches"]),
             sources=raw_sources,
             ai_response=ai_response,
             company_records=orch_result.company_records if orch_result.company_records else None,
-            geoint_data=post.get('geoint_data') or None,
-            timezone_analysis=post.get('timezone_analysis') or None,
+            geoint_data=post.get("geoint_data") or None,
+            timezone_analysis=post.get("timezone_analysis") or None,
         )
 
         if face_match_report:
-            response.face_match_results = face_match_report
+            _assign_optional(response, "face_match_results", face_match_report)
         if sentiment_report:
-            response.sentiment_analysis = sentiment_report
+            _assign_optional(response, "sentiment_analysis", sentiment_report)
             logger.log_success(f"Sentiment matrix locked: {sentiment_report.get('dominant_emotion', 'N/A')}")
 
         if depth_config:
-            response.search_depth = depth_config.depth
-            response.search_tier = depth_config.tier
+            _assign_optional(response, "search_depth", depth_config.depth)
+            _assign_optional(response, "search_tier", depth_config.tier)
 
-        if post.get('tactical_analysis'):
-            response.tactical_analysis = post['tactical_analysis']
-        if post.get('psychological_analysis'):
-            response.psychological_analysis = post['psychological_analysis']
-        if post.get('prediction_data'):
-            response.prediction_data = post['prediction_data']
-        if post.get('domain_intel'):
-            response.domain_intel = post['domain_intel']
-        if post.get('claims'):
-            response.claims = post['claims']
-        if post.get('archive_snapshots'):
-            response.archive_snapshots = post['archive_snapshots']
-        if post.get('scholarly_records'):
-            response.scholarly_records = post['scholarly_records']
-        if post.get('sanctions_hits'):
-            response.sanctions_hits = post['sanctions_hits']
-        if post.get('timeline'):
-            response.timeline = post['timeline']
-        if post.get('subject_confidence') is not None:
-            response.subject_confidence = post['subject_confidence']
-        if post.get('alternative_candidates'):
-            response.alternative_candidates = post['alternative_candidates']
-        if post.get('relationships'):
-            response.relationships = post['relationships']
+        # Optional enrichment sections. Several are LLM-generated and can violate
+        # their schema (out-of-range scores, unexpected shapes); dropping one is
+        # the right trade against discarding a search that ran for minutes.
+        for field in (
+            "psychological_analysis",
+            "prediction_data",
+            "domain_intel",
+            "claims",
+            "archive_snapshots",
+            "scholarly_records",
+            "sanctions_hits",
+            "timeline",
+            "alternative_candidates",
+            "relationships",
+        ):
+            if post.get(field):
+                _assign_optional(response, field, post[field])
+
+        if post.get("subject_confidence") is not None:
+            _assign_optional(response, "subject_confidence", post["subject_confidence"])
 
         return response
 
@@ -407,26 +449,40 @@ class SearchOrchestrationService:
     # -----------------------------------------------------------------------
 
     def save_history(self, db, raw_query: str, response: SearchResponse) -> None:
-        """Save version snapshot and search history record."""
-        from app.models.history import SearchHistory
-
+        """Save version snapshot and the conversation row the Logs panel lists."""
         try:
             self._version.save_snapshot(db, raw_query, response)
             change_report = self._version.generate_change_report(db, raw_query)
             if change_report and change_report.has_changes:
-                response.version_history = change_report.model_dump(mode='json')
+                response.version_history = change_report.model_dump(mode="json")
                 logger.log_success(f"Version history: {len(change_report.changes)} change(s) detected")
             elif change_report:
-                response.version_history = change_report.model_dump(mode='json')
+                response.version_history = change_report.model_dump(mode="json")
                 logger.log_action("Version history: No changes detected since last scan")
             else:
                 logger.log_action("Version history: First snapshot saved — no previous data to compare")
         except Exception as e:
             logger.log_warning(f"Version history snapshot failed (non-critical): {e}")
 
+        # A conversation row, not a `search_history` row: the Logs panel reads
+        # `search_sessions` so that this path and the interactive one produce the
+        # same list. `interactive=False` is what distinguishes them.
         try:
-            history_entry = SearchHistory(query_name=raw_query)
-            db.add(history_entry)
+            now = datetime.now(UTC)
+            db.add(
+                SearchSession(
+                    id=str(uuid.uuid4()),
+                    target_key=target_key_for(raw_query, EntityType.PERSON),
+                    raw_query=raw_query,
+                    entity_type=EntityType.PERSON.value,
+                    interactive=False,
+                    status="completed",
+                    termination_reason="blocking_fallback",
+                    result_json=response.model_dump(mode="json"),
+                    started_at=now,
+                    finished_at=now,
+                )
+            )
             db.flush()
         except Exception as e:
-            logger.log_warning(f"Failed to record search history: {e}")
+            logger.log_warning(f"Failed to record the conversation: {e}")
