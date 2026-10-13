@@ -6,6 +6,7 @@ from io import BytesIO
 import requests
 from PIL import Image
 
+from app.services.discovery_integration import face_match_inputs
 from app.utils.logger import logger
 
 # Suppress noisy tensorflow/deepface logs
@@ -32,9 +33,7 @@ class FaceMatchingService:
         Returns the temp file path, or None on failure.
         """
         try:
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            }
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
             response = requests.get(url, headers=headers, timeout=self.DOWNLOAD_TIMEOUT, stream=True)
             response.raise_for_status()
 
@@ -111,7 +110,11 @@ class FaceMatchingService:
         Download all images, perform pairwise face comparison, return a report.
 
         Args:
-            labeled_images: list of (label, url) tuples, e.g. [("GitHub", "https://..."), ...]
+            labeled_images: list of (label, image) tuples. `image` is either a URL
+                (downloaded to a temp file, then deleted) or the path of an avatar
+                the discovery pipeline already stored under `data/avatars`, which
+                is used in place and NEVER deleted — those files are
+                content-addressed and still referenced by saved reports.
 
         Returns:
             FaceMatchReport dict or None if insufficient images.
@@ -121,19 +124,23 @@ class FaceMatchingService:
 
         logger.log_action(f"Face matching: Processing {len(labeled_images)} profile images...")
 
-        # Download all images
-        downloaded = []  # list of (label, file_path)
-        for label, url in labeled_images:
-            path = self.download_image(url)
+        downloaded: list[tuple[str, str]] = []  # (label, file_path)
+        temporary: list[str] = []  # only these are removed afterwards
+        for label, image in labeled_images:
+            if image and os.path.exists(image):
+                downloaded.append((label, image))
+                logger.log_success(f"Face match: Using stored {label} avatar")
+                continue
+            path = self.download_image(image)
             if path:
                 downloaded.append((label, path))
+                temporary.append(path)
                 logger.log_success(f"Face match: Downloaded {label} image")
             else:
                 logger.log_warning(f"Face match: Skipped {label} (download failed or invalid image)")
 
         if len(downloaded) < 2:
-            # Cleanup
-            for _, path in downloaded:
+            for path in temporary:
                 self._cleanup_file(path)
             logger.log_warning("Face match: Insufficient valid images for comparison")
             return None
@@ -148,8 +155,8 @@ class FaceMatchingService:
                 if result:
                     pairs.append(result)
 
-        # Cleanup temp files
-        for _, path in downloaded:
+        # Cleanup temp files (stored avatars are deliberately left on disk)
+        for path in temporary:
             self._cleanup_file(path)
 
         if not pairs:
@@ -175,12 +182,62 @@ class FaceMatchingService:
             "total_images": len(labeled_images),
         }
 
-        logger.log_success(
-            f"Face matching complete: {len(pairs)} comparison(s), "
-            f"overall confidence: {avg_confidence}%"
-        )
+        logger.log_success(f"Face matching complete: {len(pairs)} comparison(s), overall confidence: {avg_confidence}%")
 
         return report
+
+    def analyze_profile_avatars(self, profile: object) -> dict | None:
+        """Face-compare the avatars the discovery pipeline downloaded for a profile.
+
+        Takes a search payload (or a bare `profile_pictures` list) and resolves it
+        onto files in `data/avatars` via `discovery_integration.face_match_inputs`.
+        Returns None when fewer than two avatars are actually on disk.
+        """
+        return self.analyze_local_images(face_match_inputs(profile))
+
+    def analyze_local_images(self, labeled_paths: list[tuple[str, str]]) -> dict | None:
+        """Compare avatars the discovery pipeline already downloaded to `data/avatars`.
+
+        Same pairwise report as `analyze_all_images`, except nothing is downloaded
+        and nothing is deleted afterwards — these are the content-addressed files
+        in the shared avatar store, still referenced by saved reports.
+
+        SCOPE: this is a user-facing tool only, reached through `/api/face-match`.
+        Biometric identification of individuals is out of scope for the discovery
+        pipeline, so this never influences identity scoring or clustering:
+        `app/discovery/matching/scoring.py` and `app/discovery/matching/cluster.py`
+        do not import this module. The `sha256` / `dhash` signals those modules do
+        use are *file* comparisons — "the same image file appears on both
+        accounts" — and are computed without any face model.
+
+        Args:
+            labeled_paths: list of (label, local file path) tuples.
+        """
+        usable = [(label, path) for label, path in labeled_paths if path and os.path.exists(path)]
+        if len(usable) < 2:
+            logger.log_warning("Face match: Insufficient local avatars for comparison")
+            return None
+
+        logger.log_action(f"Face matching: Comparing {len(usable)} stored avatar(s)...")
+        pairs = []
+        for i in range(len(usable)):
+            for j in range(i + 1, len(usable)):
+                label_a, path_a = usable[i]
+                label_b, path_b = usable[j]
+                result = self.compare_faces(path_a, path_b, label_a, label_b)
+                if result:
+                    pairs.append(result)
+
+        total = len(usable) * (len(usable) - 1) // 2
+        avg = round(sum(p["confidence"] for p in pairs) / len(pairs), 1) if pairs else 0.0
+        return {
+            "overall_confidence": avg,
+            "total_comparisons": total,
+            "successful_comparisons": len(pairs),
+            "pairs": pairs,
+            "face_detected_count": len(usable),
+            "total_images": len(labeled_paths),
+        }
 
     def _cleanup_file(self, path: str):
         """Safely remove a temp file."""
