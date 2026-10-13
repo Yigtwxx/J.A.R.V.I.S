@@ -4,12 +4,12 @@ Generates probabilistic forecasts from temporal OSINT data patterns.
 Uses gathered activity timestamps, platform presence, and behavioral indicators.
 """
 
+import asyncio
 import json
 import re
 
-import ollama
-
 from app.config import get_settings
+from app.services.ollama_client import build_ollama_client
 from app.utils.logger import logger
 
 settings = get_settings()
@@ -19,7 +19,7 @@ class PredictiveAnalysisService:
     """Generates predictive forecasts from real temporal OSINT data."""
 
     def __init__(self):
-        self.client = ollama.AsyncClient()
+        self.client = build_ollama_client(settings.ollama_request_timeout_seconds)
         self.model = settings.ollama_model
 
     @staticmethod
@@ -47,7 +47,7 @@ class PredictiveAnalysisService:
                     date = c.get("date", "unknown")
                     msg = c.get("message", "")[:80]
                     commit_lines.append(f"  {date}: {msg}")
-                parts.append(f"=== GITHUB COMMIT TIMELINE ===\n" + "\n".join(commit_lines))
+                parts.append("=== GITHUB COMMIT TIMELINE ===\n" + "\n".join(commit_lines))
 
             if github_data.get("public_repos"):
                 parts.append(f"Public repos: {github_data['public_repos']}")
@@ -60,7 +60,7 @@ class PredictiveAnalysisService:
         if platform_activity:
             activity_lines = [f"  {k}: {v}" for k, v in platform_activity.items() if v]
             if activity_lines:
-                parts.append(f"=== PLATFORM ACTIVITY ===\n" + "\n".join(activity_lines))
+                parts.append("=== PLATFORM ACTIVITY ===\n" + "\n".join(activity_lines))
 
         # Timezone and activity pattern
         if timezone_analysis:
@@ -85,9 +85,7 @@ class PredictiveAnalysisService:
                 parts.append(f"Exposed emails: {len(structured_data['email_addresses'])}")
             if structured_data.get("data_breaches"):
                 breach_dates = [
-                    b.get("BreachDate", "unknown")
-                    for b in structured_data["data_breaches"][:10]
-                    if isinstance(b, dict)
+                    b.get("BreachDate", "unknown") for b in structured_data["data_breaches"][:10] if isinstance(b, dict)
                 ]
                 if breach_dates:
                     parts.append(f"=== BREACH TIMELINE ===\n{', '.join(breach_dates)}")
@@ -116,8 +114,12 @@ class PredictiveAnalysisService:
         Returns dict matching PredictiveAnalysis schema, or None on failure.
         """
         evidence = self._build_temporal_evidence(
-            github_data, social_profiles or {}, platform_activity,
-            timezone_analysis, structured_data, deep_context,
+            github_data,
+            social_profiles or {},
+            platform_activity,
+            timezone_analysis,
+            structured_data,
+            deep_context,
         )
 
         if len(evidence.strip()) < 80:
@@ -165,10 +167,15 @@ Do NOT include ```json tags.
         try:
             logger.log_action("Running predictive analytics engine...")
 
-            response = await self.client.generate(
-                model=self.model,
-                prompt=prompt,
-                options={"temperature": 0.3, "top_p": 0.4},
+            # Bounded for the same reason as the psychological analysis: a stalled
+            # side-analysis must not hold the whole search open.
+            response = await asyncio.wait_for(
+                self.client.generate(
+                    model=self.model,
+                    prompt=prompt,
+                    options={"temperature": 0.3, "top_p": 0.4},
+                ),
+                timeout=settings.llm_side_analysis_timeout_seconds,
             )
 
             response_text = self._strip_thinking(response["response"])
@@ -186,13 +193,15 @@ Do NOT include ```json tags.
             predictions = []
             for p in parsed.get("predictions", []):
                 if isinstance(p, dict) and "prediction" in p:
-                    predictions.append({
-                        "category": str(p.get("category", "behavioral")),
-                        "prediction": str(p.get("prediction", "")),
-                        "probability": max(0.0, min(1.0, float(p.get("probability", 0.5)))),
-                        "timeframe": str(p.get("timeframe", "30d")),
-                        "supporting_evidence": [str(e) for e in p.get("supporting_evidence", [])],
-                    })
+                    predictions.append(
+                        {
+                            "category": str(p.get("category", "behavioral")),
+                            "prediction": str(p.get("prediction", "")),
+                            "probability": max(0.0, min(1.0, float(p.get("probability", 0.5)))),
+                            "timeframe": str(p.get("timeframe", "30d")),
+                            "supporting_evidence": [str(e) for e in p.get("supporting_evidence", [])],
+                        }
+                    )
 
             result = {
                 "predictions": predictions,
@@ -206,8 +215,12 @@ Do NOT include ```json tags.
 
         except json.JSONDecodeError as e:
             logger.log_error(f"Predictive analysis JSON parse failure: {e}")
+        except TimeoutError:
+            logger.log_warning(
+                f"Predictive analysis timed out after {settings.llm_side_analysis_timeout_seconds:.0f}s."
+            )
         except Exception as e:
-            logger.log_error(f"Predictive analysis failed: {e}")
+            logger.log_error(f"Predictive analysis failed: {type(e).__name__}: {e}")
 
         return None
 
