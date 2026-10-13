@@ -9,6 +9,7 @@ Extends breach detection beyond XposedOrNot with:
 All operations stay within legal boundaries — no Tor access, no paid APIs.
 Uses publicly accessible search engines and free APIs only.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,7 +21,9 @@ from bs4 import BeautifulSoup
 
 from app.utils.logger import logger
 
-_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
 _TIMEOUT = 15.0
 
 
@@ -72,17 +75,19 @@ class DarkWebService:
                             title = link.get_text(strip=True)[:100]
                             snippet_elem = item.find("div", class_="compText") or item.find("p")
                             snippet = snippet_elem.get_text(strip=True)[:200] if snippet_elem else ""
-                            results.append({
-                                "_type": "paste",
-                                "Source": domain,
-                                "Id": href,
-                                "Title": title or f"Paste on {domain}",
-                                "Date": "",
-                                "EmailCount": 0,
-                                "TargetEmail": query,
-                                "url": href,
-                                "snippet": snippet,
-                            })
+                            results.append(
+                                {
+                                    "_type": "paste",
+                                    "Source": domain,
+                                    "Id": href,
+                                    "Title": title or f"Paste on {domain}",
+                                    "Date": "",
+                                    "EmailCount": 0,
+                                    "TargetEmail": query,
+                                    "url": href,
+                                    "snippet": snippet,
+                                }
+                            )
 
                     await asyncio.sleep(1.5)  # Rate limit
 
@@ -117,12 +122,14 @@ class DarkWebService:
                 if resp.status_code == 200:
                     data = resp.json()
                     if data.get("found"):
-                        results.append({
-                            "source": "LeakCheck",
-                            "found": True,
-                            "details": f"Username '{username}' found in leak databases",
-                            "count": data.get("found", 0),
-                        })
+                        results.append(
+                            {
+                                "source": "LeakCheck",
+                                "found": True,
+                                "details": f"Username '{username}' found in leak databases",
+                                "count": data.get("found", 0),
+                            }
+                        )
                         logger.log_warning(f"LeakCheck: '{username}' found in leak database")
             except (httpx.RequestError, Exception) as e:
                 logger.log_warning(f"LeakCheck search failed: {e}")
@@ -147,17 +154,19 @@ class DarkWebService:
                         matched = [ln for ln in lines if username.lower() in ln.lower()]
                         sample = matched or lines
                         identifiers = sorted({ln.split(":", 1)[0] for ln in sample[:15] if ln})
-                        results.append({
-                            "source": "ProxyNova COMB",
-                            "found": True,
-                            "details": (
-                                f"'{username}' appears in {data.get('count', len(lines))} leaked "
-                                f"credential record(s) across breach combolists"
-                            ),
-                            "count": data.get("count", len(lines)),
-                            "exposed_identifiers": identifiers[:10],
-                            "hash_password": True,
-                        })
+                        results.append(
+                            {
+                                "source": "ProxyNova COMB",
+                                "found": True,
+                                "details": (
+                                    f"'{username}' appears in {data.get('count', len(lines))} leaked "
+                                    f"credential record(s) across breach combolists"
+                                ),
+                                "count": data.get("count", len(lines)),
+                                "exposed_identifiers": identifiers[:10],
+                                "hash_password": True,
+                            }
+                        )
                         logger.log_warning(
                             f"COMB EXPOSURE: '{username}' found in {data.get('count', len(lines))} leaked record(s)"
                         )
@@ -224,7 +233,7 @@ class DarkWebService:
     @staticmethod
     def generate_email_patterns(name: str, domain: str = "gmail.com") -> list[str]:
         """Generate common email patterns from a person's name."""
-        parts = re.split(r'[\s\-]+', name.lower().strip())
+        parts = re.split(r"[\s\-]+", name.lower().strip())
         if len(parts) < 2:
             return [f"{parts[0]}@{domain}"]
 
