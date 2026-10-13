@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 from PIL import Image
-from PIL.ExifTags import TAGS, GPSTAGS
+from PIL.ExifTags import GPSTAGS, TAGS
 
 from app.utils.logger import logger
 
@@ -120,7 +120,9 @@ class GeoIntService:
         """Resolve an IP address to geographic coordinates using ip-api.com (free)."""
         try:
             async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.get(f"http://ip-api.com/json/{ip}?fields=status,lat,lon,city,regionName,country,isp,org,as,timezone")
+                resp = await client.get(
+                    f"http://ip-api.com/json/{ip}?fields=status,lat,lon,city,regionName,country,isp,org,as,timezone"
+                )
                 if resp.status_code == 200:
                     data = resp.json()
                     if data.get("status") == "success":
@@ -159,11 +161,16 @@ class GeoIntService:
             place = f"{location_city or ''} {location_country or ''}".strip()
             coords = await self._geocode(place)
             if coords:
-                locations.append(GeoLocation(
-                    lat=coords[0], lng=coords[1],
-                    label=place, loc_type="primary",
-                    source="profile_location", confidence=0.7,
-                ))
+                locations.append(
+                    GeoLocation(
+                        lat=coords[0],
+                        lng=coords[1],
+                        label=place,
+                        loc_type="primary",
+                        source="profile_location",
+                        confidence=0.7,
+                    )
+                )
 
         # 2. Company locations
         if company_records:
@@ -174,24 +181,33 @@ class GeoIntService:
                 if place:
                     coords = await self._geocode(place)
                     if coords:
-                        locations.append(GeoLocation(
-                            lat=coords[0], lng=coords[1],
-                            label=f"{rec.get('company_name', 'Unknown')} ({place})",
-                            loc_type="company", source="company_registry",
-                            confidence=rec.get("confidence", 0.5),
-                        ))
+                        locations.append(
+                            GeoLocation(
+                                lat=coords[0],
+                                lng=coords[1],
+                                label=f"{rec.get('company_name', 'Unknown')} ({place})",
+                                loc_type="company",
+                                source="company_registry",
+                                confidence=rec.get("confidence", 0.5),
+                            )
+                        )
 
         # 3. EXIF from images
         if image_urls:
             for url in (image_urls or [])[:10]:
                 exif = await self.extract_exif(url)
                 if exif.get("has_gps"):
-                    locations.append(GeoLocation(
-                        lat=exif["lat"], lng=exif["lng"],
-                        label=f"Photo EXIF ({exif.get('metadata', {}).get('DateTime', 'unknown date')})",
-                        loc_type="exif", source="image_exif", confidence=0.9,
-                        timestamp=exif.get("metadata", {}).get("DateTime"),
-                    ))
+                    locations.append(
+                        GeoLocation(
+                            lat=exif["lat"],
+                            lng=exif["lng"],
+                            label=f"Photo EXIF ({exif.get('metadata', {}).get('DateTime', 'unknown date')})",
+                            loc_type="exif",
+                            source="image_exif",
+                            confidence=0.9,
+                            timestamp=exif.get("metadata", {}).get("DateTime"),
+                        )
+                    )
 
         return [loc.to_dict() for loc in locations]
 
