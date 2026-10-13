@@ -21,7 +21,7 @@ import asyncio
 import csv
 import io
 import unicodedata
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from difflib import SequenceMatcher
 from threading import Lock
 
@@ -46,7 +46,7 @@ _sdn_lock = Lock()
 
 
 def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _normalize(text: str) -> str:
@@ -113,16 +113,18 @@ class SanctionsService:
                 continue
             score = SequenceMatcher(None, q, norm_name).ratio()
             if score >= _MATCH_THRESHOLD:
-                hits.append({
-                    "name": orig_name,
-                    "list_name": "OFAC SDN",
-                    "program": program,
-                    "entity_type": sdn_type,
-                    "match_score": round(score, 3),
-                    "source_url": _SDN_SOURCE,
-                    "retrieved_at": now,
-                    "note": "Possible name match — verification required.",
-                })
+                hits.append(
+                    {
+                        "name": orig_name,
+                        "list_name": "OFAC SDN",
+                        "program": program,
+                        "entity_type": sdn_type,
+                        "match_score": round(score, 3),
+                        "source_url": _SDN_SOURCE,
+                        "retrieved_at": now,
+                        "note": "Possible name match — verification required.",
+                    }
+                )
         hits.sort(key=lambda h: h["match_score"], reverse=True)
         return hits[:_MAX_HITS]
 
@@ -145,16 +147,18 @@ class SanctionsService:
         hits: list[dict] = []
         for item in results[:_MAX_HITS]:
             topics = item.get("properties", {}).get("topic", []) or item.get("datasets", [])
-            hits.append({
-                "name": item.get("caption") or item.get("name") or name,
-                "list_name": "OpenSanctions",
-                "program": ", ".join(topics) if isinstance(topics, list) else str(topics),
-                "entity_type": item.get("schema", ""),
-                "match_score": round(float(item.get("score", 0.0)), 3),
-                "source_url": f"https://www.opensanctions.org/entities/{item.get('id', '')}/",
-                "retrieved_at": now,
-                "note": "Possible name match — verification required.",
-            })
+            hits.append(
+                {
+                    "name": item.get("caption") or item.get("name") or name,
+                    "list_name": "OpenSanctions",
+                    "program": ", ".join(topics) if isinstance(topics, list) else str(topics),
+                    "entity_type": item.get("schema", ""),
+                    "match_score": round(float(item.get("score", 0.0)), 3),
+                    "source_url": f"https://www.opensanctions.org/entities/{item.get('id', '')}/",
+                    "retrieved_at": now,
+                    "note": "Possible name match — verification required.",
+                }
+            )
         return hits
 
     async def check(self, name: str) -> list[dict]:
@@ -170,13 +174,8 @@ class SanctionsService:
         try:
             async with httpx.AsyncClient(follow_redirects=True) as client:
                 entries = await self._load_sdn(client)
-                sdn_hits = (
-                    await asyncio.to_thread(self._match_sdn, name, entries)
-                    if entries else []
-                )
-                os_hits = (
-                    await self._opensanctions(client, name, token) if token else []
-                )
+                sdn_hits = await asyncio.to_thread(self._match_sdn, name, entries) if entries else []
+                os_hits = await self._opensanctions(client, name, token) if token else []
         except Exception as exc:  # noqa: BLE001
             logger.log_warning(f"Sanctions check failed: {exc}")
             return []
@@ -184,8 +183,7 @@ class SanctionsService:
         hits = sdn_hits + os_hits
         if hits:
             logger.log_warning(
-                f"SANCTIONS SCREENING: {len(hits)} possible match(es) for {name!r} "
-                f"(verification required)"
+                f"SANCTIONS SCREENING: {len(hits)} possible match(es) for {name!r} (verification required)"
             )
         else:
             logger.log_success(f"Sanctions screening: no matches for {name!r}")
