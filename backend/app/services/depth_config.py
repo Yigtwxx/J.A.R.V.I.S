@@ -2,6 +2,7 @@
 DepthConfig — translates a user-selected search depth (1-10) into concrete
 pipeline parameters so every downstream service can scale its effort.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -26,6 +27,26 @@ class DepthConfig:
         if self.depth <= 6:
             return "medium"
         return "deep"
+
+    # -- effort level -------------------------------------------------------
+
+    @property
+    def effort(self) -> str:
+        """The name the console shows for this depth.
+
+        `tier` stays as it is because it feeds the `search_tier` response field;
+        this is the five-step vocabulary the user actually picks from, so log
+        lines and error copy can name something they can act on.
+        """
+        if self.depth <= 3:
+            return "low"
+        if self.depth <= 6:
+            return "medium"
+        if self.depth <= 7:
+            return "high"
+        if self.depth <= 9:
+            return "xhigh"
+        return "max"
 
     # -- search query variations --------------------------------------------
 
