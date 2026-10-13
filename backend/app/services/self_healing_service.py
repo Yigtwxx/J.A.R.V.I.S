@@ -4,6 +4,7 @@ Self-Healing Service — monitors service health and attempts automatic recovery
 Runs as a background asyncio task that periodically checks all dependent
 services (Ollama, ChromaDB, Database) and attempts reconnection on failure.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -79,10 +80,7 @@ class SelfHealingService:
         unhealthy = [k for k, v in status.items() if v.get("status") == "unhealthy"]
         if unhealthy:
             self._log_event("health_check", "warning", f"Unhealthy: {', '.join(unhealthy)}")
-        elif any(
-            self._last_status.get(k, {}).get("status") != v.get("status")
-            for k, v in status.items()
-        ):
+        elif any(self._last_status.get(k, {}).get("status") != v.get("status") for k, v in status.items()):
             self._log_event("health_check", "info", "All services healthy")
 
     # -- Individual Service Checks -------------------------------------------
@@ -101,6 +99,7 @@ class SelfHealingService:
         """Check SQLite database connectivity."""
         try:
             from app.database import SessionLocal
+
             db = SessionLocal()
             db.execute(text("SELECT 1"))
             db.close()
@@ -110,9 +109,10 @@ class SelfHealingService:
 
     def _check_system_resources(self) -> dict[str, Any]:
         """Check system resource usage (best-effort)."""
-        import os
+
         try:
             import shutil
+
             total, used, free = shutil.disk_usage(".")
             disk_pct = used / total * 100
             result: dict[str, Any] = {
@@ -123,6 +123,7 @@ class SelfHealingService:
             # Try to get memory info (psutil optional)
             try:
                 import psutil
+
                 mem = psutil.virtual_memory()
                 result["memory_used_pct"] = round(mem.percent, 1)
                 result["memory_available_gb"] = round(mem.available / (1024**3), 2)
@@ -146,7 +147,7 @@ class SelfHealingService:
         logger.log_warning(f"Ollama connection lost — recovery attempt #{attempt}")
 
         # Wait with exponential backoff (max 60s)
-        wait = min(2 ** attempt, 60)
+        wait = min(2**attempt, 60)
         await asyncio.sleep(wait)
 
         # Re-check
@@ -178,9 +179,9 @@ class SelfHealingService:
     def get_full_health_check(self) -> dict[str, Any]:
         """Synchronous full health check for the /health endpoint."""
         return {
-            "status": "healthy" if all(
-                s.get("status") == "healthy" for s in self._last_status.values()
-            ) else "degraded",
+            "status": "healthy"
+            if all(s.get("status") == "healthy" for s in self._last_status.values())
+            else "degraded",
             "services": self._last_status,
             "uptime_seconds": round(self.uptime_seconds, 1),
             "is_monitoring": self._is_running,
@@ -189,12 +190,14 @@ class SelfHealingService:
     # -- Internal Logging -----------------------------------------------------
 
     def _log_event(self, service: str, event_type: str, message: str):
-        self._health_log.append({
-            "timestamp": datetime.now(UTC).isoformat(),
-            "service": service,
-            "type": event_type,
-            "message": message,
-        })
+        self._health_log.append(
+            {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "service": service,
+                "type": event_type,
+                "message": message,
+            }
+        )
 
 
 # Singleton
