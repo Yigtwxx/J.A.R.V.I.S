@@ -1,15 +1,21 @@
 """
-ReportService — generates exportable intelligence reports in PDF, JSON, and CSV formats.
+ReportService â€” generates exportable intelligence reports in PDF, JSON, and CSV formats.
 
 Produces classified-style dossier documents from profile search results.
 """
+
 from __future__ import annotations
 
 import csv
 import io
 import json
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from app.services.discovery_integration import build_report_data
+
+if TYPE_CHECKING:  # pragma: no cover - fpdf is imported lazily inside export_pdf
+    from fpdf import FPDF
 
 
 class ReportService:
@@ -65,6 +71,7 @@ class ReportService:
             },
             "claims": profile.get("claims", []),
             "sources": profile.get("sources", []),
+            "discovery": _discovery_json(profile),
         }
         return json.dumps(export_data, ensure_ascii=False, indent=2, default=str)
 
@@ -77,9 +84,15 @@ class ReportService:
         writer = csv.writer(output)
 
         # Header
-        writer.writerow([
-            "Field", "Value", "Category", "Confidence", "Source",
-        ])
+        writer.writerow(
+            [
+                "Field",
+                "Value",
+                "Category",
+                "Confidence",
+                "Source",
+            ]
+        )
 
         name = profile.get("name", "Unknown")
 
@@ -105,84 +118,117 @@ class ReportService:
 
         # Network connections
         for conn in profile.get("network_connections", []):
-            writer.writerow([
-                f"Connection: {conn.get('name', 'N/A')}",
-                f"{conn.get('role', '')} ({conn.get('relation', '')})",
-                "Network", "Medium", "AI Analysis",
-            ])
+            writer.writerow(
+                [
+                    f"Connection: {conn.get('name', 'N/A')}",
+                    f"{conn.get('role', '')} ({conn.get('relation', '')})",
+                    "Network",
+                    "Medium",
+                    "AI Analysis",
+                ]
+            )
 
         # Company records
         for company in profile.get("company_records", []):
-            writer.writerow([
-                f"Company: {company.get('company_name', 'N/A')}",
-                f"{company.get('role', '')} ({company.get('status', '')})",
-                "Corporate", company.get("confidence", "Medium"),
-                company.get("source_name", "Registry"),
-            ])
+            writer.writerow(
+                [
+                    f"Company: {company.get('company_name', 'N/A')}",
+                    f"{company.get('role', '')} ({company.get('status', '')})",
+                    "Corporate",
+                    company.get("confidence", "Medium"),
+                    company.get("source_name", "Registry"),
+                ]
+            )
 
         # Breaches
         for breach in profile.get("data_breaches", []):
-            writer.writerow([
-                f"Breach: {breach.get('Name', breach.get('name', 'N/A'))}",
-                breach.get("BreachDate", breach.get("breach_date", "")),
-                "Security", "High",
-                breach.get("Domain", breach.get("domain", "")),
-            ])
+            writer.writerow(
+                [
+                    f"Breach: {breach.get('Name', breach.get('name', 'N/A'))}",
+                    breach.get("BreachDate", breach.get("breach_date", "")),
+                    "Security",
+                    "High",
+                    breach.get("Domain", breach.get("domain", "")),
+                ]
+            )
 
-        # Sanctions screening (informational — possible name matches)
+        # Sanctions screening (informational â€” possible name matches)
         for hit in profile.get("sanctions_hits", []):
-            writer.writerow([
-                f"Sanctions: {hit.get('name', 'N/A')}",
-                f"{hit.get('list_name', '')} ({hit.get('program', '')})",
-                "Sanctions", hit.get("match_score", ""),
-                hit.get("source_url", ""),
-            ])
+            writer.writerow(
+                [
+                    f"Sanctions: {hit.get('name', 'N/A')}",
+                    f"{hit.get('list_name', '')} ({hit.get('program', '')})",
+                    "Sanctions",
+                    hit.get("match_score", ""),
+                    hit.get("source_url", ""),
+                ]
+            )
 
         # Scholarly publications
         for rec in profile.get("scholarly_records", []):
-            writer.writerow([
-                f"Publication: {rec.get('title', 'N/A')}",
-                str(rec.get("year", "")),
-                "Scholarly", rec.get("confidence", ""),
-                rec.get("source_url", ""),
-            ])
+            writer.writerow(
+                [
+                    f"Publication: {rec.get('title', 'N/A')}",
+                    str(rec.get("year", "")),
+                    "Scholarly",
+                    rec.get("confidence", ""),
+                    rec.get("source_url", ""),
+                ]
+            )
 
         # Domain / infrastructure intel
         for dom in profile.get("domain_intel", []):
-            writer.writerow([
-                f"Domain: {dom.get('domain', 'N/A')}",
-                dom.get("registrar", "") or "",
-                "Infrastructure", dom.get("confidence", ""),
-                dom.get("source_url", ""),
-            ])
+            writer.writerow(
+                [
+                    f"Domain: {dom.get('domain', 'N/A')}",
+                    dom.get("registrar", "") or "",
+                    "Infrastructure",
+                    dom.get("confidence", ""),
+                    dom.get("source_url", ""),
+                ]
+            )
 
         # Relationships (typed edges)
         for rel in profile.get("relationships", []):
-            writer.writerow([
-                f"Relationship: {rel.get('from', '')} -> {rel.get('to', '')}",
-                rel.get("type", ""),
-                "Relationship", "",
-                rel.get("source_url", ""),
-            ])
+            writer.writerow(
+                [
+                    f"Relationship: {rel.get('from', '')} -> {rel.get('to', '')}",
+                    rel.get("type", ""),
+                    "Relationship",
+                    "",
+                    rel.get("source_url", ""),
+                ]
+            )
 
-        # Provenance — public-source citations behind structured claims (Faz 3.1)
+        # Provenance â€” public-source citations behind structured claims (Faz 3.1)
         for claim in profile.get("claims", []):
             citations = claim.get("citations", []) or []
             first = citations[0] if citations else {}
-            writer.writerow([
-                f"Provenance: {claim.get('field', '')}",
-                claim.get("value", ""),
-                "Provenance", first.get("retrieved_at", ""),
-                first.get("url", ""),
-            ])
+            writer.writerow(
+                [
+                    f"Provenance: {claim.get('field', '')}",
+                    claim.get("value", ""),
+                    "Provenance",
+                    first.get("retrieved_at", ""),
+                    first.get("url", ""),
+                ]
+            )
+
+        # Discovery pipeline rows — every platform outcome, refusals included.
+        _discovery_csv(writer, profile)
 
         # Provenance / authorization stamp (Faz 4.3)
         stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
         writer.writerow([])
-        writer.writerow([
-            "# Public-source OSINT", f"Generated {stamp}",
-            "Authorized use only", "", "",
-        ])
+        writer.writerow(
+            [
+                "# Public-source OSINT",
+                f"Generated {stamp}",
+                "Authorized use only",
+                "",
+                "",
+            ]
+        )
 
         return output.getvalue()
 
@@ -282,8 +328,11 @@ class ReportService:
         if companies:
             _section_header(pdf, "5. CORPORATE AFFILIATIONS")
             for comp in companies:
-                _field(pdf, comp.get("company_name", "N/A"),
-                       f"{comp.get('role', '')} | {comp.get('status', '')} | {comp.get('source_name', '')}")
+                _field(
+                    pdf,
+                    comp.get("company_name", "N/A"),
+                    f"{comp.get('role', '')} | {comp.get('status', '')} | {comp.get('source_name', '')}",
+                )
             pdf.ln(5)
 
         # Section 6: Security - Breaches
@@ -323,7 +372,8 @@ class ReportService:
             _section_header(pdf, "9. AI INTELLIGENCE REPORT")
             # Strip image markdown from AI response
             import re
-            clean = re.sub(r'!\[.*?\]\(.*?\)\s*', '', ai_response).strip()
+
+            clean = re.sub(r"!\[.*?\]\(.*?\)\s*", "", ai_response).strip()
             pdf.set_font("Helvetica", "", 9)
             pdf.set_text_color(200, 200, 210)
             # Truncate very long responses for PDF
@@ -346,16 +396,13 @@ class ReportService:
             _section_header(pdf, "11. SANCTIONS / WATCHLIST SCREENING")
             pdf.set_font("Helvetica", "I", 9)
             pdf.set_text_color(255, 180, 50)
-            pdf.multi_cell(0, 5, _safe(
-                "Informational only - possible name matches, verification required."
-            ))
+            pdf.multi_cell(0, 5, _safe("Informational only - possible name matches, verification required."))
             pdf.set_x(pdf.l_margin)  # multi_cell leaves x at the right margin
             pdf.set_text_color(220, 220, 220)
             for hit in sanctions[:20]:
                 score = hit.get("match_score")
                 score_str = f" ({round(score * 100)}%)" if isinstance(score, (int, float)) else ""
-                _field(pdf, hit.get("name", "N/A"),
-                       f"{hit.get('list_name', '')} | {hit.get('program', '')}{score_str}")
+                _field(pdf, hit.get("name", "N/A"), f"{hit.get('list_name', '')} | {hit.get('program', '')}{score_str}")
             pdf.ln(5)
 
         # Section 12: Scholarly Publications
@@ -363,8 +410,7 @@ class ReportService:
         if scholarly:
             _section_header(pdf, "12. SCHOLARLY PUBLICATIONS")
             for rec in scholarly[:20]:
-                _field(pdf, str(rec.get("title", "N/A"))[:70],
-                       f"{rec.get('year', '')} | {rec.get('venue', '')}")
+                _field(pdf, str(rec.get("title", "N/A"))[:70], f"{rec.get('year', '')} | {rec.get('venue', '')}")
             pdf.ln(5)
 
         # Section 13: Domain / Infrastructure Intel
@@ -372,8 +418,11 @@ class ReportService:
         if domains:
             _section_header(pdf, "13. DOMAIN / INFRASTRUCTURE INTEL")
             for dom in domains[:15]:
-                _field(pdf, dom.get("domain", "N/A"),
-                       f"Registrar: {dom.get('registrar', 'N/A')} | Created: {dom.get('created', 'N/A')}")
+                _field(
+                    pdf,
+                    dom.get("domain", "N/A"),
+                    f"Registrar: {dom.get('registrar', 'N/A')} | Created: {dom.get('created', 'N/A')}",
+                )
             pdf.ln(5)
 
         # Section 14: Activity Timeline
@@ -384,7 +433,7 @@ class ReportService:
                 _field(pdf, str(ev.get("date", ""))[:10], str(ev.get("event", "")))
             pdf.ln(5)
 
-        # Section 15: Provenance Appendix — public sources behind each claim (Faz 3.1)
+        # Section 15: Provenance Appendix â€” public sources behind each claim (Faz 3.1)
         claims = profile.get("claims", [])
         if claims:
             _section_header(pdf, "15. PROVENANCE APPENDIX")
@@ -399,10 +448,12 @@ class ReportService:
                     conf = c.get("confidence")
                     conf_str = f" | conf {round(conf * 100)}%" if isinstance(conf, (int, float)) else ""
                     pdf.set_x(pdf.l_margin)
-                    pdf.multi_cell(0, 5, _safe(
-                        f"   - {c.get('url', '')} ({c.get('retrieved_at', '')}{conf_str})"
-                    ))
+                    pdf.multi_cell(0, 5, _safe(f"   - {c.get('url', '')} ({c.get('retrieved_at', '')}{conf_str})"))
             pdf.ln(5)
+
+        # Sections 16-21: discovery pipeline output (statuses, avatars, work,
+        # evidence, namesakes, caveats).
+        _discovery_pdf(pdf, profile)
 
         # Footer on all pages
         for page_num in range(1, pdf.pages_count + 1):
@@ -410,7 +461,9 @@ class ReportService:
             pdf.set_y(-15)
             pdf.set_font("Helvetica", "I", 8)
             pdf.set_text_color(100, 100, 120)
-            pdf.cell(0, 10, f"J.A.R.V.I.S Intelligence Platform | Page {page_num}/{pdf.pages_count} | {generated}", align="C")
+            pdf.cell(
+                0, 10, f"J.A.R.V.I.S Intelligence Platform | Page {page_num}/{pdf.pages_count} | {generated}", align="C"
+            )
 
         return bytes(pdf.output())
 
@@ -420,11 +473,23 @@ class ReportService:
 # ---------------------------------------------------------------------------
 
 _SOCIAL_FIELDS = [
-    "github_url", "instagram_url", "twitter_url", "linkedin_url",
-    "spotify_url", "tiktok_url", "snapchat_url", "tumblr_url",
-    "youtube_url", "reddit_url", "facebook_url", "pinterest_url",
-    "medium_url", "threads_url", "steam_url",
-    "tinder_mention", "bumble_mention", "discord_mention",
+    "github_url",
+    "instagram_url",
+    "twitter_url",
+    "linkedin_url",
+    "spotify_url",
+    "tiktok_url",
+    "snapchat_url",
+    "tumblr_url",
+    "youtube_url",
+    "reddit_url",
+    "facebook_url",
+    "pinterest_url",
+    "threads_url",
+    "steam_url",
+    "tinder_mention",
+    "bumble_mention",
+    "discord_mention",
 ]
 
 
@@ -437,12 +502,12 @@ def _safe(text: str) -> str:
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
-def _set_page_bg(pdf: "FPDF") -> None:
+def _set_page_bg(pdf: FPDF) -> None:
     pdf.set_fill_color(20, 20, 32)
     pdf.rect(0, 0, 210, 297, "F")
 
 
-def _section_header(pdf: "FPDF", title: str) -> None:
+def _section_header(pdf: FPDF, title: str) -> None:
     # Check remaining space, add page if needed
     if pdf.get_y() > 250:
         pdf.add_page()
@@ -455,7 +520,7 @@ def _section_header(pdf: "FPDF", title: str) -> None:
     pdf.ln(3)
 
 
-def _field(pdf: "FPDF", label: str, value: str) -> None:
+def _field(pdf: FPDF, label: str, value: str) -> None:
     if pdf.get_y() > 270:
         pdf.add_page()
         _set_page_bg(pdf)
@@ -471,6 +536,170 @@ def _field(pdf: "FPDF", label: str, value: str) -> None:
         pdf.multi_cell(180, 5, _safe(str(value)))
     else:
         pdf.cell(0, 6, _safe(str(value)[:120]), ln=True)
+
+
+# ---------------------------------------------------------------------------
+# Discovery pipeline sections
+#
+# A `blocked` or `not_found` platform is rendered here with its status_detail
+# rather than skipped. Dropping it would make a refusal indistinguishable from
+# "no such account", which is the silently-empty failure this pipeline replaced.
+# ---------------------------------------------------------------------------
+
+
+def _discovery_json(profile: dict[str, Any]) -> dict[str, Any]:
+    """Discovery sections for the JSON export. Local avatar paths are stripped:
+    an exported dossier should not carry our filesystem layout."""
+    data = build_report_data(profile)
+    return {
+        "social_profiles": data.social,
+        "profile_pictures": [{k: v for k, v in pic.items() if k != "path"} for pic in data.pictures],
+        "work_history": data.work,
+        "education": data.education,
+        "evidence": data.evidence,
+        "notices": data.notices,
+    }
+
+
+def _discovery_csv(writer: Any, profile: dict[str, Any]) -> None:
+    """Append the discovery rows to an in-progress CSV export."""
+    data = build_report_data(profile)
+
+    for row in data.social:
+        writer.writerow(
+            [
+                f"Profile: {row['platform']}",
+                row.get("url") or row.get("username") or "",
+                f"Social Media ({row['status']})",
+                f"{row['confidence']} ({row['band']})",
+                row.get("status_detail") or "",
+            ]
+        )
+    for row in data.work:
+        writer.writerow(
+            [
+                f"Work: {row.get('organization', '')}",
+                f"{row.get('role') or ''} {row.get('start') or ''}-{row.get('end') or ''}".strip(),
+                "Employment",
+                row.get("confidence", ""),
+                row.get("source_url", ""),
+            ]
+        )
+    for row in data.education:
+        writer.writerow(
+            [
+                f"Education: {row.get('institution', '')}",
+                f"{row.get('degree') or ''} {row.get('field_of_study') or ''}".strip(),
+                "Education",
+                row.get("confidence", ""),
+                row.get("source_url", ""),
+            ]
+        )
+    for row in data.evidence:
+        writer.writerow(
+            [
+                f"Evidence: {row.get('kind', '')}",
+                str(row.get("value", ""))[:200],
+                "Evidence",
+                row.get("confidence", ""),
+                row.get("source_url", ""),
+            ]
+        )
+    for notice in data.notices:
+        writer.writerow(["Notice", notice, "Search caveat", "", ""])
+
+
+def _discovery_pdf(pdf: FPDF, profile: dict[str, Any]) -> None:
+    """Render the discovery sections into an in-progress PDF dossier."""
+    data = build_report_data(profile)
+
+    if data.social:
+        _section_header(pdf, "16. PLATFORM STATUS")
+        for row in data.social:
+            detail = f" - {row['status_detail']}" if row.get("status_detail") else ""
+            _field(
+                pdf,
+                f"{row['platform']} [{row['status']}]",
+                f"{row.get('url') or row.get('username') or 'n/a'} | {row['confidence']}% ({row['band']}){detail}",
+            )
+        pdf.ln(5)
+
+    if any(pic.get("path") for pic in data.pictures):
+        _section_header(pdf, "17. PROFILE PICTURES")
+        _pictures_grid(pdf, data.pictures)
+
+    if data.work or data.education:
+        _section_header(pdf, "18. WORK & EDUCATION")
+        for row in data.work:
+            _field(
+                pdf,
+                str(row.get("organization", ""))[:40],
+                f"{row.get('role') or 'n/a'} | {row.get('start') or '?'}-{row.get('end') or 'present'} | {row.get('source_url', '')}",
+            )
+        for row in data.education:
+            _field(
+                pdf,
+                str(row.get("institution", ""))[:40],
+                f"{row.get('degree') or 'n/a'} {row.get('field_of_study') or ''} | {row.get('start') or '?'}-{row.get('end') or '?'} | {row.get('source_url', '')}",
+            )
+        pdf.ln(5)
+
+    if data.evidence:
+        _section_header(pdf, "19. EVIDENCE APPENDIX")
+        for row in data.evidence[:60]:
+            conf = row.get("confidence")
+            conf_str = f"{round(conf * 100)}%" if isinstance(conf, (int, float)) else str(conf or "")
+            _field(
+                pdf,
+                str(row.get("kind", ""))[:30],
+                f"{str(row.get('value', ''))[:90]} | {row.get('source_domain', '')} | {conf_str}",
+            )
+        pdf.ln(5)
+
+    if data.notices:
+        _section_header(pdf, "20. SEARCH NOTICES")
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(255, 180, 50)
+        for notice in data.notices:
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(0, 5, _safe(f"  ! {notice}"))
+        pdf.set_text_color(220, 220, 220)
+        pdf.ln(5)
+
+
+def _pictures_grid(pdf: FPDF, pictures: list[dict[str, Any]]) -> None:
+    """Embed the downloaded avatar files, five per row.
+
+    A picture that will not decode is skipped: a corrupt or truncated file in
+    `data/avatars` must cost the reader one thumbnail, not the whole export.
+    """
+    size, gap = 28.0, 6.0
+    x, y = float(pdf.l_margin), pdf.get_y()
+    drawn = False
+
+    for pic in pictures:
+        path = pic.get("path")
+        if not path:
+            continue
+        if x + size > 195:
+            x, y = float(pdf.l_margin), y + size + 8
+        if y + size > 260:
+            pdf.add_page()
+            _set_page_bg(pdf)
+            x, y = float(pdf.l_margin), pdf.get_y()
+        try:
+            pdf.image(path, x=x, y=y, w=size, h=size)
+        except Exception:  # noqa: BLE001 - any decode failure just drops one thumbnail
+            continue
+        pdf.set_xy(x, y + size + 1)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(180, 180, 200)
+        pdf.cell(size, 4, _safe(str(pic.get("platform", ""))[:14]))
+        x += size + gap
+        drawn = True
+
+    pdf.set_y(y + size + 10 if drawn else y)
+    pdf.set_x(pdf.l_margin)
 
 
 # Singleton
