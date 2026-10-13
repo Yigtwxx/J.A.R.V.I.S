@@ -4,12 +4,12 @@ Generates psychological profiles, vulnerability assessments, and tactical recomm
 from real gathered OSINT data. Never uses mock data.
 """
 
+import asyncio
 import json
 import re
 
-import ollama
-
 from app.config import get_settings
+from app.services.ollama_client import build_ollama_client
 from app.utils.logger import logger
 
 settings = get_settings()
@@ -19,7 +19,7 @@ class PsychologicalAnalysisService:
     """Produces psychological warfare intelligence from real OSINT data."""
 
     def __init__(self):
-        self.client = ollama.AsyncClient()
+        self.client = build_ollama_client(settings.ollama_request_timeout_seconds)
         self.model = settings.ollama_model
 
     @staticmethod
@@ -70,8 +70,7 @@ class PsychologicalAnalysisService:
                 parts.append(f"=== EXPOSED EMAILS ===\n{', '.join(structured_data['email_addresses'])}")
             if structured_data.get("cross_validation_issues"):
                 parts.append(
-                    f"=== CROSS-VALIDATION ISSUES ===\n"
-                    + "\n".join(structured_data["cross_validation_issues"])
+                    "=== CROSS-VALIDATION ISSUES ===\n" + "\n".join(structured_data["cross_validation_issues"])
                 )
             if structured_data.get("data_breaches"):
                 breach_names = [b.get("Name", "unknown") for b in structured_data["data_breaches"][:10]]
@@ -135,10 +134,16 @@ Do NOT include ```json tags.
         try:
             logger.log_action("Initiating psychological warfare analysis...")
 
-            response = await self.client.generate(
-                model=self.model,
-                prompt=prompt,
-                options={"temperature": 0.3, "top_p": 0.4},
+            # Bounded so one stalled side-analysis cannot hold the whole search
+            # open. Failure here is already non-critical: the except below returns
+            # None and the report is assembled without this section.
+            response = await asyncio.wait_for(
+                self.client.generate(
+                    model=self.model,
+                    prompt=prompt,
+                    options={"temperature": 0.3, "top_p": 0.4},
+                ),
+                timeout=settings.llm_side_analysis_timeout_seconds,
             )
 
             response_text = self._strip_thinking(response["response"])
@@ -165,19 +170,25 @@ Do NOT include ```json tags.
 
             for vec in parsed.get("social_engineering_vectors", []):
                 if isinstance(vec, dict) and "vector" in vec:
-                    result["social_engineering_vectors"].append({
-                        "vector": str(vec.get("vector", "")),
-                        "approach": str(vec.get("approach", "")),
-                        "risk_level": str(vec.get("risk_level", "medium")).lower(),
-                    })
+                    result["social_engineering_vectors"].append(
+                        {
+                            "vector": str(vec.get("vector", "")),
+                            "approach": str(vec.get("approach", "")),
+                            "risk_level": str(vec.get("risk_level", "medium")).lower(),
+                        }
+                    )
 
             logger.log_success("Psychological warfare analysis complete")
             return result
 
         except json.JSONDecodeError as e:
             logger.log_error(f"Psychological analysis JSON parse failure: {e}")
+        except TimeoutError:
+            logger.log_warning(
+                f"Psychological analysis timed out after {settings.llm_side_analysis_timeout_seconds:.0f}s."
+            )
         except Exception as e:
-            logger.log_error(f"Psychological analysis failed: {e}")
+            logger.log_error(f"Psychological analysis failed: {type(e).__name__}: {e}")
 
         return None
 
