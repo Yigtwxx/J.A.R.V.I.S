@@ -16,9 +16,8 @@ Never raises — degrades to an empty list so the pipeline is never broken.
 from __future__ import annotations
 
 import asyncio
-import urllib.parse
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -36,7 +35,7 @@ _ARXIV_NS = "{http://www.w3.org/2005/Atom}"
 
 
 def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _norm_title(t: str) -> str:
@@ -81,15 +80,17 @@ class ScholarlyService:
             title = p.get("title")
             if not title:
                 continue
-            records.append({
-                "title": title,
-                "year": p.get("year"),
-                "venue": p.get("venue") or "",
-                "authors": [name],
-                "source_url": p.get("url") or _S2_AUTHOR,
-                "retrieved_at": now,
-                "confidence": 0.75,
-            })
+            records.append(
+                {
+                    "title": title,
+                    "year": p.get("year"),
+                    "venue": p.get("venue") or "",
+                    "authors": [name],
+                    "source_url": p.get("url") or _S2_AUTHOR,
+                    "retrieved_at": now,
+                    "confidence": 0.75,
+                }
+            )
         return records
 
     async def _arxiv(self, client: httpx.AsyncClient, name: str) -> list[dict]:
@@ -115,22 +116,21 @@ class ScholarlyService:
             pub_el = entry.find(f"{_ARXIV_NS}published")
             if title_el is None or not title_el.text:
                 continue
-            authors = [
-                a.findtext(f"{_ARXIV_NS}name", "").strip()
-                for a in entry.findall(f"{_ARXIV_NS}author")
-            ]
+            authors = [a.findtext(f"{_ARXIV_NS}name", "").strip() for a in entry.findall(f"{_ARXIV_NS}author")]
             year = None
             if pub_el is not None and pub_el.text:
                 year = pub_el.text[:4]
-            records.append({
-                "title": " ".join(title_el.text.split()),
-                "year": int(year) if year and year.isdigit() else None,
-                "venue": "arXiv",
-                "authors": [a for a in authors if a][:8],
-                "source_url": (id_el.text if id_el is not None else _ARXIV) or _ARXIV,
-                "retrieved_at": now,
-                "confidence": 0.8,
-            })
+            records.append(
+                {
+                    "title": " ".join(title_el.text.split()),
+                    "year": int(year) if year and year.isdigit() else None,
+                    "venue": "arXiv",
+                    "authors": [a for a in authors if a][:8],
+                    "source_url": (id_el.text if id_el is not None else _ARXIV) or _ARXIV,
+                    "retrieved_at": now,
+                    "confidence": 0.8,
+                }
+            )
         return records
 
     async def _crossref(self, client: httpx.AsyncClient, name: str) -> list[dict]:
@@ -163,19 +163,18 @@ class ScholarlyService:
             if dp and dp[0]:
                 year = dp[0][0]
             containers = item.get("container-title") or []
-            authors = [
-                f"{a.get('given', '')} {a.get('family', '')}".strip()
-                for a in (item.get("author") or [])
-            ]
-            records.append({
-                "title": titles[0],
-                "year": year,
-                "venue": containers[0] if containers else "",
-                "authors": [a for a in authors if a][:8],
-                "source_url": item.get("URL") or _CROSSREF,
-                "retrieved_at": now,
-                "confidence": 0.7,
-            })
+            authors = [f"{a.get('given', '')} {a.get('family', '')}".strip() for a in (item.get("author") or [])]
+            records.append(
+                {
+                    "title": titles[0],
+                    "year": year,
+                    "venue": containers[0] if containers else "",
+                    "authors": [a for a in authors if a][:8],
+                    "source_url": item.get("URL") or _CROSSREF,
+                    "retrieved_at": now,
+                    "confidence": 0.7,
+                }
+            )
         return records
 
     async def aggregate(self, name: str) -> list[dict]:
@@ -209,7 +208,7 @@ class ScholarlyService:
                     seen.add(key)
                     merged.append(rec)
 
-        merged.sort(key=lambda r: (r.get("year") or 0), reverse=True)
+        merged.sort(key=lambda r: r.get("year") or 0, reverse=True)
         merged = merged[:_MAX_RECORDS]
         if merged:
             logger.log_success(f"Scholarly intel: {len(merged)} record(s) found")
