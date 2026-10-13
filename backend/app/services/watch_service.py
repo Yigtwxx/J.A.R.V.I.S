@@ -4,14 +4,21 @@ WatchService — Continuous surveillance and change detection for targets.
 Enables background monitoring of targets with periodic re-scanning
 and diff-based change alerts. Runs as async background tasks.
 """
+
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
-from app.services.version_history_service import TRACKED_INTEL_SIGS, _intel_signatures
+from app.discovery.dependencies import get_discovery_runner
+from app.services.discovery_integration import profile_snapshot, status_index, watch_alerts
 from app.utils.logger import logger
+
+if TYPE_CHECKING:  # pragma: no cover - typing only, avoids a heavy import at module load
+    from app.discovery.loop.runner import DiscoveryResult, DiscoveryRunner
 
 
 class WatchTarget:
@@ -27,11 +34,31 @@ class WatchTarget:
         self.interval_minutes = interval_minutes
         self.callback = callback
         self.last_check: datetime | None = None
-        self.last_snapshot: dict[str, Any] = {}
+        self.last_profile_snapshot: dict[str, Any] = {}
+        """Previous `profile_snapshot(result.profiles)` from the discovery pipeline."""
+        self.last_diff: dict[str, dict[str, Any]] | None = None
+        """Most recent alert batch, in the `{key: {old, new}}` shape the panel renders."""
         self.changes_detected: int = 0
         self.is_active: bool = True
         self.created_at: datetime = datetime.now(UTC)
         self._task: asyncio.Task | None = None
+
+    def as_status(self) -> dict[str, Any]:
+        """Status payload for the API.
+
+        The key is `last_checked`, not `last_check`: that is the name the frontend
+        schema and WatchPanel read, and the mismatch is why the panel never
+        rendered a last-scan time.
+        """
+        return {
+            "query": self.query,
+            "interval_minutes": self.interval_minutes,
+            "last_checked": self.last_check.isoformat() if self.last_check else None,
+            "last_diff": self.last_diff,
+            "changes_detected": self.changes_detected,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat(),
+        }
 
 
 class WatchService:
@@ -43,58 +70,15 @@ class WatchService:
     @property
     def active_watches(self) -> list[dict[str, Any]]:
         """Return status of all active watches."""
-        return [
-            {
-                "query": t.query,
-                "interval_minutes": t.interval_minutes,
-                "last_check": t.last_check.isoformat() if t.last_check else None,
-                "changes_detected": t.changes_detected,
-                "is_active": t.is_active,
-                "created_at": t.created_at.isoformat(),
-            }
-            for t in self._targets.values()
-        ]
-
-    def start_watch(
-        self,
-        query: str,
-        interval_minutes: int = 60,
-        search_fn: Callable | None = None,
-        notify_fn: Callable[[str, dict], Any] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Start monitoring a target. Returns watch status.
-        search_fn: async function that performs a search and returns result dict
-        notify_fn: async function called when changes are detected
-        """
-        if query in self._targets and self._targets[query].is_active:
-            return {"status": "already_watching", "query": query}
-
-        target = WatchTarget(query, interval_minutes, notify_fn)
-        self._targets[query] = target
-
-        # Start background monitoring task
-        target._task = asyncio.create_task(
-            self._monitor_loop(target, search_fn)
-        )
-
-        logger.log_success(f"Watch mode activated for target: {query} (every {interval_minutes}min)")
-        return {
-            "status": "watching",
-            "query": query,
-            "interval_minutes": interval_minutes,
-        }
+        return [t.as_status() for t in self._targets.values()]
 
     def stop_watch(self, query: str) -> dict[str, Any]:
-        """Stop monitoring a target."""
-        target = self._targets.get(query)
+        """Stop monitoring a target and drop it from the list."""
+        target = self._targets.pop(query, None)
         if not target:
             return {"status": "not_found", "query": query}
 
-        target.is_active = False
-        if target._task:
-            target._task.cancel()
-
+        self._cancel(target)
         logger.log_action(f"Watch mode deactivated for target: {query}")
         return {
             "status": "stopped",
@@ -104,133 +88,158 @@ class WatchService:
 
     def stop_all(self) -> int:
         """Stop all active watches. Returns count stopped."""
-        count = 0
-        for target in self._targets.values():
-            if target.is_active:
-                target.is_active = False
-                if target._task:
-                    target._task.cancel()
-                count += 1
-        logger.log_action(f"All watches terminated: {count} target(s)")
-        return count
+        targets, self._targets = self._targets, {}
+        for target in targets.values():
+            self._cancel(target)
+        logger.log_action(f"All watches terminated: {len(targets)} target(s)")
+        return len(targets)
 
     def get_watch_status(self, query: str) -> dict[str, Any] | None:
         """Get status of a specific watch."""
         target = self._targets.get(query)
-        if not target:
-            return None
-        return {
-            "query": target.query,
-            "interval_minutes": target.interval_minutes,
-            "last_check": target.last_check.isoformat() if target.last_check else None,
-            "changes_detected": target.changes_detected,
-            "is_active": target.is_active,
-            "created_at": target.created_at.isoformat(),
-        }
-
-    # -- Change Detection --------------------------------------------------
+        return target.as_status() if target else None
 
     @staticmethod
-    def compute_diff(old: dict, new: dict) -> list[dict[str, Any]]:
-        """Compare two profile snapshots and return list of changes."""
-        changes = []
-        # Fields to track for changes
-        tracked_fields = [
-            "description", "location_country", "location_city",
-            "social_media_score", "email_addresses", "phone_numbers",
-            "network_connections", "data_breaches", "company_records",
-            "github_url", "instagram_url", "twitter_url", "linkedin_url",
-        ]
+    def _cancel(target: WatchTarget) -> None:
+        target.is_active = False
+        if target._task:
+            target._task.cancel()
 
-        for field in tracked_fields:
-            old_val = old.get(field)
-            new_val = new.get(field)
-            if old_val != new_val:
-                changes.append({
-                    "field": field,
-                    "old_value": str(old_val)[:200] if old_val else None,
-                    "new_value": str(new_val)[:200] if new_val else None,
-                    "detected_at": datetime.now(UTC).isoformat(),
-                })
+    # -- Discovery pipeline re-scan ----------------------------------------
 
-        # New intel fields — compare timestamp-free signatures so re-scans only
-        # alert on meaningful changes (new domain/sanction/relationship), not the
-        # `retrieved_at` that changes every scan (Faz 3.3).
-        old_sigs = _intel_signatures(lambda k: old.get(k))
-        new_sigs = _intel_signatures(lambda k: new.get(k))
-        for key, label in TRACKED_INTEL_SIGS.items():
-            if old_sigs.get(key) != new_sigs.get(key):
-                changes.append({
-                    "field": key,
-                    "old_value": str(old_sigs.get(key))[:200] if old_sigs.get(key) else None,
-                    "new_value": str(new_sigs.get(key))[:200] if new_sigs.get(key) else None,
-                    "detected_at": datetime.now(UTC).isoformat(),
-                })
+    @staticmethod
+    async def rescan(
+        query: str,
+        runner: DiscoveryRunner | None = None,
+        *,
+        depth: int = 5,
+    ) -> DiscoveryResult:
+        """Re-run a watched target through the discovery pipeline.
 
-        return changes
+        `interactive=False` is not optional here. A watch fires on a timer with
+        nobody at the screen, so a mid-search disambiguation question would block
+        the round until it timed out and the re-scan would be wasted.
+        """
+        active = runner or get_discovery_runner()
+        return await active.run(
+            session_id=f"watch-{uuid4().hex[:12]}",
+            raw_query=query,
+            depth=depth,
+            interactive=False,
+        )
 
-    # -- Private -----------------------------------------------------------
+    @staticmethod
+    def compute_profile_diff(
+        old_snapshot: dict[str, Any],
+        new_snapshot: dict[str, Any],
+        profiles: Sequence[Any] = (),
+    ) -> list[dict[str, Any]]:
+        """Alerts between two discovery snapshots.
 
-    async def _monitor_loop(
-        self, target: WatchTarget, search_fn: Callable | None
-    ) -> None:
-        """Background monitoring loop for a single target."""
+        Fires on: a new account, a removed account, a changed avatar (compared on
+        `avatar_sha256`, never on the URL) or a changed bio.
+
+        A platform going `found` -> `blocked` is deliberately NOT an alert. The
+        account did not disappear; we were refused. Because a blocked candidate is
+        no longer live it drops out of the snapshot entirely, so without this rule
+        a refusal is indistinguishable from a deletion and a false "account
+        removed" alarm fires every single time a site rate-limits or captchas us.
+        """
+        return watch_alerts(old_snapshot, new_snapshot, statuses=status_index(profiles))
+
+    def start_discovery_watch(
+        self,
+        query: str,
+        interval_minutes: int = 60,
+        runner: DiscoveryRunner | None = None,
+        notify_fn: Callable[[str, dict], Any] | None = None,
+    ) -> dict[str, Any]:
+        """Watch a target by re-running it through the discovery pipeline."""
+        if query in self._targets and self._targets[query].is_active:
+            return {"status": "already_watching", "query": query}
+
+        target = WatchTarget(query, interval_minutes, notify_fn)
+        self._targets[query] = target
+        target._task = asyncio.create_task(self._discovery_loop(target, runner))
+
+        logger.log_success(f"Discovery watch activated for target: {query} (every {interval_minutes}min)")
+        return {
+            "status": "watching",
+            "query": query,
+            "interval_minutes": interval_minutes,
+            "engine": "discovery",
+        }
+
+    async def _discovery_loop(self, target: WatchTarget, runner: DiscoveryRunner | None) -> None:
+        """Scan, then sleep — never the other way round.
+
+        The baseline scan has to happen the moment the watch starts. Sleeping
+        first meant a fresh watch showed no last-scan time and no changes until a
+        full interval had elapsed, and could not raise its first alert until two
+        had — an hour of looking broken on the default interval.
+        """
         while target.is_active:
             try:
+                await self._run_once(target, runner)
                 await asyncio.sleep(target.interval_minutes * 60)
-
-                if not target.is_active:
-                    break
-
-                if not search_fn:
-                    continue
-
-                logger.log_action(f"Watch mode: Re-scanning target '{target.query}'")
-
-                # Run the search
-                try:
-                    new_result = await search_fn(target.query)
-                    new_snapshot = new_result if isinstance(new_result, dict) else {}
-                except Exception as e:
-                    logger.log_warning(f"Watch scan failed for '{target.query}': {e}")
-                    continue
-
-                target.last_check = datetime.now(UTC)
-
-                # Compare with previous snapshot
-                if target.last_snapshot:
-                    changes = self.compute_diff(target.last_snapshot, new_snapshot)
-                    if changes:
-                        target.changes_detected += len(changes)
-                        logger.log_warning(
-                            f"WATCH ALERT [{target.query}]: {len(changes)} change(s) detected!"
-                        )
-
-                        # Notify via callback
-                        if target.callback:
-                            try:
-                                await target.callback(target.query, {
-                                    "changes": changes,
-                                    "timestamp": datetime.now(UTC).isoformat(),
-                                })
-                            except Exception as e:
-                                logger.log_warning(f"Watch notification failed: {e}")
-
-                        # Broadcast to SSE subscribers
-                        for change in changes:
-                            await logger.broadcast(
-                                f"[WATCH] {target.query}: {change['field']} changed"
-                            )
-                    else:
-                        logger.log_action(f"Watch scan complete for '{target.query}': No changes")
-
-                target.last_snapshot = new_snapshot
-
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.log_error(f"Watch loop error for '{target.query}': {e}")
+                logger.log_error(f"Discovery watch loop error for '{target.query}': {e}")
                 await asyncio.sleep(60)  # Wait before retry
+
+    async def _run_once(self, target: WatchTarget, runner: DiscoveryRunner | None) -> list[dict[str, Any]]:
+        """One re-scan, diffed against the previous one. Returns the alerts raised.
+
+        The first call only establishes the baseline, so it always returns none —
+        there is nothing to compare a first scan against.
+        """
+        logger.log_action(f"Discovery watch: re-scanning target '{target.query}'")
+        try:
+            result = await self.rescan(target.query, runner)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            # Leave `last_profile_snapshot` untouched: replacing the baseline with
+            # nothing would make the next successful scan report every account as new.
+            logger.log_warning(f"Discovery watch scan failed for '{target.query}': {e}")
+            return []
+
+        target.last_check = datetime.now(UTC)
+        snapshot = profile_snapshot(result.profiles)
+        alerts: list[dict[str, Any]] = []
+
+        if target.last_profile_snapshot:
+            alerts = self.compute_profile_diff(target.last_profile_snapshot, snapshot, result.profiles)
+            if alerts:
+                target.changes_detected += len(alerts)
+                target.last_diff = {
+                    f"{a['platform']}:{a['username']}": {"old": a.get("before"), "new": a.get("after")} for a in alerts
+                }
+                logger.log_warning(f"WATCH ALERT for '{target.query}': {len(alerts)} change(s) detected!")
+                await self._notify(target, alerts)
+            else:
+                logger.log_action(f"Discovery watch complete for '{target.query}': No changes")
+
+        target.last_profile_snapshot = snapshot
+        return alerts
+
+    async def _notify(self, target: WatchTarget, alerts: list[dict[str, Any]]) -> None:
+        """Fan an alert batch out to the callback and the SSE stream."""
+        if target.callback:
+            try:
+                await target.callback(
+                    target.query,
+                    {"changes": alerts, "timestamp": datetime.now(UTC).isoformat()},
+                )
+            except Exception as e:
+                logger.log_warning(f"Watch notification failed: {e}")
+
+        # `broadcast` is synchronous — awaiting it raises TypeError — and it strips
+        # bracketed segments as Rich markup, so the tag and query must go unbracketed
+        # or they never reach the stream.
+        for alert in alerts:
+            logger.broadcast(f"WATCH {target.query}: {alert['platform']} {alert['change']}")
 
 
 # Module-level singleton
