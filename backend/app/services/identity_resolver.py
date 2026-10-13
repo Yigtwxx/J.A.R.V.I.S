@@ -98,7 +98,9 @@ def _build_anchor(
     anchor = _Anchor(name_tokens=_tokens(real_name))
 
     if github_data:
-        anchor.handle = _normalize(github_data.get("login"))
+        # GitHubService emits the handle as "username"; "login" is the raw GitHub
+        # API spelling and is accepted too so either shape anchors correctly.
+        anchor.handle = _normalize(github_data.get("username") or github_data.get("login"))
         anchor.location_tokens = _tokens(github_data.get("location"))
         anchor.name_tokens |= _tokens(github_data.get("name"))
 
@@ -156,7 +158,7 @@ def anchor_corroborated_by_web(
     anchor to corroborate (caller should fall back to other signals)."""
     if not github_data:
         return None
-    login = _normalize(github_data.get("login"))
+    login = _normalize(github_data.get("username") or github_data.get("login"))
     profile_url = (github_data.get("profile_url") or "").lower()
     blob = _normalize(
         " ".join(f"{s.get('title', '')} {s.get('snippet', '')} {s.get('url', '')}" for s in (raw_sources or []))
@@ -178,9 +180,7 @@ def web_relevance_ratio(real_name: str, raw_sources: list[dict[str, Any]] | None
     sources = raw_sources or []
     if not name_tokens or not sources:
         return None
-    relevant = sum(
-        1 for s in sources if name_tokens <= _tokens(f"{s.get('title', '')} {s.get('snippet', '')}")
-    )
+    relevant = sum(1 for s in sources if name_tokens <= _tokens(f"{s.get('title', '')} {s.get('snippet', '')}"))
     return round(relevant / len(sources), 2)
 
 
