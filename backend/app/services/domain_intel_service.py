@@ -19,7 +19,7 @@ the overall search pipeline is never broken.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 import httpx
@@ -30,29 +30,50 @@ from app.utils.logger import logger
 # Constants
 # ---------------------------------------------------------------------------
 
-_RDAP_BASE  = "https://rdap.org/domain"
-_DNS_BASE   = "https://dns.google/resolve"
+_RDAP_BASE = "https://rdap.org/domain"
+_DNS_BASE = "https://dns.google/resolve"
 _CRTSH_BASE = "https://crt.sh"
-_TIMEOUT    = 10.0
+_TIMEOUT = 10.0
 _USER_AGENT = "J.A.R.V.I.S-OSINT/2.0"
 
-_MAX_DOMAINS    = 5
+_MAX_DOMAINS = 5
 _MAX_SUBDOMAINS = 25
-_DNS_TYPES      = ("A", "MX", "TXT", "NS")
+_DNS_TYPES = ("A", "MX", "TXT", "NS")
 
 # Free / shared mail providers — a personal address here tells us nothing about
 # infrastructure the subject controls, so we never WHOIS them.
 _FREE_MAIL_PROVIDERS = {
-    "gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com",
-    "msn.com", "yahoo.com", "yahoo.co.uk", "ymail.com", "icloud.com", "me.com",
-    "mac.com", "proton.me", "protonmail.com", "pm.me", "aol.com", "gmx.com",
-    "gmx.net", "mail.com", "yandex.com", "yandex.ru", "zoho.com", "fastmail.com",
-    "hey.com", "tutanota.com", "tuta.io",
+    "gmail.com",
+    "googlemail.com",
+    "outlook.com",
+    "hotmail.com",
+    "live.com",
+    "msn.com",
+    "yahoo.com",
+    "yahoo.co.uk",
+    "ymail.com",
+    "icloud.com",
+    "me.com",
+    "mac.com",
+    "proton.me",
+    "protonmail.com",
+    "pm.me",
+    "aol.com",
+    "gmx.com",
+    "gmx.net",
+    "mail.com",
+    "yandex.com",
+    "yandex.ru",
+    "zoho.com",
+    "fastmail.com",
+    "hey.com",
+    "tutanota.com",
+    "tuta.io",
 }
 
 
 def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class DomainIntelService:
@@ -106,8 +127,11 @@ class DomainIntelService:
     async def _rdap(self, client: httpx.AsyncClient, domain: str) -> dict:
         """Registrar, key dates, nameservers and statuses via RDAP."""
         out: dict = {
-            "registrar": None, "created": None, "expires": None,
-            "nameservers": [], "statuses": [],
+            "registrar": None,
+            "created": None,
+            "expires": None,
+            "nameservers": [],
+            "statuses": [],
         }
         try:
             resp = await client.get(f"{_RDAP_BASE}/{domain}", timeout=_TIMEOUT)
@@ -130,10 +154,7 @@ class DomainIntelService:
             elif action == "expiration":
                 out["expires"] = event.get("eventDate")
 
-        out["nameservers"] = [
-            ns.get("ldhName") for ns in (data.get("nameservers") or [])
-            if ns.get("ldhName")
-        ]
+        out["nameservers"] = [ns.get("ldhName") for ns in (data.get("nameservers") or []) if ns.get("ldhName")]
         out["statuses"] = [s for s in (data.get("status") or []) if isinstance(s, str)]
         return out
 
