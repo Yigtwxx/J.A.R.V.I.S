@@ -1,5 +1,6 @@
 """Search pipeline — step-based orchestration for the person-search flow."""
-from .context import PipelineContext
+
 from .base import PipelineStep
+from .context import PipelineContext
 
 __all__ = ["PipelineContext", "PipelineStep"]
