@@ -49,7 +49,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
+from app.discovery.evidence.store import EvidenceStore
 from app.main import app
+from app.models.discovery import (  # noqa: F401
+    EvidenceRecord,
+    PlatformOutcome,
+    SearchSession,
+    UserAnswer,
+)
 from app.models.history import SearchHistory  # noqa: F401
 
 # Import all models so Base.metadata knows about all tables
@@ -86,6 +93,18 @@ def db_session(db_engine):
     yield session
     session.rollback()
     session.close()
+
+
+@pytest.fixture
+def evidence_store(db_engine):
+    """EvidenceStore bound to the in-memory test database.
+
+    Deliberately given its own sessionmaker rather than the shared ``db_session``:
+    the store opens and closes a session per operation, because the real discovery
+    loop outlives the HTTP request that started it. StaticPool keeps every one of
+    those short-lived sessions pointed at the same in-memory database.
+    """
+    return EvidenceStore(session_factory=sessionmaker(bind=db_engine))
 
 
 # ---------------------------------------------------------------------------
@@ -189,29 +208,8 @@ def mock_github_service():
 def mock_scraper_service():
     """Mock ScraperService."""
     svc = MagicMock()
-    svc.find_all_profiles.return_value = {
-        "instagram": [{"url": "https://instagram.com/testuser", "bio": "Test bio"}],
-        "twitter": [],
-        "linkedin": [],
-        "spotify": [],
-        "tiktok": [],
-        "snapchat": [],
-        "tumblr": [],
-        "tinder": [],
-        "bumble": [],
-        "youtube": [],
-        "reddit": [],
-        "facebook": [],
-        "pinterest": [],
-        "medium": [],
-        "threads": [],
-        "steam": [],
-        "discord": [],
-    }
     svc.format_social_profiles.return_value = "Social media summary for test user."
     svc.extract_phone_numbers.return_value = []
-    svc.find_profiles_by_username.return_value = {}
-    svc.fetch_avatar_from_url.return_value = None
     return svc
 
 
