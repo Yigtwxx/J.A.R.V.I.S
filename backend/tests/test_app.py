@@ -5,7 +5,6 @@ Covers: root, health, docs availability, CORS, status endpoints.
 """
 
 
-
 class TestRootEndpoint:
     """GET /"""
 
