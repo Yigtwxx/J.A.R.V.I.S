@@ -119,10 +119,12 @@ class TestJoinUrls:
         assert _join_urls(profiles, "twitter") == "https://x.com/test"
 
     def test_multiple_profiles(self):
-        profiles = {"twitter": [
-            {"url": "https://x.com/test1", "bio": ""},
-            {"url": "https://x.com/test2", "bio": ""},
-        ]}
+        profiles = {
+            "twitter": [
+                {"url": "https://x.com/test1", "bio": ""},
+                {"url": "https://x.com/test2", "bio": ""},
+            ]
+        }
         result = _join_urls(profiles, "twitter")
         assert "test1" in result
         assert "test2" in result
