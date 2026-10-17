@@ -1,4 +1,5 @@
 """Step 6 — run AI generation, face matching, and sentiment analysis concurrently."""
+
 from __future__ import annotations
 
 import asyncio
@@ -31,13 +32,8 @@ class AnalysisRunnerStep(PipelineStep):
         async def run_face_match():
             if ctx.face_images and len(ctx.face_images) >= 2:
                 try:
-                    logger.log_action(
-                        f"Initiating biometric cross-reference across "
-                        f"{len(ctx.face_images)} inputs..."
-                    )
-                    return await loop.run_in_executor(
-                        None, self._face.analyze_all_images, ctx.face_images
-                    )
+                    logger.log_action(f"Initiating biometric cross-reference across {len(ctx.face_images)} inputs...")
+                    return await loop.run_in_executor(None, self._face.analyze_all_images, ctx.face_images)
                 except Exception as e:
                     logger.log_warning(f"Face matching failed (non-critical): {e}")
             return None
@@ -52,7 +48,9 @@ class AnalysisRunnerStep(PipelineStep):
             return None
 
         face_match_report, sentiment_report = await asyncio.gather(
-            run_face_match(), run_sentiment(), return_exceptions=True,
+            run_face_match(),
+            run_sentiment(),
+            return_exceptions=True,
         )
         if isinstance(face_match_report, BaseException):
             logger.log_warning(f"Face match gather exception: {face_match_report}")
