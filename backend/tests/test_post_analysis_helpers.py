@@ -12,13 +12,12 @@ from app.services.pipeline.post_analysis_runner import (
 def test_build_claims_sources_only():
     claims = _build_claims(
         structured_data={"name": "X"},
-        company_records=[{"company_name": "Acme", "source_url": "https://oc/x",
-                          "source_name": "OC", "confidence": 0.8}],
+        company_records=[
+            {"company_name": "Acme", "source_url": "https://oc/x", "source_name": "OC", "confidence": 0.8}
+        ],
         data_breaches=[{"Title": "LinkedIn", "Source": "XON", "TargetEmail": "a@b.com"}],
-        sanctions_hits=[{"name": "John X", "source_url": "https://ofac", "list_name": "OFAC SDN",
-                         "match_score": 0.9}],
-        scholarly_records=[{"title": "Paper", "source_url": "https://s2", "venue": "V",
-                            "confidence": 0.7}],
+        sanctions_hits=[{"name": "John X", "source_url": "https://ofac", "list_name": "OFAC SDN", "match_score": 0.9}],
+        scholarly_records=[{"title": "Paper", "source_url": "https://s2", "venue": "V", "confidence": 0.7}],
         all_issues=[],
     )
     fields = {c["field"] for c in claims}
@@ -32,7 +31,9 @@ def test_build_claims_conflict_lowers_corroboration():
     claims = _build_claims(
         {"name": "X"},
         [{"company_name": "Acme", "source_url": "https://oc/x", "confidence": 0.8}],
-        [], [], [],
+        [],
+        [],
+        [],
         all_issues=["Conflicting data about Acme across sources"],
     )
     company = [c for c in claims if c["field"] == "company"][0]
@@ -41,12 +42,19 @@ def test_build_claims_conflict_lowers_corroboration():
 
 def test_build_timeline_sorted_with_sources():
     tl = _build_timeline(
-        github_data={"profile_url": "https://gh/u", "recent_commits": [
-            {"date": "2021-01-01T00:00:00Z", "message": "fix bug", "repo": "r"}]},
+        github_data={
+            "profile_url": "https://gh/u",
+            "recent_commits": [{"date": "2021-01-01T00:00:00Z", "message": "fix bug", "repo": "r"}],
+        },
         data_breaches=[{"BreachDate": "2019", "Title": "LinkedIn"}],
         company_records=[],
-        archive_snapshots=[{"timestamp": "2020-01-01T00:00:00Z", "url": "http://x",
-                            "snapshot_url": "https://web.archive.org/web/2020/x"}],
+        archive_snapshots=[
+            {
+                "timestamp": "2020-01-01T00:00:00Z",
+                "url": "http://x",
+                "snapshot_url": "https://web.archive.org/web/2020/x",
+            }
+        ],
     )
     assert len(tl) == 3
     keys = [e["date"] for e in tl]
@@ -113,8 +121,7 @@ def test_assess_disambiguation_single_identity_unchanged():
 
 def test_build_relationships_typed_edges():
     rels = _build_relationships(
-        structured_data={"name": "Subject", "network_connections": [
-            {"name": "Ally", "relation": "colleague"}]},
+        structured_data={"name": "Subject", "network_connections": [{"name": "Ally", "relation": "colleague"}]},
         company_records=[{"company_name": "Acme", "role": "CEO", "source_url": "https://oc/x"}],
         sanctions_hits=[{"name": "BadCo", "list_name": "OFAC SDN", "source_url": "https://ofac"}],
     )
