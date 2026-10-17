@@ -74,6 +74,7 @@ def _patch_client(monkeypatch, handler) -> None:
 # derive_domains (pure, no network)
 # ---------------------------------------------------------------------------
 
+
 def test_derive_domains_filters_free_mail_and_parses_blog():
     svc = DomainIntelService()
     domains = svc.derive_domains(
@@ -96,6 +97,7 @@ def test_derive_domains_empty_and_cap():
 # ---------------------------------------------------------------------------
 # Per-source parsing (client injected directly)
 # ---------------------------------------------------------------------------
+
 
 def _run_one(handler, domain="example.com"):
     svc = DomainIntelService()
@@ -127,6 +129,7 @@ def test_fetch_one_parses_all_sources():
 # ---------------------------------------------------------------------------
 # Graceful degradation — never raises, never breaks the pipeline
 # ---------------------------------------------------------------------------
+
 
 def test_aggregate_empty_returns_empty():
     svc = DomainIntelService()
