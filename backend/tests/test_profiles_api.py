@@ -5,7 +5,6 @@ Covers: CRUD operations for /api/profiles/*
 """
 
 
-
 class TestCreateProfile:
     """POST /api/profiles/"""
 
@@ -46,7 +45,6 @@ class TestCreateProfile:
             "reddit_url": "https://reddit.com/user/full",
             "facebook_url": "https://facebook.com/full",
             "pinterest_url": "https://pinterest.com/full",
-            "medium_url": "https://medium.com/@full",
             "threads_url": "https://threads.net/@full",
             "steam_url": "https://steamcommunity.com/id/full",
             "tinder_mention": "Mentioned on Tinder",
@@ -60,7 +58,6 @@ class TestCreateProfile:
         assert response.status_code == 200
         data = response.json()
         assert data["pinterest_url"] == "https://pinterest.com/full"
-        assert data["medium_url"] == "https://medium.com/@full"
         assert data["threads_url"] == "https://threads.net/@full"
         assert data["steam_url"] == "https://steamcommunity.com/id/full"
         assert data["discord_mention"] == "full#1234"
