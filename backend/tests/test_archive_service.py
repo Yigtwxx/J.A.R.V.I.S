@@ -31,9 +31,7 @@ def _patch_client(monkeypatch, handler):
 
 def test_derive_urls_dedup_and_cap():
     svc = ArchiveService()
-    urls = svc.derive_urls(
-        ["https://x.com/a", "https://x.com/a"], "example.com", ["acme.io"]
-    )
+    urls = svc.derive_urls(["https://x.com/a", "https://x.com/a"], "example.com", ["acme.io"])
     assert "https://x.com/a" in urls
     assert "https://example.com" in urls
     assert "https://acme.io" in urls
