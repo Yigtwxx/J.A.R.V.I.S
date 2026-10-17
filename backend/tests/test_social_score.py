@@ -1,11 +1,12 @@
 """
 Unit tests for SocialScoreService (Digital Impact Score Algorithm).
 """
+
 import os
 import sys
 
 # Add the backend app directory to the import path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.services.social_score_service import SocialScoreService
 
@@ -16,7 +17,17 @@ def test_no_data():
     """Score should be 0 when no data is available at all."""
     result = service.calculate_score(
         github_data=None,
-        social_profiles={"instagram": [], "twitter": [], "linkedin": [], "spotify": [], "tiktok": [], "snapchat": [], "tumblr": [], "tinder": [], "bumble": []},
+        social_profiles={
+            "instagram": [],
+            "twitter": [],
+            "linkedin": [],
+            "spotify": [],
+            "tiktok": [],
+            "snapchat": [],
+            "tumblr": [],
+            "tinder": [],
+            "bumble": [],
+        },
         raw_sources=[],
         web_results="",
     )
@@ -35,7 +46,17 @@ def test_github_only():
             "bio": "Full-stack developer",
             "blog": "https://example.com",
         },
-        social_profiles={"instagram": [], "twitter": [], "linkedin": [], "spotify": [], "tiktok": [], "snapchat": [], "tumblr": [], "tinder": [], "bumble": []},
+        social_profiles={
+            "instagram": [],
+            "twitter": [],
+            "linkedin": [],
+            "spotify": [],
+            "tiktok": [],
+            "snapchat": [],
+            "tumblr": [],
+            "tinder": [],
+            "bumble": [],
+        },
         raw_sources=[],
         web_results="",
     )
@@ -71,7 +92,6 @@ def test_full_profile():
             "reddit": [{"url": "https://reddit.com/u/user", "bio": ""}],
             "facebook": [{"url": "https://facebook.com/user", "bio": ""}],
             "pinterest": [{"url": "https://pinterest.com/user", "bio": ""}],
-            "medium": [{"url": "https://medium.com/@user", "bio": "Writer"}],
             "threads": [{"url": "https://threads.net/@user", "bio": ""}],
             "steam": [{"url": "https://steamcommunity.com/id/user", "bio": "Gamer"}],
             "discord": [{"url": "https://discord.com/users/user", "bio": ""}],
@@ -88,7 +108,17 @@ def test_web_only():
     """A person with only web search results but no profiles."""
     result = service.calculate_score(
         github_data=None,
-        social_profiles={"instagram": [], "twitter": [], "linkedin": [], "spotify": [], "tiktok": [], "snapchat": [], "tumblr": [], "tinder": [], "bumble": []},
+        social_profiles={
+            "instagram": [],
+            "twitter": [],
+            "linkedin": [],
+            "spotify": [],
+            "tiktok": [],
+            "snapchat": [],
+            "tumblr": [],
+            "tinder": [],
+            "bumble": [],
+        },
         raw_sources=[{"title": f"News {i}", "url": f"https://news.com/{i}", "snippet": "..."} for i in range(10)],
         web_results="B" * 3000,
     )
@@ -101,7 +131,13 @@ def test_score_always_0_to_100():
     """Score should always be within 0-100 range."""
     # Extreme high values
     result = service.calculate_score(
-        github_data={"followers": 1_000_000, "public_repos": 500, "last_active": "2026-03-05T10:00:00Z", "bio": "x", "blog": "x"},
+        github_data={
+            "followers": 1_000_000,
+            "public_repos": 500,
+            "last_active": "2026-03-05T10:00:00Z",
+            "bio": "x",
+            "blog": "x",
+        },
         social_profiles={
             "instagram": [{"url": "u", "bio": "Very long bio content here abc"}],
             "twitter": [{"url": "u", "bio": "bio"}],
@@ -124,7 +160,13 @@ def test_explanation_generated():
     """Explanation string should be non-empty and meaningful."""
     result = service.calculate_score(
         github_data={"followers": 100, "public_repos": 5, "last_active": "2026-02-01T00:00:00Z"},
-        social_profiles={"instagram": [{"url": "u", "bio": ""}], "twitter": [], "linkedin": [], "spotify": [], "tiktok": []},
+        social_profiles={
+            "instagram": [{"url": "u", "bio": ""}],
+            "twitter": [],
+            "linkedin": [],
+            "spotify": [],
+            "tiktok": [],
+        },
         raw_sources=[],
         web_results="",
     )
