@@ -6,12 +6,14 @@ Covers:
 - Rate limiting middleware
 """
 
+import asyncio
 from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException
 
-from app.middleware.security import RateLimitMiddleware
+from app.middleware.security import RateLimitMiddleware, is_rate_limit_exempt
+from app.utils.logger import logger
 
 
 class TestRateLimiting:
@@ -109,3 +111,55 @@ class TestRateLimiterUnit:
 
         # Only the last 2 should remain (within 60s window)
         assert len(middleware._requests[ip]) == 2
+
+
+class TestRateLimitExemptions:
+    """What the limiter must NOT count.
+
+    One finished search renders a dozen or more avatars at once. Counting those
+    authenticated blob reads against a per-minute budget makes the UI
+    rate-limit itself: the pictures 429 and the operator log fills with
+    "rate limit exceeded" for the user's own browser.
+    """
+
+    def test_media_reads_are_exempt(self):
+        assert is_rate_limit_exempt("/api/media/avatars/abc.jpg"), "avatar reads must not consume the budget"
+
+    def test_docs_and_health_stay_exempt(self):
+        assert is_rate_limit_exempt("/health")
+        assert is_rate_limit_exempt("/docs/oauth2-redirect")
+
+    def test_the_search_api_is_still_counted(self):
+        assert not is_rate_limit_exempt("/api/search/sessions"), "the expensive path must stay limited"
+        assert not is_rate_limit_exempt("/api/profiles/")
+
+
+class TestOperatorLogsStayOffTheLiveFeed:
+    """The SSE feed is how a user watches a *search*.
+
+    HTTP-plumbing warnings (auth, rate limits, CSRF) are operator concerns; in
+    the search feed they read as the search itself failing.
+    """
+
+    @pytest.mark.asyncio
+    async def test_broadcast_false_keeps_a_warning_out_of_the_feed(self):
+        queue: asyncio.Queue = asyncio.Queue()
+        logger.subscribers.add(queue)
+        try:
+            logger.log_warning("Rate limit exceeded for IP 127.0.0.1", broadcast=False)
+            # The push is scheduled on the loop, so yield before judging it empty.
+            await asyncio.sleep(0)
+            assert queue.empty(), "an infrastructure warning must not reach the live feed"
+        finally:
+            logger.subscribers.discard(queue)
+
+    @pytest.mark.asyncio
+    async def test_ordinary_warnings_still_reach_the_feed(self):
+        queue: asyncio.Queue = asyncio.Queue()
+        logger.subscribers.add(queue)
+        try:
+            logger.log_warning("Search engine 'brave' disabled for this session")
+            await asyncio.sleep(0)
+            assert not queue.empty(), "search progress must still be broadcast"
+        finally:
+            logger.subscribers.discard(queue)
