@@ -11,36 +11,65 @@ def _profile() -> dict:
         "name": "Jane Doe",
         "description": "Researcher",
         "location_country": "Germany",
-        "domain_intel": [{
-            "domain": "janedoe.io", "registrar": "GANDI",
-            "created": "2015-01-01", "confidence": 0.8,
-            "source_url": "https://rdap.org/domain/janedoe.io",
-            "retrieved_at": "2026-06-20T00:00:00Z",
-        }],
-        "sanctions_hits": [{
-            "name": "Jane Doe", "list_name": "OFAC SDN", "program": "UKRAINE",
-            "match_score": 0.9, "source_url": "https://sanctionssearch.ofac.treas.gov/",
-        }],
-        "scholarly_records": [{
-            "title": "On Graphs", "year": 2021, "venue": "IEEE",
-            "source_url": "https://example.org/p1", "confidence": 0.75,
-        }],
-        "relationships": [{
-            "from": "Jane Doe", "to": "Acme", "type": "affiliation",
-            "source_url": "https://opencorporates.com/acme",
-        }],
-        "timeline": [{
-            "date": "2021-01-01T00:00:00Z", "event": "GitHub commit: fix",
-            "source_url": "https://github.com/jane",
-        }],
+        "domain_intel": [
+            {
+                "domain": "janedoe.io",
+                "registrar": "GANDI",
+                "created": "2015-01-01",
+                "confidence": 0.8,
+                "source_url": "https://rdap.org/domain/janedoe.io",
+                "retrieved_at": "2026-06-20T00:00:00Z",
+            }
+        ],
+        "sanctions_hits": [
+            {
+                "name": "Jane Doe",
+                "list_name": "OFAC SDN",
+                "program": "UKRAINE",
+                "match_score": 0.9,
+                "source_url": "https://sanctionssearch.ofac.treas.gov/",
+            }
+        ],
+        "scholarly_records": [
+            {
+                "title": "On Graphs",
+                "year": 2021,
+                "venue": "IEEE",
+                "source_url": "https://example.org/p1",
+                "confidence": 0.75,
+            }
+        ],
+        "relationships": [
+            {
+                "from": "Jane Doe",
+                "to": "Acme",
+                "type": "affiliation",
+                "source_url": "https://opencorporates.com/acme",
+            }
+        ],
+        "timeline": [
+            {
+                "date": "2021-01-01T00:00:00Z",
+                "event": "GitHub commit: fix",
+                "source_url": "https://github.com/jane",
+            }
+        ],
         "subject_confidence": 0.42,
-        "claims": [{
-            "field": "domain", "value": "janedoe.io", "corroboration_count": 1,
-            "citations": [{
-                "url": "https://rdap.org/domain/janedoe.io", "title": "GANDI",
-                "retrieved_at": "2026-06-20T00:00:00Z", "confidence": 0.8,
-            }],
-        }],
+        "claims": [
+            {
+                "field": "domain",
+                "value": "janedoe.io",
+                "corroboration_count": 1,
+                "citations": [
+                    {
+                        "url": "https://rdap.org/domain/janedoe.io",
+                        "title": "GANDI",
+                        "retrieved_at": "2026-06-20T00:00:00Z",
+                        "confidence": 0.8,
+                    }
+                ],
+            }
+        ],
         "sources": [{"title": "Src", "url": "https://src", "snippet": "x"}],
         "ai_response": "Report body.",
     }
