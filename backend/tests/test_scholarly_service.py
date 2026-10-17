@@ -25,18 +25,34 @@ def _handler(request: httpx.Request) -> httpx.Response:
         if path.endswith("/author/search"):
             return httpx.Response(200, json={"data": [{"authorId": "A1", "name": "Jane"}]})
         if "/papers" in path:
-            return httpx.Response(200, json={"data": [
-                {"title": "Graph Methods", "year": 2021, "venue": "NeurIPS", "url": "https://s2/p1"},
-            ]})
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {"title": "Graph Methods", "year": 2021, "venue": "NeurIPS", "url": "https://s2/p1"},
+                    ]
+                },
+            )
         return httpx.Response(404)
     if host == "export.arxiv.org":
         return httpx.Response(200, text=_ARXIV_XML)
     if host == "api.crossref.org":
-        return httpx.Response(200, json={"message": {"items": [
-            {"title": ["Crossref Paper"], "published-print": {"date-parts": [[2018]]},
-             "container-title": ["Journal X"], "URL": "https://doi/1", "author": [
-                 {"given": "Jane", "family": "Researcher"}]},
-        ]}})
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "items": [
+                        {
+                            "title": ["Crossref Paper"],
+                            "published-print": {"date-parts": [[2018]]},
+                            "container-title": ["Journal X"],
+                            "URL": "https://doi/1",
+                            "author": [{"given": "Jane", "family": "Researcher"}],
+                        },
+                    ]
+                }
+            },
+        )
     return httpx.Response(404)
 
 
@@ -57,9 +73,9 @@ def test_aggregate_merges_all_sources(monkeypatch):
     _patch_client(monkeypatch, _handler)
     records = asyncio.run(ScholarlyService().aggregate("Jane Researcher"))
     titles = {r["title"] for r in records}
-    assert "Graph Methods" in titles          # Semantic Scholar
+    assert "Graph Methods" in titles  # Semantic Scholar
     assert "Deep Learning for OSINT" in titles  # arXiv
-    assert "Crossref Paper" in titles          # Crossref
+    assert "Crossref Paper" in titles  # Crossref
     assert all(r["source_url"] for r in records)
     assert all(r["retrieved_at"] for r in records)
     # sorted newest first
