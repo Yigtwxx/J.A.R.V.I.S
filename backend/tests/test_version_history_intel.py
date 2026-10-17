@@ -41,13 +41,9 @@ def test_new_domain_surfaces_in_diff(db_session):
 
 
 def test_timestamp_only_change_produces_no_diff(db_session):
-    first = vh.save_snapshot(
-        db_session, "jane doe", _snap(["example.com"], retrieved="2026-06-19T00:00:00Z")
-    )
+    first = vh.save_snapshot(db_session, "jane doe", _snap(["example.com"], retrieved="2026-06-19T00:00:00Z"))
     _backdate(first, 1, db_session)
-    vh.save_snapshot(
-        db_session, "jane doe", _snap(["example.com"], retrieved="2026-06-20T11:11:11Z")
-    )
+    vh.save_snapshot(db_session, "jane doe", _snap(["example.com"], retrieved="2026-06-20T11:11:11Z"))
 
     report = vh.generate_change_report(db_session, "jane doe")
     assert report is not None
